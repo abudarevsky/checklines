@@ -37,12 +37,15 @@ const WINDOW_HEIGHT: int = BOARD_PIXEL_SIZE
 
 ## How to Run and Test the Game
 ```bash
+# Godot path (macOS)
+GODOT="/Applications/Godot.app/Contents/MacOS/Godot"
+
 # Open in Godot Editor
-godot --editor
+"$GODOT" --editor --path .
 # or open project folder in Godot
 
 # Run from command line
-godot --path .
+"$GODOT" --path .
 
 # Export for macOS (from Godot Editor)
 # Project > Export > Add macOS > Export Project
