@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="Chess Chain Lines"
+config/name="Chess Lines"
 run/main_scene="res://scenes/ui/MainMenu.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
@@ -23,8 +23,8 @@ AudioManager="*res://autoload/AudioManager.gd"
 
 [display]
 
-window/size/viewport_width=1280
-window/size/viewport_height=720
+window/size/viewport_width=900
+window/size/viewport_height=900
 window/stretch/mode="canvas_items"
 
 [rendering]

@@ -3,7 +3,14 @@ extends Node
 enum PieceType { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING }
 enum PieceColor { WHITE, BLACK }
 
-var board_size: int = 9
+const BOARD_SIZE: int = 9
+const CELL_SIZE: int = 100
+const BOARD_PIXEL_SIZE: int = BOARD_SIZE * CELL_SIZE
+const WINDOW_WIDTH: int = BOARD_PIXEL_SIZE
+const WINDOW_HEIGHT: int = BOARD_PIXEL_SIZE
+
+var board_size: int = BOARD_SIZE
+var cell_size: float = CELL_SIZE
 
 var current_score: int = 0
 var high_score: int = 0

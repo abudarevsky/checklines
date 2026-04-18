@@ -8,8 +8,8 @@ signal chain_cleared(chain)
 signal no_moves_available
 
 var board: Dictionary = {}
-var board_size: int = 9
-var cell_size: float = 56.0
+var board_size: int = GameManager.BOARD_SIZE
+var cell_size: float = GameManager.CELL_SIZE
 var selected_piece = null
 var highlighted_cells = []
 

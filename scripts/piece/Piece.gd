@@ -11,98 +11,49 @@ var is_selected: bool = false
 var is_highlighted: bool = false
 var capture_targets = []
 
-var piece_size := 56.0
+var piece_size: float = GameManager.CELL_SIZE
+var sprite_scale: float = GameManager.CELL_SIZE / 512.0  # Scale 512px PNG to cell size
 
+@onready var sprite: Sprite2D = $Sprite
 @onready var selection_indicator: Node2D = $SelectionIndicator
 @onready var highlight_overlay: ColorRect = $HighlightOverlay
 
+const SVG_PATH = "res://assets/sprites/png/%s_%s.png"
+
 func _ready():
 	clicked.connect(_on_clicked)
-	queue_redraw()
+	_load_sprite()
 
-func _draw():
-	_draw_piece()
-
-func _draw_piece():
-	var outline_color: Color = Color.WHITE if piece_color == GameManager.PieceColor.WHITE else Color.BLACK
-	var fill_color: Color = Color.WHITE if piece_color == GameManager.PieceColor.WHITE else Color(0.2, 0.2, 0.2)
+func _load_sprite():
+	if not sprite:
+		return
 	
+	var color_str = "white" if piece_color == GameManager.PieceColor.WHITE else "black"
+	var type_str = _get_type_string()
+	var path = SVG_PATH % [color_str, type_str]
+	
+	sprite.texture = load(path)
+	sprite.scale = Vector2(sprite_scale, sprite_scale)
+
+func _get_type_string() -> String:
 	match piece_type:
-		GameManager.PieceType.PAWN:
-			_draw_pawn(outline_color, fill_color)
-		GameManager.PieceType.KNIGHT:
-			_draw_knight(outline_color, fill_color)
-		GameManager.PieceType.BISHOP:
-			_draw_bishop(outline_color, fill_color)
-		GameManager.PieceType.ROOK:
-			_draw_rook(outline_color, fill_color)
-		GameManager.PieceType.QUEEN:
-			_draw_queen(outline_color, fill_color)
-		GameManager.PieceType.KING:
-			_draw_king(outline_color, fill_color)
-
-func _draw_pawn(outline: Color, fill: Color):
-	draw_circle(Vector2(0, 10), 10, fill)
-	draw_circle(Vector2(0, -5), 7, fill)
-	draw_line(Vector2(0, -12), Vector2(0, 3), fill, 4)
-	draw_circle(Vector2(0, -15), 4, fill)
-
-func _draw_knight(outline: Color, fill: Color):
-	draw_circle(Vector2(0, 12), 14, fill)
-	draw_circle(Vector2(4, -8), 8, fill)
-	var pts := PackedVector2Array([
-		Vector2(-6, -6), Vector2(14, -6), Vector2(10, -16), Vector2(-2, -16)
-	])
-	draw_polygon(pts, [fill])
-	draw_line(Vector2(-4, -16), Vector2(8, 8), fill, 4)
-
-func _draw_bishop(outline: Color, fill: Color):
-	var pts := PackedVector2Array([
-		Vector2(-14, 20), Vector2(14, 20), Vector2(10, -10),
-		Vector2(-10, -10)
-	])
-	draw_polygon(pts, [fill])
-	draw_circle(Vector2(0, -5), 8, fill)
-	draw_circle(Vector2(0, -18), 5, fill)
-	draw_line(Vector2(-6, -2), Vector2(6, -2), fill, 2)
-
-func _draw_rook(outline: Color, fill: Color):
-	var pts := PackedVector2Array([
-		Vector2(-16, 20), Vector2(16, 20), Vector2(16, -10),
-		Vector2(12, -14), Vector2(12, -20), Vector2(-12, -20),
-		Vector2(-12, -14), Vector2(-16, -10)
-	])
-	draw_polygon(pts, [fill])
-	draw_rect(Rect2(-10, -18, 6, 10), fill)
-	draw_rect(Rect2(4, -18, 6, 10), fill)
-
-func _draw_queen(outline: Color, fill: Color):
-	draw_circle(Vector2(0, 12), 16, fill)
-	draw_rect(Rect2(-6, -18, 12, 30), fill)
-	draw_circle(Vector2(0, -20), 6, fill)
-	draw_circle(Vector2(-8, -8), 3, fill)
-	draw_circle(Vector2(8, -8), 3, fill)
-	draw_circle(Vector2(0, 0), 3, fill)
-	draw_line(Vector2(-6, -22), Vector2(-6, -26), fill, 2)
-	draw_line(Vector2(0, -26), Vector2(0, -30), fill, 2)
-	draw_line(Vector2(6, -22), Vector2(6, -26), fill, 2)
-
-func _draw_king(outline: Color, fill: Color):
-	draw_circle(Vector2(0, 12), 16, fill)
-	draw_rect(Rect2(-7, -18, 14, 30), fill)
-	draw_rect(Rect2(-14, -24, 28, 8), fill)
-	draw_line(Vector2(0, -20), Vector2(0, -28), fill, 4)
-	draw_line(Vector2(-8, -24), Vector2(-12, -30), fill, 3)
-	draw_line(Vector2(8, -24), Vector2(12, -30), fill, 3)
+		GameManager.PieceType.PAWN: return "pawn"
+		GameManager.PieceType.KNIGHT: return "knight"
+		GameManager.PieceType.BISHOP: return "bishop"
+		GameManager.PieceType.ROOK: return "rook"
+		GameManager.PieceType.QUEEN: return "queen"
+		GameManager.PieceType.KING: return "king"
+	return "pawn"
 
 func setup(type, color, pos: Vector2i):
 	piece_type = type
 	piece_color = color
 	grid_position = pos
-	queue_redraw()
+	_load_sprite()
 
 func update_visual():
-	queue_redraw()
+	if sprite:
+		sprite.visible = true
 	
 	if selection_indicator:
 		selection_indicator.visible = is_selected
