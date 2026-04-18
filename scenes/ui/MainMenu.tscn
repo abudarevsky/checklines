@@ -1,0 +1,103 @@
+[gd_scene load_steps=2 format=3 uid="uid://main_menu"]
+
+[ext_resource type="Script" path="res://scripts/ui/MainMenu.gd" id="1_menu"]
+
+[node name="MainMenu" type="Node2D"]
+script = ExtResource("1_menu")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="UI" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TitleLabel" type="Label" parent="CanvasLayer/UI"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -200.0
+offset_top = 100.0
+offset_right = 200.0
+offset_bottom = 180.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 48
+text = "Chess Chain Lines"
+horizontal_alignment = 1
+
+[node name="Menu" type="VBoxContainer" parent="CanvasLayer/UI"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -80.0
+offset_right = 100.0
+offset_bottom = 120.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 20
+
+[node name="PlayButton" type="Button" parent="CanvasLayer/UI/Menu"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Play"
+
+[node name="HowToPlayButton" type="Button" parent="CanvasLayer/UI/Menu"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "How to Play"
+
+[node name="QuitButton" type="Button" parent="CanvasLayer/UI/Menu"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Quit"
+
+[node name="HowToPlayPanel" type="PanelContainer" parent="CanvasLayer/UI"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -200.0
+offset_right = 300.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Instructions" type="RichTextLabel" parent="CanvasLayer/UI/HowToPlayPanel"]
+layout_mode = 2
+bbcode_enabled = true
+text = "[b]How to Play[/b]
+
+- Move pieces to capture opponent pieces
+- Capturing is mandatory!
+- After capture, find chains of 5+ attacking pieces
+- Chain pieces are removed and you earn points
+- Spawn 3 new pieces after each chain
+
+[b]Chain Rules:[/b]
+- Pieces must alternate colors (W-B-W-B)
+- Each piece must attack the next
+- Longer chains = more points!
+
+[b]Scoring:[/b]
+- 100 points per removed piece
+- +50% for 5-piece chain
+- +100% for 6+ pieces
+- +200% for 7+ pieces
+
+Press ESC to close"
+
+[node name="CloseButton" type="Button" parent="CanvasLayer/UI/HowToPlayPanel"]
+layout_mode = 2
+text = "Close"
