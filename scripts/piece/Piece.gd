@@ -4,7 +4,7 @@ class_name Piece
 signal clicked(piece)
 
 @export var piece_type = GameManager.PieceType.PAWN
-@export var piece_color = GameManager.PieceColor.WHITE
+@export var piece_color = GameManager.PieceColor.RED
 @export var grid_position: Vector2i = Vector2i(-1, -1)
 
 var is_selected: bool = false
@@ -18,7 +18,7 @@ var sprite_scale: float = GameManager.CELL_SIZE / 512.0  # Scale 512px PNG to ce
 @onready var selection_indicator: Node2D = $SelectionIndicator
 @onready var highlight_overlay: ColorRect = $HighlightOverlay
 
-const SVG_PATH = "res://assets/sprites/png/%s_%s.png"
+const SVG_PATH = "res://assets/sprites/png/white_%s.png"
 
 func _ready():
 	clicked.connect(_on_clicked)
@@ -28,12 +28,12 @@ func _load_sprite():
 	if not sprite:
 		return
 	
-	var color_str = "white" if piece_color == GameManager.PieceColor.WHITE else "black"
 	var type_str = _get_type_string()
-	var path = SVG_PATH % [color_str, type_str]
+	var path = SVG_PATH % type_str
 	
 	sprite.texture = load(path)
 	sprite.scale = Vector2(sprite_scale, sprite_scale)
+	sprite.modulate = GameManager.get_color_value(piece_color)
 
 func _get_type_string() -> String:
 	match piece_type:
@@ -170,21 +170,28 @@ func _get_king_captures(board: Dictionary):
 	
 	return captures
 
+func _get_pawn_forward_direction() -> Vector2i:
+	match piece_color:
+		GameManager.PieceColor.RED: return Vector2i(1, 0)     # right (away from RED border)
+		GameManager.PieceColor.BLUE: return Vector2i(0, 1)    # down (away from BLUE border)
+		GameManager.PieceColor.GREEN: return Vector2i(-1, 0)  # left (away from GREEN border)
+		GameManager.PieceColor.ORANGE: return Vector2i(0, -1) # up (away from ORANGE border)
+	return Vector2i(0, -1)
+
+func _is_in_bounds(pos: Vector2i) -> bool:
+	return pos.x >= 0 and pos.x < GameManager.board_size and pos.y >= 0 and pos.y < GameManager.board_size
+
 func _get_pawn_captures(board: Dictionary):
 	var captures = []
-	var direction: int = -1 if piece_color == GameManager.PieceColor.WHITE else 1
-	var board_size = GameManager.board_size
-	
-	var targets = [Vector2i(grid_position.x - 1, grid_position.y + direction),
-					Vector2i(grid_position.x + 1, grid_position.y + direction)]
-	
-	for target in targets:
-		if target.x >= 0 and target.x < board_size and target.y >= 0 and target.y < board_size:
-			if board.has(target):
-				var other_piece = board[target]
-				if other_piece.piece_color != piece_color:
-					captures.append(target)
-	
+	var forward = _get_pawn_forward_direction()
+	var left = Vector2i(-forward.y, forward.x)
+	var right = Vector2i(forward.y, -forward.x)
+	for attack_dir in [forward + left, forward + right]:
+		var target = grid_position + attack_dir
+		if _is_in_bounds(target) and board.has(target):
+			var other_piece = board[target]
+			if other_piece.piece_color != piece_color:
+				captures.append(target)
 	return captures
 
 func can_attack(target: Vector2i, board: Dictionary) -> bool:
@@ -236,17 +243,8 @@ func _get_king_moves(board: Dictionary):
 
 func _get_pawn_moves(board: Dictionary):
 	var moves = []
-	var direction: int = -1 if piece_color == GameManager.PieceColor.WHITE else 1
-	var board_size = GameManager.board_size
-	
-	var forward: Vector2i = Vector2i(grid_position.x, grid_position.y + direction)
-	if forward.y >= 0 and forward.y < board_size and not board.has(forward):
-		moves.append(forward)
-		
-		var start_row = 1 if piece_color == GameManager.PieceColor.WHITE else board_size - 2
-		if grid_position.y == start_row:
-			var double_forward: Vector2i = Vector2i(grid_position.x, grid_position.y + 2 * direction)
-			if not board.has(double_forward):
-				moves.append(double_forward)
-	
+	var forward = _get_pawn_forward_direction()
+	var target = grid_position + forward
+	if _is_in_bounds(target) and not board.has(target):
+		moves.append(target)
 	return moves

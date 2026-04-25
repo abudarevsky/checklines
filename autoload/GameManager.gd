@@ -1,13 +1,21 @@
 extends Node
 
 enum PieceType { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING }
-enum PieceColor { WHITE, BLACK }
+enum PieceColor { RED, BLUE, GREEN, ORANGE }
 
 const BOARD_SIZE: int = 9
 const CELL_SIZE: int = 100
 const BOARD_PIXEL_SIZE: int = BOARD_SIZE * CELL_SIZE
 const WINDOW_WIDTH: int = BOARD_PIXEL_SIZE
 const WINDOW_HEIGHT: int = BOARD_PIXEL_SIZE
+const BORDER_WIDTH: int = 3
+
+const COLOR_MAP: Dictionary = {
+	PieceColor.RED: Color.RED,
+	PieceColor.BLUE: Color.BLUE,
+	PieceColor.GREEN: Color.GREEN,
+	PieceColor.ORANGE: Color.ORANGE
+}
 
 var board_size: int = BOARD_SIZE
 var cell_size: float = CELL_SIZE
@@ -76,3 +84,9 @@ func get_random_piece_type() -> PieceType:
 			return PieceType.values()[i]
 	
 	return PieceType.PAWN
+
+func get_random_piece_color() -> PieceColor:
+	return PieceColor.values()[randi() % PieceColor.size()]
+
+func get_color_value(color: PieceColor) -> Color:
+	return COLOR_MAP.get(color, Color.WHITE)

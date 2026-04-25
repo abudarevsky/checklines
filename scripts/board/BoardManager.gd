@@ -12,6 +12,10 @@ var board_size: int = GameManager.BOARD_SIZE
 var cell_size: float = GameManager.CELL_SIZE
 var selected_piece = null
 var highlighted_cells = []
+var highlighted_attacks = []
+var dimmed_pieces = []
+var highlight_nodes = []
+var dim_border_nodes = []
 
 @onready var pieces_container: Node2D = $PiecesContainer
 
@@ -33,14 +37,24 @@ func _process(_delta):
 
 func _draw():
 	_draw_board()
+	_draw_borders()
 
 func _draw_board():
 	for y in range(board_size):
 		for x in range(board_size):
 			var is_light: bool = (x + y) % 2 == 0
-			var color: Color = Color.DARK_SLATE_GRAY if is_light else Color.SADDLE_BROWN
+			var color: Color = Color(0.7, 0.7, 0.7) if is_light else Color(0.3, 0.3, 0.3)
 			var rect: Rect2 = Rect2(x * cell_size, y * cell_size, cell_size, cell_size)
 			draw_rect(rect, color)
+
+func _draw_borders():
+	var total_size = board_size * cell_size
+	var bw = GameManager.BORDER_WIDTH
+	
+	draw_rect(Rect2(0, 0, bw, total_size), Color.RED)
+	draw_rect(Rect2(0, 0, total_size, bw), Color.BLUE)
+	draw_rect(Rect2(total_size - bw, 0, bw, total_size), Color.GREEN)
+	draw_rect(Rect2(0, total_size - bw, total_size, bw), Color.ORANGE)
 
 func get_cell_position(grid_pos: Vector2i) -> Vector2:
 	return Vector2(grid_pos.x * cell_size + cell_size / 2, grid_pos.y * cell_size + cell_size / 2)
@@ -109,10 +123,16 @@ func select_piece(piece):
 	piece.set_selected(true)
 	
 	var moves = piece.get_legal_moves(board)
+	var captures = piece.get_legal_captures(board)
 	highlighted_cells = moves
+	highlighted_attacks = captures
 	
 	for cell in moves:
-		_draw_highlight(cell)
+		highlight_nodes.append(_draw_highlight(cell))
+	
+	for cell in captures:
+		highlight_nodes.append(_draw_attack_overlay(piece, cell))
+		_dim_target_piece(cell, piece.piece_color)
 	
 	piece_selected.emit(piece)
 
@@ -121,19 +141,107 @@ func deselect_piece():
 		selected_piece.set_selected(false)
 	selected_piece = null
 	highlighted_cells.clear()
+	highlighted_attacks.clear()
+	_restore_dimmed_pieces()
 	_clear_highlights()
 
-func _draw_highlight(cell: Vector2i):
+func _draw_highlight(cell: Vector2i) -> Node:
 	var highlight = ColorRect.new()
 	highlight.position = Vector2(cell.x * cell_size, cell.y * cell_size)
 	highlight.size = Vector2(cell_size, cell_size)
 	highlight.color = Color(1, 1, 0, 0.4)
 	pieces_container.add_child(highlight)
+	return highlight
+
+func _draw_attack_overlay(attacker: Piece, target_cell: Vector2i) -> Node:
+	var overlay_container = Node2D.new()
+	overlay_container.name = "AttackOverlay"
+	overlay_container.position = Vector2(target_cell.x * cell_size, target_cell.y * cell_size)
+	
+	var overlay_sprite = Sprite2D.new()
+	var type_str = _get_type_string(attacker.piece_type)
+	overlay_sprite.texture = load("res://assets/sprites/png/white_%s.png" % type_str)
+	var overlay_scale = cell_size / 4.0 / 512.0
+	overlay_sprite.scale = Vector2(overlay_scale, overlay_scale)
+	overlay_sprite.modulate = attacker.sprite.modulate
+	
+	var overlay_size = cell_size * 0.25
+	var offset_x = cell_size * 0.75
+	var offset_y = cell_size * 0.25
+	overlay_sprite.position = Vector2(offset_x, offset_y)
+	
+	var bg_rect = ColorRect.new()
+	bg_rect.size = Vector2(overlay_size, overlay_size)
+	bg_rect.color = Color(0, 0, 0, 0.5)
+	bg_rect.position = Vector2(offset_x - overlay_size / 2, offset_y - overlay_size / 2)
+	
+	overlay_container.add_child(bg_rect)
+	overlay_container.add_child(overlay_sprite)
+	pieces_container.add_child(overlay_container)
+	return overlay_container
+
+func _dim_target_piece(target_cell: Vector2i, attacker_color: GameManager.PieceColor):
+	if board.has(target_cell):
+		var piece = board[target_cell]
+		dimmed_pieces.append({"piece": piece, "original_a": piece.modulate.a})
+		piece.modulate.a = 0.35
+		
+		var border_color = GameManager.get_color_value(attacker_color)
+		var border_width = 3
+		var cell_pixel = Vector2(target_cell.x * cell_size, target_cell.y * cell_size)
+		
+		var top = ColorRect.new()
+		top.position = cell_pixel
+		top.size = Vector2(cell_size, border_width)
+		top.color = border_color
+		pieces_container.add_child(top)
+		dim_border_nodes.append(top)
+		
+		var bottom = ColorRect.new()
+		bottom.position = Vector2(cell_pixel.x, cell_pixel.y + cell_size - border_width)
+		bottom.size = Vector2(cell_size, border_width)
+		bottom.color = border_color
+		pieces_container.add_child(bottom)
+		dim_border_nodes.append(bottom)
+		
+		var left = ColorRect.new()
+		left.position = cell_pixel
+		left.size = Vector2(border_width, cell_size)
+		left.color = border_color
+		pieces_container.add_child(left)
+		dim_border_nodes.append(left)
+		
+		var right = ColorRect.new()
+		right.position = Vector2(cell_pixel.x + cell_size - border_width, cell_pixel.y)
+		right.size = Vector2(border_width, cell_size)
+		right.color = border_color
+		pieces_container.add_child(right)
+		dim_border_nodes.append(right)
+
+func _get_type_string(piece_type) -> String:
+	match piece_type:
+		GameManager.PieceType.PAWN: return "pawn"
+		GameManager.PieceType.KNIGHT: return "knight"
+		GameManager.PieceType.BISHOP: return "bishop"
+		GameManager.PieceType.ROOK: return "rook"
+		GameManager.PieceType.QUEEN: return "queen"
+		GameManager.PieceType.KING: return "king"
+	return "pawn"
+
+func _restore_dimmed_pieces():
+	for entry in dimmed_pieces:
+		entry.piece.modulate.a = entry.original_a
+	dimmed_pieces.clear()
+	for node in dim_border_nodes:
+		if is_instance_valid(node):
+			node.queue_free()
+	dim_border_nodes.clear()
 
 func _clear_highlights():
-	for child in pieces_container.get_children():
-		if child is ColorRect:
-			child.queue_free()
+	for node in highlight_nodes:
+		if is_instance_valid(node):
+			node.queue_free()
+	highlight_nodes.clear()
 
 func move_piece(piece, target: Vector2i):
 	var from_pos: Vector2i = piece.grid_position
@@ -204,5 +312,5 @@ func spawn_random_pieces(count: int):
 	for i in range(min(count, empty_cells.size())):
 		var cell = empty_cells[i]
 		var piece_type = GameManager.get_random_piece_type()
-		var color = GameManager.PieceColor.WHITE if randf() > 0.5 else GameManager.PieceColor.BLACK
+		var color = GameManager.get_random_piece_color()
 		add_piece(piece_type, color, cell)

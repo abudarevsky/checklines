@@ -1,13 +1,13 @@
 extends Node2D
 
 @onready var board_manager = $BoardManager
-@onready var score_label: Label = $UI/Control/ScoreLabel
-@onready var high_score_label: Label = $UI/Control/HighScoreLabel
-@onready var pause_button: Button = $UI/Control/PauseButton
-@onready var game_over_panel: Control = $UI/Control/GameOverPanel
-@onready var game_over_score_label: Label = $UI/Control/GameOverPanel/VBox/FinalScoreLabel
-@onready var restart_button: Button = $UI/Control/GameOverPanel/VBox/RestartButton
-@onready var main_menu_button: Button = $UI/Control/GameOverPanel/VBox/MainMenuButton
+@onready var score_label: Label = $CanvasLayer/ScoreHBox/ScoreLabel
+@onready var high_score_label: Label = $CanvasLayer/ScoreHBox/HighScoreLabel
+@onready var pause_button: Button = $CanvasLayer/UI/PauseButton
+@onready var game_over_panel: Control = $CanvasLayer/UI/GameOverPanel
+@onready var game_over_score_label: Label = $CanvasLayer/UI/GameOverPanel/VBox/FinalScoreLabel
+@onready var restart_button: Button = $CanvasLayer/UI/GameOverPanel/VBox/RestartButton
+@onready var main_menu_button: Button = $CanvasLayer/UI/GameOverPanel/VBox/MainMenuButton
 
 var is_paused: bool = false
 var is_processing_move: bool = false
@@ -64,7 +64,7 @@ func _spawn_initial_pieces():
 		empty_cells.shuffle()
 		var cell = empty_cells[0]
 		var piece_type = GameManager.get_random_piece_type()
-		var color = GameManager.PieceColor.WHITE if randf() > 0.5 else GameManager.PieceColor.BLACK
+		var color = GameManager.get_random_piece_color()
 		board_manager.add_piece(piece_type, color, cell)
 
 func _on_capture_made(_piece, _target):

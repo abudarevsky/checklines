@@ -1,6 +1,68 @@
-[gd_scene load_steps=2 format=3 uid="uid://main_menu"]
+[gd_scene load_steps=17 format=3 uid="uid://main_menu"]
 
 [ext_resource type="Script" path="res://scripts/ui/MainMenu.gd" id="1_menu"]
+[ext_resource type="PackedScene" uid="uid://board_manager" path="res://scenes/board/BoardManager.tscn" id="2_board"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_score_panel"]
+bg_color = Color(0.3, 0.3, 0.3, 0.95)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.15, 0.15, 0.15, 0.7)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gray"]
+bg_color = Color(0.2, 0.2, 0.2, 1.0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_green"]
+bg_color = Color(0.2, 0.8, 0.2, 1)
+content_margin_left = 30.0
+content_margin_right = 30.0
+content_margin_top = 15.0
+content_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_green_hover"]
+bg_color = Color(0.3, 0.9, 0.3, 1)
+content_margin_left = 30.0
+content_margin_right = 30.0
+content_margin_top = 15.0
+content_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_orange"]
+bg_color = Color(1, 0.5, 0, 1)
+content_margin_left = 30.0
+content_margin_right = 30.0
+content_margin_top = 15.0
+content_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_orange_hover"]
+bg_color = Color(1, 0.6, 0.1, 1)
+content_margin_left = 30.0
+content_margin_right = 30.0
+content_margin_top = 15.0
+content_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_outline"]
+bg_color = Color(0.3, 0.3, 0.3, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.6)
+content_margin_left = 30.0
+content_margin_right = 30.0
+content_margin_top = 15.0
+content_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_outline_hover"]
+bg_color = Color(0.4, 0.4, 0.4, 0.95)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.8)
+content_margin_left = 30.0
+content_margin_right = 30.0
+content_margin_top = 15.0
+content_margin_bottom = 15.0
 
 [node name="MainMenu" type="Node2D"]
 script = ExtResource("1_menu")
@@ -15,89 +77,121 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="TitleLabel" type="Label" parent="CanvasLayer/UI"]
-layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -200.0
-offset_top = 100.0
-offset_right = 200.0
-offset_bottom = 180.0
-grow_horizontal = 2
-theme_override_font_sizes/font_size = 48
-text = "Chess Lines"
-horizontal_alignment = 1
-
-[node name="Menu" type="VBoxContainer" parent="CanvasLayer/UI"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -100.0
-offset_top = -80.0
-offset_right = 100.0
-offset_bottom = 120.0
+[node name="MenuPanel" type="PanelContainer" parent="CanvasLayer/UI"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="MenuCenter" type="CenterContainer" parent="CanvasLayer/UI/MenuPanel"]
+layout_mode = 2
+
+[node name="MenuVBox" type="VBoxContainer" parent="CanvasLayer/UI/MenuPanel/MenuCenter"]
+layout_mode = 2
 theme_override_constants/separation = 20
 
-[node name="PlayButton" type="Button" parent="CanvasLayer/UI/Menu"]
+[node name="PlayButton" type="Button" parent="CanvasLayer/UI/MenuPanel/MenuCenter/MenuVBox"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxFlat_green")
+theme_override_styles/hover = SubResource("StyleBoxFlat_green_hover")
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 28
 text = "Play"
 
-[node name="HowToPlayButton" type="Button" parent="CanvasLayer/UI/Menu"]
+[node name="HowToPlayButton" type="Button" parent="CanvasLayer/UI/MenuPanel/MenuCenter/MenuVBox"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxFlat_orange")
+theme_override_styles/hover = SubResource("StyleBoxFlat_orange_hover")
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 28
 text = "How to Play"
 
-[node name="QuitButton" type="Button" parent="CanvasLayer/UI/Menu"]
+[node name="QuitButton" type="Button" parent="CanvasLayer/UI/MenuPanel/MenuCenter/MenuVBox"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxFlat_outline")
+theme_override_styles/hover = SubResource("StyleBoxFlat_outline_hover")
+theme_override_colors/font_color = Color(1, 1, 1, 0.8)
+theme_override_font_sizes/font_size = 28
 text = "Quit"
 
-[node name="HowToPlayPanel" type="PanelContainer" parent="CanvasLayer/UI"]
+[node name="HowToPlayPanel" type="PanelContainer" parent="CanvasLayer/UI/MenuPanel"]
 visible = false
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -300.0
-offset_top = -200.0
-offset_right = 300.0
-offset_bottom = 200.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_gray")
 
-[node name="Instructions" type="RichTextLabel" parent="CanvasLayer/UI/HowToPlayPanel"]
+[node name="ContentCenter" type="CenterContainer" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel"]
 layout_mode = 2
+theme_override_constants/separation = 30
+
+[node name="InstructionsContainer" type="VBoxContainer" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel/ContentCenter"]
+custom_minimum_size = Vector2(800, 700)
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Header" type="Label" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel/ContentCenter/InstructionsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+text = "Chess Lines - How to Play"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel/ContentCenter/InstructionsContainer"]
+layout_mode = 2
+
+[node name="Instructions" type="RichTextLabel" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel/ContentCenter/InstructionsContainer"]
+layout_mode = 2
+size_flags_vertical = 3
 bbcode_enabled = true
-text = "[b]How to Play[/b]
+theme_override_font_sizes/normal_font_size = 26
+text = "[b]Goal:[/b]
+Move chess pieces to create lines of 5+ matching pieces to clear them and score points.
 
-- Move pieces to capture opponent pieces
-- Capturing is mandatory!
-- After capture, find chains of 5+ attacking pieces
-- Chain pieces are removed and you earn points
-- Spawn 3 new pieces after each chain
+[b]Movement:[/b]
+- Click a piece to select it
+- Valid move cells are highlighted yellow
+- Click a highlighted cell to move
+- Pieces can only move to empty cells
+- Each piece type moves differently (chess rules)
 
-[b]Chain Rules:[/b]
-- Pieces must alternate colors (W-B-W-B)
-- Each piece must attack the next
-- Longer chains = more points!
+[b]Clearing Lines:[/b]
+Lines are removed when they have 5+ aligned pieces:
+
+[color=RED]• Color Line:[/color] 5+ pieces of the same color → normal score
+[color=GREEN]• Type Line:[/color] 5+ pieces of the same type → double score
+[color=YELLOW]• Combo:[/color] Same color AND type → combo bonus
 
 [b]Scoring:[/b]
-- 100 points per removed piece
-- +50% for 5-piece chain
-- +100% for 6+ pieces
-- +200% for 7+ pieces
+- Color line: 100 pts per piece
+- Type line: 200 pts per piece
+- Longer lines = bonus multiplier
 
-Press ESC to close"
+[b]Pieces:[/b]
+[color=LIME]Pawn[/color]: Moves forward (away from its color border), attacks diagonally
+[color=AQUA]Knight[/color]: L-shaped jumps
+[color=PURPLE]Bishop[/color]: Diagonal slides
+[color=ORANGE]Rook[/color]: Horizontal/vertical slides
+[color=PINK]Queen[/color]: Any direction slides
+[color=GRAY]King[/color]: One step any direction (rare piece)
 
-[node name="CloseButton" type="Button" parent="CanvasLayer/UI/HowToPlayPanel"]
+Press [b]ESC[/b] or click [b]Back[/b] to return"
+
+[node name="HSeparator2" type="HSeparator" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel/ContentCenter/InstructionsContainer"]
 layout_mode = 2
-text = "Close"
+
+[node name="BackButton" type="Button" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel/ContentCenter/InstructionsContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_stretch_ratio = 0.2
+theme_override_styles/normal = SubResource("StyleBoxFlat_outline")
+theme_override_styles/hover = SubResource("StyleBoxFlat_outline_hover")
+theme_override_colors/font_color = Color(1, 1, 1, 0.9)
+theme_override_font_sizes/font_size = 24
+text = "Back"
