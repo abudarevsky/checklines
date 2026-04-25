@@ -1,14 +1,14 @@
 ---
-name: godot-chess-lines-development-agent
-description: Godot development guide for Chess Lines using opencode with qwen3-coder:30b via Ollama
+name: godot-check-lines-development-agent
+description: Godot development guide for Check Lines using opencode with qwen3-coder:30b via Ollama
 source: /Users/andreybudarevskiy/dev/games/chessline/AGENTS.md
 ---
 
-# Chess Lines - Agent Development Guide
+# Check Lines - Agent Development Guide
 
 ## Project Context
 
-Chess Lines is a Godot 4.6 puzzle game combining classic Lines-style clearing with chess-piece movement.
+Check Lines is a Godot 4.6 puzzle game combining classic Lines-style clearing with chess-piece movement.
 
 The player moves chess pieces on a 9x9 board. Pieces move according to chess-inspired movement rules, but they do not capture by moving onto occupied cells. The goal is to create removable lines of 5+ pieces.
 
@@ -490,4 +490,4 @@ UI:
 
 ## Current Working Definition
 
-Chess Lines is a Lines-style puzzle game where colored chess pieces are moved using chess-inspired movement rules. The player clears lines of 5+ matching colors or 5+ matching piece types. Color lines are standard clears, while harder type lines give double score.
+Check Lines is a Lines-style puzzle game where colored chess pieces are moved using chess-inspired movement rules. The player clears lines of 5+ matching colors or 5+ matching piece types. Color lines are standard clears, while harder type lines give double score.
