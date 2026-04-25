@@ -23,8 +23,8 @@ AudioManager="*res://autoload/AudioManager.gd"
 
 [display]
 
-window/size/viewport_width=906
-window/size/viewport_height=906
+window/size/viewport_width=900
+window/size/viewport_height=960
 window/stretch/mode="canvas_items"
 
 [rendering]
