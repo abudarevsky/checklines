@@ -1,13 +1,15 @@
-[gd_scene load_steps=17 format=3 uid="uid://main_menu"]
+[gd_scene load_steps=18 format=3 uid="uid://main_menu"]
 
 [ext_resource type="Script" path="res://scripts/ui/MainMenu.gd" id="1_menu"]
 [ext_resource type="PackedScene" uid="uid://board_manager" path="res://scenes/board/BoardManager.tscn" id="2_board"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_score_panel"]
-bg_color = Color(0.3, 0.3, 0.3, 0.95)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.15, 0.15, 0.15, 0.7)
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dark_panel"]
+bg_color = Color(0.1, 0.1, 0.1, 1.0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.4, 0.4, 0.4, 1.0)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gray"]
 bg_color = Color(0.2, 0.2, 0.2, 1.0)
@@ -67,6 +69,16 @@ content_margin_bottom = 15.0
 [node name="MainMenu" type="Node2D"]
 script = ExtResource("1_menu")
 
+[node name="BoardManager" parent="." instance=ExtResource("2_board")]
+position = Vector2(0, 0)
+
+[node name="DarkOverlay" type="ColorRect" parent="."]
+offset_left = 0
+offset_top = 0
+offset_right = 906
+offset_bottom = 906
+color = Color(0, 0, 0, 0.7)
+
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
 [node name="UI" type="Control" parent="CanvasLayer"]
@@ -78,14 +90,21 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="MenuPanel" type="PanelContainer" parent="CanvasLayer/UI"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -150.0
+offset_right = 150.0
+offset_bottom = 150.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+theme_override_styles/panel = SubResource("StyleBoxFlat_dark_panel")
 
 [node name="MenuCenter" type="CenterContainer" parent="CanvasLayer/UI/MenuPanel"]
+layout_mode = 2
 layout_mode = 2
 
 [node name="MenuVBox" type="VBoxContainer" parent="CanvasLayer/UI/MenuPanel/MenuCenter"]
@@ -119,7 +138,7 @@ theme_override_colors/font_color = Color(1, 1, 1, 0.8)
 theme_override_font_sizes/font_size = 28
 text = "Quit"
 
-[node name="HowToPlayPanel" type="PanelContainer" parent="CanvasLayer/UI/MenuPanel"]
+[node name="HowToPlayPanel" type="PanelContainer" parent="CanvasLayer/UI"]
 visible = false
 anchors_preset = 15
 anchor_right = 1.0
@@ -128,25 +147,25 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_gray")
 
-[node name="ContentCenter" type="CenterContainer" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel"]
+[node name="ContentCenter" type="CenterContainer" parent="CanvasLayer/UI/HowToPlayPanel"]
 layout_mode = 2
 theme_override_constants/separation = 30
 
-[node name="InstructionsContainer" type="VBoxContainer" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel/ContentCenter"]
+[node name="InstructionsContainer" type="VBoxContainer" parent="CanvasLayer/UI/HowToPlayPanel/ContentCenter"]
 custom_minimum_size = Vector2(800, 700)
 layout_mode = 2
 theme_override_constants/separation = 15
 
-[node name="Header" type="Label" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel/ContentCenter/InstructionsContainer"]
+[node name="Header" type="Label" parent="CanvasLayer/UI/HowToPlayPanel/ContentCenter/InstructionsContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 48
 text = "Chess Lines - How to Play"
 horizontal_alignment = 1
 
-[node name="HSeparator" type="HSeparator" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel/ContentCenter/InstructionsContainer"]
+[node name="HSeparator" type="HSeparator" parent="CanvasLayer/UI/HowToPlayPanel/ContentCenter/InstructionsContainer"]
 layout_mode = 2
 
-[node name="Instructions" type="RichTextLabel" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel/ContentCenter/InstructionsContainer"]
+[node name="Instructions" type="RichTextLabel" parent="CanvasLayer/UI/HowToPlayPanel/ContentCenter/InstructionsContainer"]
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
@@ -183,10 +202,10 @@ Lines are removed when they have 5+ aligned pieces:
 
 Press [b]ESC[/b] or click [b]Back[/b] to return"
 
-[node name="HSeparator2" type="HSeparator" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel/ContentCenter/InstructionsContainer"]
+[node name="HSeparator2" type="HSeparator" parent="CanvasLayer/UI/HowToPlayPanel/ContentCenter/InstructionsContainer"]
 layout_mode = 2
 
-[node name="BackButton" type="Button" parent="CanvasLayer/UI/MenuPanel/HowToPlayPanel/ContentCenter/InstructionsContainer"]
+[node name="BackButton" type="Button" parent="CanvasLayer/UI/HowToPlayPanel/ContentCenter/InstructionsContainer"]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_stretch_ratio = 0.2

@@ -434,6 +434,20 @@ Do not:
 
 ## Testing
 
+### Quick Syntax Check (2-3 seconds)
+```bash
+"/Applications/Godot.app/Contents/MacOS/Godot" --path . --script-check
+```
+
+### Headless Run with Output Capture
+```bash
+"/Applications/Godot.app/Contents/MacOS/Godot" --path . --script-check > /tmp/output.txt 2>&1 &
+GPID=$!; sleep 10; kill $GPID; cat /tmp/output.txt
+```
+
+### Debug Output
+Debug `print()` statements appear in terminal/console when running headless.
+
 Run from command line:
 
 ```bash
@@ -448,8 +462,9 @@ GODOT="/Applications/Godot.app/Contents/MacOS/Godot"
 "$GODOT" --editor --path .
 ```
 
-Manual test checklist:
+### Manual Test Checklist
 
+Core functionality:
 1. Game starts
 2. 3 random pieces appear
 3. Clicking a piece selects it
@@ -461,6 +476,17 @@ Manual test checklist:
 9. 3 new pieces spawn after a move
 10. Board state remains consistent
 11. Game-over condition still works
+
+Attack highlighting:
+12. Attack overlays display attacker sprite on target pieces
+13. Attack borders show attacker color on target cell
+14. Target pieces dimmed (0.35 opacity) when selectable
+15. Overlays disappear on piece deselection
+16. Pawn moves in correct direction (away from home border)
+
+UI:
+17. Main menu centered with dark panel and board visible beneath
+18. HowToPlay panel fully opaque
 
 ## Current Working Definition
 
