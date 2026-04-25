@@ -16,6 +16,7 @@ var highlighted_attacks = []
 var dimmed_pieces = []
 var highlight_nodes = []
 var dim_border_nodes = []
+var show_borders: bool = true
 
 @onready var pieces_container: Node2D = $PiecesContainer
 
@@ -48,6 +49,8 @@ func _draw_board():
 			draw_rect(rect, color)
 
 func _draw_borders():
+	if not show_borders:
+		return
 	var total_size = board_size * cell_size
 	var bw = GameManager.BORDER_WIDTH
 	
@@ -230,7 +233,8 @@ func _get_type_string(piece_type) -> String:
 
 func _restore_dimmed_pieces():
 	for entry in dimmed_pieces:
-		entry.piece.modulate.a = entry.original_a
+		if is_instance_valid(entry.piece):
+			entry.piece.modulate.a = entry.original_a
 	dimmed_pieces.clear()
 	for node in dim_border_nodes:
 		if is_instance_valid(node):

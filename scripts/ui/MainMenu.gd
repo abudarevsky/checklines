@@ -8,6 +8,7 @@ func _ready():
 	$CanvasLayer/UI/MenuPanel/MenuCenter/MenuVBox/HowToPlayButton.pressed.connect(_on_how_to_play_pressed)
 	$CanvasLayer/UI/MenuPanel/MenuCenter/MenuVBox/QuitButton.pressed.connect(_on_quit_pressed)
 	$CanvasLayer/UI/HowToPlayPanel/ContentCenter/InstructionsContainer/BackButton.pressed.connect(_on_back_pressed)
+	$BoardManager.show_borders = false
 
 func _on_play_pressed():
 	get_tree().change_scene_to_file("res://scenes/board/GameBoard.tscn")
