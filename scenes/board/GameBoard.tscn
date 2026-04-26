@@ -10,31 +10,42 @@ bg_color = Color(0.3, 0.3, 0.3, 0.95)
 script = ExtResource("1_game")
 
 [node name="BoardManager" parent="." instance=ExtResource("2_board")]
-position = Vector2(0, 60)
+position = Vector2(0, 65)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
 [node name="ScorePanel" type="ColorRect" parent="CanvasLayer"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+anchor_bottom = 0.0
 offset_left = 0
 offset_top = 0
-offset_right = 906
+offset_right = 0
 offset_bottom = 60
+grow_horizontal = 2
 color = Color(0.8, 0.8, 0.8, 0.9)
 
 [node name="ScoreShadow" type="ColorRect" parent="CanvasLayer"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+anchor_bottom = 0.0
 offset_left = 0
 offset_top = 60
-offset_right = 906
+offset_right = 0
 offset_bottom = 65
+grow_horizontal = 2
 color = Color(0.1, 0.1, 0.1, 0.5)
 
 [node name="ScoreHBox" type="HBoxContainer" parent="CanvasLayer"]
 layout_mode = 3
 anchors_preset = 10
+anchor_right = 1.0
 anchor_bottom = 0.0
 offset_left = 0
 offset_top = 0
-offset_right = 906
+offset_right = 0
 offset_bottom = 60
 grow_horizontal = 2
 theme_override_constants/separation = 50

@@ -13,10 +13,14 @@ var is_paused: bool = false
 var is_processing_move: bool = false
 var chain_animation_tween: Tween
 
+const TOP_BAR_HEIGHT: float = 60.0
+const TOP_BAR_SHADOW_HEIGHT: float = 5.0
+
 func _ready():
 	GameManager.reset_game()
 	_setup_signals()
 	_initialize_game()
+	_update_layout()
 	_update_ui()
 
 func _setup_signals():
@@ -27,6 +31,25 @@ func _setup_signals():
 	restart_button.pressed.connect(_on_restart_pressed)
 	main_menu_button.pressed.connect(_on_main_menu_pressed)
 	pause_button.pressed.connect(_on_pause_pressed)
+	get_viewport().size_changed.connect(_on_viewport_size_changed)
+
+func _on_viewport_size_changed():
+	_update_layout()
+
+func _update_layout():
+	var viewport_size := get_viewport_rect().size
+	var board_pixel_size: float = float(GameManager.BOARD_PIXEL_SIZE)
+	var available_height: float = maxf(viewport_size.y - TOP_BAR_HEIGHT - TOP_BAR_SHADOW_HEIGHT, 1.0)
+	var scale_factor: float = minf(viewport_size.x / board_pixel_size, available_height / board_pixel_size)
+	scale_factor = max(scale_factor, 0.1)
+
+	board_manager.scale = Vector2(scale_factor, scale_factor)
+
+	var scaled_board_width: float = board_pixel_size * scale_factor
+	var scaled_board_height: float = board_pixel_size * scale_factor
+	var board_x: float = (viewport_size.x - scaled_board_width) * 0.5
+	var board_y: float = TOP_BAR_HEIGHT + TOP_BAR_SHADOW_HEIGHT + (available_height - scaled_board_height) * 0.5
+	board_manager.position = Vector2(board_x, board_y)
 
 func _input(event):
 	if event.is_action_pressed("ui_cancel"):

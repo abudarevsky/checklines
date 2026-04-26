@@ -1,23 +1,24 @@
-extends Node2D
+extends Control
 
-@onready var menu: VBoxContainer = $CanvasLayer/UI/MenuPanel/MenuCenter/MenuVBox
-@onready var how_to_play_panel: PanelContainer = $CanvasLayer/UI/HowToPlayPanel
+@onready var how_to_play_panel: PanelContainer = $HowToPlayPanel
+@onready var button_play: Button = $CenterContainer/MenuPanel/MenuContent/ButtonPlay
+@onready var button_how_to_play: Button = $CenterContainer/MenuPanel/MenuContent/ButtonHowToPlay
+@onready var button_quit: Button = $CenterContainer/MenuPanel/MenuContent/ButtonQuit
+@onready var button_back: Button = $HowToPlayPanel/HowToPlayCenter/InstructionsContainer/ButtonRow/ButtonBack
+@onready var button_exit: Button = $HowToPlayPanel/HowToPlayCenter/InstructionsContainer/ButtonRow/ButtonExit
 
 func _ready():
-	$CanvasLayer/UI/MenuPanel/MenuCenter/MenuVBox/PlayButton.pressed.connect(_on_play_pressed)
-	$CanvasLayer/UI/MenuPanel/MenuCenter/MenuVBox/HowToPlayButton.pressed.connect(_on_how_to_play_pressed)
-	$CanvasLayer/UI/MenuPanel/MenuCenter/MenuVBox/QuitButton.pressed.connect(_on_quit_pressed)
-	$CanvasLayer/UI/HowToPlayPanel/ContentCenter/InstructionsContainer/BackButton.pressed.connect(_on_back_pressed)
-	$BoardManager.show_borders = false
+	button_play.pressed.connect(_on_play_pressed)
+	button_how_to_play.pressed.connect(_on_how_to_play_pressed)
+	button_quit.pressed.connect(_on_quit_pressed)
+	button_back.pressed.connect(_on_back_pressed)
+	button_exit.pressed.connect(_on_quit_pressed)
 
 func _on_play_pressed():
 	get_tree().change_scene_to_file("res://scenes/board/GameBoard.tscn")
 
 func _on_how_to_play_pressed():
 	how_to_play_panel.visible = true
-
-func _on_close_how_to_play():
-	how_to_play_panel.visible = false
 
 func _on_back_pressed():
 	how_to_play_panel.visible = false
