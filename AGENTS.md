@@ -188,6 +188,52 @@ assets/sprites/
 
 Avoid Godot SVG import dependency for runtime rendering.
 
+### Main Menu Rendering
+
+Current main menu implementation uses:
+
+```text
+scenes/ui/MainMenu.tscn
+scripts/ui/MainMenu.gd
+scripts/ui/MainMenuBoard.gd
+```
+
+The intended presentation is:
+
+- full-screen dark checkerboard background
+- centered dark menu panel
+- primary actions in the center
+- full-screen HowToPlay overlay panel
+
+Use `MainMenuBoard.gd` for the checkerboard background layer.
+
+Do not replace the current menu background with a stretched `TextureRect` checkerboard unless explicitly requested.
+
+Keep the menu scene as a `Control`-based layout.
+
+Prefer stable node paths and direct button signal wiring in `MainMenu.gd`.
+
+Avoid duplicated scene subtrees or duplicate node names in `MainMenu.tscn`.
+
+If you change the HowToPlay layout, update script node paths at the same time.
+
+### Resize / Layout Principles
+
+The game should remain usable when the window size changes.
+
+Current approach:
+
+- UI overlays use `Control` anchors
+- gameplay board remains a fixed logical 9x9 board
+- `GameBoard.gd` scales and centers `BoardManager` to fit the current viewport
+- top HUD stretches horizontally with anchors instead of fixed pixel widths
+
+Prefer viewport-aware scaling at the scene container level.
+
+Do not rewrite board logic to use dynamic per-cell coordinates just to support window resizing.
+
+Use `GameManager.BOARD_PIXEL_SIZE` and `GameManager.CELL_SIZE` as the logical board dimensions, then scale the board scene visually.
+
 ## Input Handling
 
 Keep input centralized in:
@@ -409,6 +455,9 @@ Preserve working behavior:
 - spawning
 - score updates
 - game-over flow
+- centered main menu layout
+- checkerboard menu background
+- resize-safe board presentation
 
 ### When Changing Rules
 
@@ -487,6 +536,9 @@ Attack highlighting:
 UI:
 17. Main menu centered with dark panel and board visible beneath
 18. HowToPlay panel fully opaque
+19. Main menu buttons remain centered after window resize
+20. Gameplay board stays centered and fully visible after window resize
+21. Score bar stretches to the current window width
 
 ## Current Working Definition
 
