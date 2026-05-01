@@ -132,30 +132,36 @@ func _check_for_chain():
 	
 	var selected_chain = ChainDetector.select_random_chain(chains)
 	
-	# For color lines, we need to determine if this is a color line or type line
-	var is_color_line = true
+	await _animate_chain_removal(selected_chain)
+	
+	# Calculate lines based on whether all pieces are same color or same type
+	var is_type_line = false
+	var is_color_line = false
+	
 	if selected_chain.size() >= 5:
 		# Check if all pieces in the chain are the same color
 		var first_color = selected_chain[0].piece_color
+		var all_same_color = true
 		for piece in selected_chain:
 			if piece.piece_color != first_color:
-				is_color_line = false
+				all_same_color = false
 				break
 		
-		# If not all same color, check if all same type (for type line bonus)
-		if not is_color_line:
+		if all_same_color:
+			is_color_line = true
+		else:
+			# Check if all pieces are the same type (for type line bonus)
 			var first_type = selected_chain[0].piece_type
+			var all_same_type = true
 			for piece in selected_chain:
 				if piece.piece_type != first_type:
-					is_color_line = true  # It's not a type line either, so revert to color line
+					all_same_type = false
 					break
-	else:
-		is_color_line = false
+			if all_same_type:
+				is_type_line = true
 	
-	await _animate_chain_removal(selected_chain)
-	
-	# Calculate score based on line type
-	var base_points = selected_chain.size() * 100
+	# Apply scoring correctly
+	var pieces_removed = selected_chain.size()
 	var bonus = 1.0
 	
 	match selected_chain.size():
@@ -163,20 +169,20 @@ func _check_for_chain():
 		6: bonus = 2.0
 		7: bonus = 3.0
 	
+	var base_points = pieces_removed * 100
 	var points = int(base_points * bonus)
 	
-	# Apply bonus multipliers for line types
-	if is_color_line and selected_chain.size() >= 5:
-		# This is a color line - normal scoring
-		GameManager.add_score(selected_chain.size(), selected_chain.size())
-	elif not is_color_line and selected_chain.size() >= 5:
-		# This is a type line - double scoring
-		GameManager.add_score(selected_chain.size(), selected_chain.size() * 2)
+	if is_color_line:
+		# Color line - normal scoring
+		GameManager.add_score(pieces_removed, pieces_removed)
+	elif is_type_line:
+		# Type line - double scoring bonus
+		GameManager.add_score(pieces_removed, pieces_removed * 2)
 		# Add combo multiplier for type lines
 		GameManager.combo_multiplier = min(GameManager.combo_multiplier + 1, 5)
 	else:
-		# Default scoring
-		GameManager.add_score(selected_chain.size(), selected_chain.size())
+		# Default case (should not happen with the new detection system)
+		GameManager.add_score(pieces_removed, pieces_removed)
 	
 	chain_animation_tween = null
 	
