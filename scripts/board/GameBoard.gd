@@ -38,15 +38,15 @@ func _on_viewport_size_changed():
 
 func _update_layout():
 	var viewport_size := get_viewport_rect().size
-	var board_pixel_size: float = float(GameManager.BOARD_PIXEL_SIZE)
+	var board_render_size: float = board_manager.get_rendered_pixel_size()
 	var available_height: float = maxf(viewport_size.y - TOP_BAR_HEIGHT - TOP_BAR_SHADOW_HEIGHT, 1.0)
-	var scale_factor: float = minf(viewport_size.x / board_pixel_size, available_height / board_pixel_size)
+	var scale_factor: float = minf(viewport_size.x / board_render_size, available_height / board_render_size)
 	scale_factor = max(scale_factor, 0.1)
 
 	board_manager.scale = Vector2(scale_factor, scale_factor)
 
-	var scaled_board_width: float = board_pixel_size * scale_factor
-	var scaled_board_height: float = board_pixel_size * scale_factor
+	var scaled_board_width: float = board_render_size * scale_factor
+	var scaled_board_height: float = board_render_size * scale_factor
 	var board_x: float = (viewport_size.x - scaled_board_width) * 0.5
 	var board_y: float = TOP_BAR_HEIGHT + TOP_BAR_SHADOW_HEIGHT + (available_height - scaled_board_height) * 0.5
 	board_manager.position = Vector2(board_x, board_y)
@@ -131,9 +131,53 @@ func _check_for_chain():
 		return
 	
 	var selected_chain = ChainDetector.select_random_chain(chains)
+	
+	# For color lines, we need to determine if this is a color line or type line
+	var is_color_line = true
+	if selected_chain.size() >= 5:
+		# Check if all pieces in the chain are the same color
+		var first_color = selected_chain[0].piece_color
+		for piece in selected_chain:
+			if piece.piece_color != first_color:
+				is_color_line = false
+				break
+		
+		# If not all same color, check if all same type (for type line bonus)
+		if not is_color_line:
+			var first_type = selected_chain[0].piece_type
+			for piece in selected_chain:
+				if piece.piece_type != first_type:
+					is_color_line = true  # It's not a type line either, so revert to color line
+					break
+	else:
+		is_color_line = false
+	
 	await _animate_chain_removal(selected_chain)
 	
-	GameManager.add_score(selected_chain.size(), selected_chain.size())
+	# Calculate score based on line type
+	var base_points = selected_chain.size() * 100
+	var bonus = 1.0
+	
+	match selected_chain.size():
+		5: bonus = 1.5
+		6: bonus = 2.0
+		7: bonus = 3.0
+	
+	var points = int(base_points * bonus)
+	
+	# Apply bonus multipliers for line types
+	if is_color_line and selected_chain.size() >= 5:
+		# This is a color line - normal scoring
+		GameManager.add_score(selected_chain.size(), selected_chain.size())
+	elif not is_color_line and selected_chain.size() >= 5:
+		# This is a type line - double scoring
+		GameManager.add_score(selected_chain.size(), selected_chain.size() * 2)
+		# Add combo multiplier for type lines
+		GameManager.combo_multiplier = min(GameManager.combo_multiplier + 1, 5)
+	else:
+		# Default scoring
+		GameManager.add_score(selected_chain.size(), selected_chain.size())
+	
 	chain_animation_tween = null
 	
 	_spawn_new_pieces()

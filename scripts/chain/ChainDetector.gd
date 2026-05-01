@@ -2,58 +2,98 @@ extends Node
 class_name ChainDetector
 
 static func find_chains(board: Dictionary):
-	var all_chains = []
+	# Find all possible lines (horizontal, vertical, diagonal) of same-color pieces
+	var lines = []
 	var pieces = board.values()
 	
 	if pieces.size() < 5:
-		return all_chains
+		return lines
 	
-	var adjacency = _build_attack_graph(board)
+	# Check for horizontal lines
+	for y in range(GameManager.BOARD_SIZE):
+		var line = []
+		var last_color = -1
+		for x in range(GameManager.BOARD_SIZE):
+			var pos = Vector2i(x, y)
+			if board.has(pos):
+				var piece = board[pos]
+				if last_color != -1 and last_color != piece.piece_color:
+					if line.size() >= 5:
+						lines.append(line)
+					line = []
+				line.append(piece)
+				last_color = piece.piece_color
+		if line.size() >= 5:
+			lines.append(line)
 	
-	for piece in pieces:
-		var visited = [piece]
-		_dfs_find_chains(piece, adjacency, visited, all_chains)
+	# Check for vertical lines
+	for x in range(GameManager.BOARD_SIZE):
+		var line = []
+		var last_color = -1
+		for y in range(GameManager.BOARD_SIZE):
+			var pos = Vector2i(x, y)
+			if board.has(pos):
+				var piece = board[pos]
+				if last_color != -1 and last_color != piece.piece_color:
+					if line.size() >= 5:
+						lines.append(line)
+					line = []
+				line.append(piece)
+				last_color = piece.piece_color
+		if line.size() >= 5:
+			lines.append(line)
 	
-	var valid_chains = []
-	for chain in all_chains:
-		if chain.size() >= 5:
-			valid_chains.append(chain)
+	# Check for diagonal lines (top-left to bottom-right)
+	for i in range(GameManager.BOARD_SIZE * 2 - 1):
+		var line = []
+		var last_color = -1
+		var start_y = max(0, i - GameManager.BOARD_SIZE + 1)
+		var end_y = min(GameManager.BOARD_SIZE, i + 1)
+		
+		for y in range(start_y, end_y):
+			var x = i - y
+			if x >= 0 and x < GameManager.BOARD_SIZE:
+				var pos = Vector2i(x, y)
+				if board.has(pos):
+					var piece = board[pos]
+					if last_color != -1 and last_color != piece.piece_color:
+						if line.size() >= 5:
+							lines.append(line)
+						line = []
+					line.append(piece)
+					last_color = piece.piece_color
+		if line.size() >= 5:
+			lines.append(line)
 	
-	return valid_chains
-
-static func _build_attack_graph(board: Dictionary):
-	var adjacency = {}
-	var pieces = board.values()
+	# Check for diagonal lines (top-right to bottom-left)
+	for i in range(GameManager.BOARD_SIZE * 2 - 1):
+		var line = []
+		var last_color = -1
+		var start_y = max(0, i - GameManager.BOARD_SIZE + 1)
+		var end_y = min(GameManager.BOARD_SIZE, i + 1)
+		
+		for y in range(start_y, end_y):
+			var x = GameManager.BOARD_SIZE - 1 - (i - y)
+			if x >= 0 and x < GameManager.BOARD_SIZE:
+				var pos = Vector2i(x, y)
+				if board.has(pos):
+					var piece = board[pos]
+					if last_color != -1 and last_color != piece.piece_color:
+						if line.size() >= 5:
+							lines.append(line)
+						line = []
+					line.append(piece)
+					last_color = piece.piece_color
+		if line.size() >= 5:
+			lines.append(line)
 	
-	for piece in pieces:
-		adjacency[piece] = []
+	# Filter out lines that are less than 5 pieces
+	var valid_lines = []
+	for line in lines:
+		if line.size() >= 5:
+			valid_lines.append(line)
 	
-	for piece in pieces:
-		var targets = piece.get_legal_captures(board)
-		for target in targets:
-			if board.has(target):
-				var target_piece = board[target]
-				if target_piece.piece_color != piece.piece_color:
-					adjacency[piece].append(target_piece)
-	
-	return adjacency
-
-static func _dfs_find_chains(current, adjacency, visited, all_chains):
-	if visited.size() >= 5:
-		var chain_copy = []
-		for p in visited:
-			chain_copy.append(p)
-		all_chains.append(chain_copy)
-	
-	if visited.size() >= 9:
-		return
-	
-	var neighbors = adjacency[current]
-	for neighbor in neighbors:
-		if not neighbor in visited:
-			visited.append(neighbor)
-			_dfs_find_chains(neighbor, adjacency, visited, all_chains)
-			visited.pop_back()
+	return valid_lines
 
 static func select_random_chain(chains):
 	if chains.is_empty():
@@ -69,13 +109,82 @@ static func get_chain_positions(chain):
 	return positions
 
 static func is_valid_chain(chain):
+	# For color line detection, a valid chain is any chain of 5+ same-color pieces
 	if chain.size() < 5:
 		return false
 	
-	for i in range(chain.size() - 1):
-		if chain[i].piece_color == chain[i + 1].piece_color:
-			return false
-		if not chain[i].can_attack(chain[i + 1].grid_position, {}):
+	# All pieces in chain must have the same color
+	var first_color = chain[0].piece_color
+	for piece in chain:
+		if piece.piece_color != first_color:
 			return false
 	
-	return true
+	# Check if pieces form a valid line (consecutive positions)
+	return _is_consecutive_line(chain)
+
+static func _is_consecutive_line(chain):
+	# Check if pieces form a straight line (horizontal, vertical, or diagonal)
+	if chain.size() < 5:
+		return false
+	
+	# Get positions and sort them
+	var positions = []
+	for piece in chain:
+		positions.append(piece.grid_position)
+	
+	# Sort by x, then y
+	positions.sort_custom(func(a, b): return a.x < b.x)
+	
+	# Check if line is horizontal
+	var is_horizontal = true
+	var first_y = positions[0].y
+	for pos in positions:
+		if pos.y != first_y:
+			is_horizontal = false
+			break
+	
+	if is_horizontal:
+		# Check if positions are consecutive
+		positions.sort_custom(func(a, b): return a.x < b.x)
+		for i in range(1, positions.size()):
+			if positions[i].x != positions[i-1].x + 1:
+				return false
+		return true
+	
+	# Check if line is vertical 
+	var is_vertical = true
+	var first_x = positions[0].x
+	for pos in positions:
+		if pos.x != first_x:
+			is_vertical = false
+			break
+	
+	if is_vertical:
+		# Check if positions are consecutive
+		positions.sort_custom(func(a, b): return a.y < b.y)
+		for i in range(1, positions.size()):
+			if positions[i].y != positions[i-1].y + 1:
+				return false
+		return true
+	
+	# Check if line is diagonal (top-left to bottom-right)
+	var is_diagonal_1 = true
+	for i in range(1, positions.size()):
+		if positions[i].x != positions[i-1].x + 1 or positions[i].y != positions[i-1].y + 1:
+			is_diagonal_1 = false
+			break
+	
+	if is_diagonal_1:
+		return true
+	
+	# Check if line is diagonal (top-right to bottom-left)
+	var is_diagonal_2 = true
+	for i in range(1, positions.size()):
+		if positions[i].x != positions[i-1].x - 1 or positions[i].y != positions[i-1].y + 1:
+			is_diagonal_2 = false
+			break
+	
+	if is_diagonal_2:
+		return true
+	
+	return false
