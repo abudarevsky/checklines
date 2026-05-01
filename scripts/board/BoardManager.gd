@@ -16,22 +16,40 @@ var highlighted_attacks = []
 var dimmed_pieces = []
 var highlight_nodes = []
 var dim_border_nodes = []
+var input_enabled: bool = true
 var show_borders: bool = true
+var left_border_width: float = GameManager.BORDER_WIDTH
+var top_border_width: float = GameManager.BORDER_WIDTH
+var right_border_width: float = GameManager.BORDER_WIDTH
+var bottom_border_width: float = GameManager.BORDER_WIDTH
+var border_tween: Tween
 
 @onready var pieces_container: Node2D = $PiecesContainer
+@onready var highlights_container: Node2D = $HighlightsContainer
 
 var piece_scene: PackedScene
 
 func _ready():
 	piece_scene = preload("res://scenes/pieces/Piece.tscn")
+	_sync_container_positions()
 	clear_board()
 
 func clear_board():
 	for child in pieces_container.get_children():
 		child.queue_free()
+	for child in highlights_container.get_children():
+		child.queue_free()
 	board.clear()
 	selected_piece = null
 	highlighted_cells.clear()
+	highlighted_attacks.clear()
+	highlight_nodes.clear()
+	dim_border_nodes.clear()
+	dimmed_pieces.clear()
+	if border_tween:
+		border_tween.kill()
+		border_tween = null
+	_reset_border_widths()
 
 func _process(_delta):
 	queue_redraw()
@@ -40,33 +58,112 @@ func _draw():
 	_draw_board()
 	_draw_borders()
 
+func _get_board_origin() -> Vector2:
+	return Vector2(GameManager.BOARD_FRAME_MARGIN, GameManager.BOARD_FRAME_MARGIN)
+
+func _get_board_pixel_size() -> float:
+	return board_size * cell_size
+
+func get_rendered_pixel_size() -> float:
+	return _get_board_pixel_size() + GameManager.BOARD_FRAME_MARGIN * 2.0
+
+func _sync_container_positions():
+	var board_origin := _get_board_origin()
+	pieces_container.position = board_origin
+	highlights_container.position = board_origin
+
 func _draw_board():
+	var board_origin := _get_board_origin()
 	for y in range(board_size):
 		for x in range(board_size):
 			var is_light: bool = (x + y) % 2 == 0
 			var color: Color = Color(0.7, 0.7, 0.7) if is_light else Color(0.3, 0.3, 0.3)
-			var rect: Rect2 = Rect2(x * cell_size, y * cell_size, cell_size, cell_size)
+			var rect := Rect2(
+				board_origin.x + x * cell_size,
+				board_origin.y + y * cell_size,
+				cell_size,
+				cell_size
+			)
 			draw_rect(rect, color)
 
 func _draw_borders():
 	if not show_borders:
 		return
-	var total_size = board_size * cell_size
-	var bw = GameManager.BORDER_WIDTH
+	var board_origin := _get_board_origin()
+	var board_size_px := _get_board_pixel_size()
+	var board_end_x := board_origin.x + board_size_px
+	var board_end_y := board_origin.y + board_size_px
+	var padding := float(GameManager.BORDER_PADDING)
 	
-	draw_rect(Rect2(0, 0, bw, total_size), Color.RED)
-	draw_rect(Rect2(0, 0, total_size, bw), Color.BLUE)
-	draw_rect(Rect2(total_size - bw, 0, bw, total_size), Color.GREEN)
-	draw_rect(Rect2(0, total_size - bw, total_size, bw), Color.ORANGE)
+	draw_rect(
+		Rect2(board_origin.x - padding - left_border_width, board_origin.y, left_border_width, board_size_px),
+		Color.RED
+	)
+	draw_rect(
+		Rect2(board_origin.x, board_origin.y - padding - top_border_width, board_size_px, top_border_width),
+		Color.BLUE
+	)
+	draw_rect(
+		Rect2(board_end_x + padding, board_origin.y, right_border_width, board_size_px),
+		Color.GREEN
+	)
+	draw_rect(
+		Rect2(board_origin.x, board_end_y + padding, board_size_px, bottom_border_width),
+		Color.ORANGE
+	)
 
-func get_cell_position(grid_pos: Vector2i) -> Vector2:
+func _get_cell_local_position(grid_pos: Vector2i) -> Vector2:
 	return Vector2(grid_pos.x * cell_size + cell_size / 2, grid_pos.y * cell_size + cell_size / 2)
 
+func get_cell_position(grid_pos: Vector2i) -> Vector2:
+	return _get_cell_local_position(grid_pos)
+
 func grid_to_world(grid_pos: Vector2i) -> Vector2:
-	return get_cell_position(grid_pos)
+	return _get_board_origin() + _get_cell_local_position(grid_pos)
 
 func world_to_grid(world_pos: Vector2) -> Vector2i:
-	return Vector2i(int(world_pos.x / cell_size), int(world_pos.y / cell_size))
+	var board_origin := _get_board_origin()
+	return Vector2i(
+		floori((world_pos.x - board_origin.x) / cell_size),
+		floori((world_pos.y - board_origin.y) / cell_size)
+	)
+
+func _reset_border_widths():
+	left_border_width = GameManager.BORDER_WIDTH
+	top_border_width = GameManager.BORDER_WIDTH
+	right_border_width = GameManager.BORDER_WIDTH
+	bottom_border_width = GameManager.BORDER_WIDTH
+
+func _get_border_property_name(color: GameManager.PieceColor) -> String:
+	match color:
+		GameManager.PieceColor.RED:
+			return "left_border_width"
+		GameManager.PieceColor.BLUE:
+			return "top_border_width"
+		GameManager.PieceColor.GREEN:
+			return "right_border_width"
+		GameManager.PieceColor.ORANGE:
+			return "bottom_border_width"
+	return "left_border_width"
+
+func _animate_border_selection(color: GameManager.PieceColor):
+	if border_tween:
+		border_tween.kill()
+	border_tween = create_tween()
+	border_tween.set_parallel(true)
+	for property_name in ["left_border_width", "top_border_width", "right_border_width", "bottom_border_width"]:
+		var target_width: float = GameManager.BORDER_WIDTH
+		if property_name == _get_border_property_name(color):
+			target_width = GameManager.SELECTED_BORDER_WIDTH
+		border_tween.tween_property(self, property_name, target_width, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+func _shrink_all_borders():
+	if border_tween:
+		border_tween.kill()
+	border_tween = create_tween()
+	border_tween.set_parallel(true)
+	for property_name in ["left_border_width", "top_border_width", "right_border_width", "bottom_border_width"]:
+		border_tween.tween_property(self, property_name, float(GameManager.BORDER_WIDTH), 0.15).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 func add_piece(type, color, grid_pos):
 	if board.has(grid_pos):
@@ -74,7 +171,7 @@ func add_piece(type, color, grid_pos):
 	
 	var piece = piece_scene.instantiate()
 	piece.setup(type, color, grid_pos)
-	piece.position = get_cell_position(grid_pos)
+	piece.position = _get_cell_local_position(grid_pos)
 	pieces_container.add_child(piece)
 	board[grid_pos] = piece
 	
@@ -96,14 +193,25 @@ func get_all_pieces():
 	return board.values()
 
 func _input(event):
+	if not input_enabled:
+		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos = get_local_mouse_position()
 		var grid_pos = world_to_grid(local_pos)
 		if grid_pos.x >= 0 and grid_pos.x < board_size and grid_pos.y >= 0 and grid_pos.y < board_size:
 			if board.has(grid_pos):
-				_on_piece_clicked(board[grid_pos])
+				handle_occupied_cell_click(grid_pos)
 			else:
 				handle_empty_cell_click(grid_pos)
+
+func handle_occupied_cell_click(grid_pos: Vector2i):
+	if selected_piece:
+		var captures = selected_piece.get_legal_captures(board)
+		if grid_pos in captures:
+			move_piece(selected_piece, grid_pos)
+			return
+	
+	_on_piece_clicked(board[grid_pos])
 
 func _on_piece_clicked(piece):
 	print("piece_clicked: " + str(piece.grid_position))
@@ -124,6 +232,7 @@ func select_piece(piece):
 	deselect_piece()
 	selected_piece = piece
 	piece.set_selected(true)
+	_animate_border_selection(piece.piece_color)
 	
 	var moves = piece.get_legal_moves(board)
 	var captures = piece.get_legal_captures(board)
@@ -142,18 +251,24 @@ func select_piece(piece):
 func deselect_piece():
 	if selected_piece:
 		selected_piece.set_selected(false)
+	_shrink_all_borders()
 	selected_piece = null
 	highlighted_cells.clear()
 	highlighted_attacks.clear()
 	_restore_dimmed_pieces()
 	_clear_highlights()
 
+func set_input_enabled(enabled: bool):
+	input_enabled = enabled
+	if not enabled:
+		deselect_piece()
+
 func _draw_highlight(cell: Vector2i) -> Node:
 	var highlight = ColorRect.new()
 	highlight.position = Vector2(cell.x * cell_size, cell.y * cell_size)
 	highlight.size = Vector2(cell_size, cell_size)
 	highlight.color = Color(1, 1, 0, 0.4)
-	pieces_container.add_child(highlight)
+	highlights_container.add_child(highlight)
 	return highlight
 
 func _draw_attack_overlay(attacker: Piece, target_cell: Vector2i) -> Node:
@@ -180,7 +295,7 @@ func _draw_attack_overlay(attacker: Piece, target_cell: Vector2i) -> Node:
 	
 	overlay_container.add_child(bg_rect)
 	overlay_container.add_child(overlay_sprite)
-	pieces_container.add_child(overlay_container)
+	highlights_container.add_child(overlay_container)
 	return overlay_container
 
 func _dim_target_piece(target_cell: Vector2i, attacker_color: GameManager.PieceColor):
@@ -197,28 +312,28 @@ func _dim_target_piece(target_cell: Vector2i, attacker_color: GameManager.PieceC
 		top.position = cell_pixel
 		top.size = Vector2(cell_size, border_width)
 		top.color = border_color
-		pieces_container.add_child(top)
+		highlights_container.add_child(top)
 		dim_border_nodes.append(top)
 		
 		var bottom = ColorRect.new()
 		bottom.position = Vector2(cell_pixel.x, cell_pixel.y + cell_size - border_width)
 		bottom.size = Vector2(cell_size, border_width)
 		bottom.color = border_color
-		pieces_container.add_child(bottom)
+		highlights_container.add_child(bottom)
 		dim_border_nodes.append(bottom)
 		
 		var left = ColorRect.new()
 		left.position = cell_pixel
 		left.size = Vector2(border_width, cell_size)
 		left.color = border_color
-		pieces_container.add_child(left)
+		highlights_container.add_child(left)
 		dim_border_nodes.append(left)
 		
 		var right = ColorRect.new()
 		right.position = Vector2(cell_pixel.x + cell_size - border_width, cell_pixel.y)
 		right.size = Vector2(border_width, cell_size)
 		right.color = border_color
-		pieces_container.add_child(right)
+		highlights_container.add_child(right)
 		dim_border_nodes.append(right)
 
 func _get_type_string(piece_type) -> String:
@@ -258,7 +373,7 @@ func move_piece(piece, target: Vector2i):
 		remove_piece(target)
 	
 	piece.grid_position = target
-	piece.position = get_cell_position(target)
+	piece.position = _get_cell_local_position(target)
 	
 	board[target] = piece
 	

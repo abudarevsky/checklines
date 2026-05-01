@@ -67,6 +67,7 @@ func _on_pause_pressed():
 
 func _initialize_game():
 	board_manager.board_size = GameManager.board_size
+	board_manager.set_input_enabled(true)
 	board_manager.clear_board()
 	
 	_spawn_initial_pieces()
@@ -106,6 +107,7 @@ func _update_ui():
 	high_score_label.text = "Best: " + str(GameManager.high_score)
 
 func _on_game_over(final_score: int):
+	board_manager.set_input_enabled(false)
 	game_over_panel.visible = true
 	game_over_score_label.text = "Final Score: " + str(final_score)
 	AudioManager.play_sound("game_over")
@@ -122,7 +124,7 @@ func _on_main_menu_pressed():
 func _check_for_chain():
 	await get_tree().create_timer(0.3).timeout
 	
-	var chains = ChainDetector.find_chains(board_manager.board)
+	var chains: Array = ChainDetector.find_chains(board_manager.board)
 	
 	if chains.is_empty():
 		_spawn_new_pieces()
@@ -130,59 +132,18 @@ func _check_for_chain():
 		_check_game_over()
 		return
 	
-	var selected_chain = ChainDetector.select_random_chain(chains)
+	var selected_chain: Dictionary = ChainDetector.select_random_chain(chains)
 	
-	await _animate_chain_removal(selected_chain)
+	await _animate_chain_removal(selected_chain["pieces"])
 	
-	# Calculate lines based on whether all pieces are same color or same type
-	var is_type_line = false
-	var is_color_line = false
-	
-	if selected_chain.size() >= 5:
-		# Check if all pieces in the chain are the same color
-		var first_color = selected_chain[0].piece_color
-		var all_same_color = true
-		for piece in selected_chain:
-			if piece.piece_color != first_color:
-				all_same_color = false
-				break
-		
-		if all_same_color:
-			is_color_line = true
-		else:
-			# Check if all pieces are the same type (for type line bonus)
-			var first_type = selected_chain[0].piece_type
-			var all_same_type = true
-			for piece in selected_chain:
-				if piece.piece_type != first_type:
-					all_same_type = false
-					break
-			if all_same_type:
-				is_type_line = true
-	
-	# Apply scoring correctly
-	var pieces_removed = selected_chain.size()
-	var bonus = 1.0
-	
-	match selected_chain.size():
-		5: bonus = 1.5
-		6: bonus = 2.0
-		7: bonus = 3.0
-	
-	var base_points = pieces_removed * 100
-	var points = int(base_points * bonus)
-	
-	if is_color_line:
-		# Color line - normal scoring
-		GameManager.add_score(pieces_removed, pieces_removed)
-	elif is_type_line:
-		# Type line - double scoring bonus
-		GameManager.add_score(pieces_removed, pieces_removed * 2)
-		# Add combo multiplier for type lines
-		GameManager.combo_multiplier = min(GameManager.combo_multiplier + 1, 5)
-	else:
-		# Default case (should not happen with the new detection system)
-		GameManager.add_score(pieces_removed, pieces_removed)
+	var pieces_removed: int = selected_chain["pieces"].size()
+	var score_multiplier := 1.0
+	if selected_chain.get("is_type_line", false):
+		score_multiplier *= 2.0
+	if selected_chain.get("is_combo", false):
+		score_multiplier *= 1.5
+
+	GameManager.add_score(pieces_removed, pieces_removed, score_multiplier)
 	
 	chain_animation_tween = null
 	

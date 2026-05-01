@@ -45,7 +45,7 @@ func save_high_score():
 	config.set_value("game", "high_score", high_score)
 	config.save("user://settings.cfg")
 
-func add_score(pieces_removed: int, chain_length: int):
+func add_score(pieces_removed: int, chain_length: int, score_multiplier: float = 1.0):
 	var base_points := pieces_removed * 100
 	var bonus: float = 1.0
 	
@@ -54,7 +54,7 @@ func add_score(pieces_removed: int, chain_length: int):
 		6: bonus = 2.0
 		7: bonus = 3.0
 	
-	var points := int(base_points * bonus * combo_multiplier)
+	var points := int(base_points * bonus * combo_multiplier * score_multiplier)
 	current_score += points
 	
 	if current_score > high_score:

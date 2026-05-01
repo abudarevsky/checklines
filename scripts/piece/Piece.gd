@@ -121,6 +121,9 @@ func _get_attack_directions():
 					 Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 	return []
 
+func _can_capture_piece(other_piece: Piece) -> bool:
+	return other_piece.piece_color != piece_color and other_piece.piece_type != GameManager.PieceType.KING
+
 func _get_sliding_captures(board: Dictionary, directions):
 	var captures = []
 	
@@ -131,7 +134,7 @@ func _get_sliding_captures(board: Dictionary, directions):
 		while current.x >= 0 and current.x < board_size and current.y >= 0 and current.y < board_size:
 			if board.has(current):
 				var other_piece = board[current]
-				if other_piece.piece_color != piece_color:
+				if _can_capture_piece(other_piece):
 					captures.append(current)
 				break
 			current += dir
@@ -149,7 +152,7 @@ func _get_knight_captures(board: Dictionary):
 		if target.x >= 0 and target.x < board_size and target.y >= 0 and target.y < board_size:
 			if board.has(target):
 				var other_piece = board[target]
-				if other_piece.piece_color != piece_color:
+				if _can_capture_piece(other_piece):
 					captures.append(target)
 	
 	return captures
@@ -165,7 +168,7 @@ func _get_king_captures(board: Dictionary):
 		if target.x >= 0 and target.x < board_size and target.y >= 0 and target.y < board_size:
 			if board.has(target):
 				var other_piece = board[target]
-				if other_piece.piece_color != piece_color:
+				if _can_capture_piece(other_piece):
 					captures.append(target)
 	
 	return captures
@@ -190,7 +193,7 @@ func _get_pawn_captures(board: Dictionary):
 		var target = grid_position + attack_dir
 		if _is_in_bounds(target) and board.has(target):
 			var other_piece = board[target]
-			if other_piece.piece_color != piece_color:
+			if _can_capture_piece(other_piece):
 				captures.append(target)
 	return captures
 
