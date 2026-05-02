@@ -10,9 +10,15 @@ signal clicked(piece)
 var is_selected: bool = false
 var is_highlighted: bool = false
 var capture_targets = []
+var selection_tween: Tween
+var base_sprite_position: Vector2 = Vector2.ZERO
+var base_selection_indicator_position: Vector2 = Vector2.ZERO
 
 var piece_size: float = GameManager.CELL_SIZE
 var sprite_scale: float = GameManager.CELL_SIZE / 512.0  # Scale 512px PNG to cell size
+
+const SELECTED_JUMP_HEIGHT: float = 10.0
+const SELECTED_JUMP_DURATION: float = 0.35
 
 @onready var sprite: Sprite2D = $Sprite
 @onready var selection_indicator: Node2D = $SelectionIndicator
@@ -22,6 +28,8 @@ const SVG_PATH = "res://assets/sprites/png/white_%s.png"
 
 func _ready():
 	clicked.connect(_on_clicked)
+	base_sprite_position = sprite.position
+	base_selection_indicator_position = selection_indicator.position
 	_load_sprite()
 
 func _load_sprite():
@@ -72,11 +80,35 @@ func set_selected(selected: bool):
 	is_selected = selected
 	if selection_indicator:
 		selection_indicator.visible = selected
+	if selected:
+		_start_selection_animation()
+	else:
+		_stop_selection_animation()
 
 func set_highlighted(highlighted: bool):
 	is_highlighted = highlighted
 	if highlight_overlay:
 		highlight_overlay.visible = highlighted
+
+func _start_selection_animation():
+	_stop_selection_animation()
+	_set_visual_jump_offset(0.0)
+	selection_tween = create_tween()
+	selection_tween.set_loops()
+	selection_tween.tween_method(_set_visual_jump_offset, 0.0, -SELECTED_JUMP_HEIGHT, SELECTED_JUMP_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	selection_tween.tween_method(_set_visual_jump_offset, -SELECTED_JUMP_HEIGHT, 0.0, SELECTED_JUMP_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+func _stop_selection_animation():
+	if selection_tween:
+		selection_tween.kill()
+		selection_tween = null
+	_set_visual_jump_offset(0.0)
+
+func _set_visual_jump_offset(offset_y: float):
+	if sprite:
+		sprite.position = base_sprite_position + Vector2(0, offset_y)
+	if selection_indicator:
+		selection_indicator.position = base_selection_indicator_position + Vector2(0, offset_y)
 
 func get_legal_captures(board: Dictionary):
 	var captures = []
