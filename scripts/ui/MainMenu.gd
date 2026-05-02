@@ -7,10 +7,15 @@ extends Control
 @onready var button_back: Button = $HowToPlayPanel/HowToPlayCenter/InstructionsContainer/ButtonRow/ButtonBack
 
 func _ready():
+	_lock_mobile_orientation()
 	button_play.pressed.connect(_on_play_pressed)
 	button_how_to_play.pressed.connect(_on_how_to_play_pressed)
 	button_quit.pressed.connect(_on_quit_pressed)
 	button_back.pressed.connect(_on_back_pressed)
+
+func _lock_mobile_orientation():
+	if OS.has_feature("android"):
+		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_PORTRAIT)
 
 func _on_play_pressed():
 	get_tree().change_scene_to_file("res://scenes/board/GameBoard.tscn")

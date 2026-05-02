@@ -3,6 +3,8 @@ extends Node2D
 @onready var board_manager = $BoardManager
 @onready var score_label: Label = $CanvasLayer/ScoreHBox/ScoreLabel
 @onready var high_score_label: Label = $CanvasLayer/ScoreHBox/HighScoreLabel
+@onready var color_lines_value_label: Label = $CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat/ValueLabel
+@onready var type_lines_value_label: Label = $CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat/ValueLabel
 @onready var game_over_panel: Control = $CanvasLayer/UI/GameOverPanel
 @onready var game_over_score_label: Label = $CanvasLayer/UI/GameOverPanel/VBox/FinalScoreLabel
 @onready var restart_button: Button = $CanvasLayer/UI/GameOverPanel/VBox/RestartButton
@@ -16,15 +18,21 @@ const TOP_BAR_SHADOW_HEIGHT: float = 5.0
 
 func _ready():
 	GameManager.reset_game()
+	_lock_mobile_orientation()
 	_setup_signals()
 	_initialize_game()
 	_update_layout()
 	_update_ui()
 
+func _lock_mobile_orientation():
+	if OS.has_feature("android"):
+		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_PORTRAIT)
+
 func _setup_signals():
 	board_manager.capture_made.connect(_on_capture_made)
 	board_manager.piece_moved.connect(_on_piece_moved)
 	GameManager.score_updated.connect(_on_score_updated)
+	GameManager.line_metrics_updated.connect(_on_line_metrics_updated)
 	GameManager.game_over.connect(_on_game_over)
 	restart_button.pressed.connect(_on_restart_pressed)
 	main_menu_button.pressed.connect(_on_main_menu_pressed)
@@ -54,13 +62,12 @@ func _input(event):
 
 func _initialize_game():
 	board_manager.board_size = GameManager.board_size
-	board_manager.set_input_enabled(true)
 	board_manager.clear_board()
+	board_manager.set_input_enabled(true)
 	
 	_spawn_initial_pieces()
 
 func _check_game_over():
-	await get_tree().create_timer(1.0).timeout
 	if not board_manager.has_legal_moves():
 		GameManager.end_game()
 
@@ -82,15 +89,24 @@ func _on_capture_made(_piece, _target):
 	AudioManager.vibrate()
 
 func _on_piece_moved(_from, _to):
-	_spawn_new_pieces()
-	_check_for_chain()
+	if is_processing_move:
+		return
+	_resolve_turn()
 
 func _on_score_updated(_new_score: int):
 	_update_ui()
 
+func _on_line_metrics_updated(_color_lines: int, _type_lines: int):
+	_update_line_metrics_ui()
+
 func _update_ui():
 	score_label.text = "Score: " + str(GameManager.current_score)
 	high_score_label.text = "Best: " + str(GameManager.high_score)
+	_update_line_metrics_ui()
+
+func _update_line_metrics_ui():
+	color_lines_value_label.text = str(GameManager.color_lines_cleared)
+	type_lines_value_label.text = str(GameManager.type_lines_cleared)
 
 func _on_game_over(final_score: int):
 	board_manager.set_input_enabled(false)
@@ -107,35 +123,64 @@ func _on_main_menu_pressed():
 	get_tree().paused = false
 	get_tree().change_scene_to_file("res://scenes/ui/MainMenu.tscn")
 
-func _check_for_chain():
+func _resolve_turn():
+	is_processing_move = true
+	board_manager.set_input_enabled(false)
 	await get_tree().create_timer(0.3).timeout
-	
-	var chains: Array = ChainDetector.find_chains(board_manager.board)
-	
-	if chains.is_empty():
+
+	var cleared_from_move := await _resolve_chain_waves()
+	if not cleared_from_move:
 		_spawn_new_pieces()
 		await get_tree().create_timer(0.3).timeout
-		_check_game_over()
-		return
-	
-	var selected_chain: Dictionary = ChainDetector.select_random_chain(chains)
-	
-	await _animate_chain_removal(selected_chain["pieces"])
-	
-	var pieces_removed: int = selected_chain["pieces"].size()
-	var score_multiplier := 1.0
-	if selected_chain.get("is_type_line", false):
-		score_multiplier *= 2.0
-	if selected_chain.get("is_combo", false):
-		score_multiplier *= 1.5
+		await _resolve_chain_waves()
 
-	GameManager.add_score(pieces_removed, pieces_removed, score_multiplier)
-	
-	chain_animation_tween = null
-	
-	_spawn_new_pieces()
 	await get_tree().create_timer(0.3).timeout
 	_check_game_over()
+
+	is_processing_move = false
+	if not game_over_panel.visible:
+		board_manager.set_input_enabled(true)
+
+func _resolve_chain_waves() -> bool:
+	var cleared_any := false
+
+	while true:
+		var chains: Array = ChainDetector.find_chains(board_manager.board)
+		if chains.is_empty():
+			return cleared_any
+
+		cleared_any = true
+		await _clear_chain_wave(chains)
+
+	return cleared_any
+
+func _clear_chain_wave(chains: Array):
+	var pieces_to_remove := _get_unique_chain_pieces(chains)
+	await _animate_chain_removal(pieces_to_remove)
+
+	for chain in chains:
+		var pieces_removed: int = chain["pieces"].size()
+		var score_multiplier := 1.0
+		if chain.get("is_type_line", false):
+			score_multiplier *= 2.0
+		if chain.get("is_combo", false):
+			score_multiplier *= 1.5
+		GameManager.add_score(pieces_removed, pieces_removed, score_multiplier)
+		GameManager.register_cleared_line(
+			chain.get("is_color_line", false),
+			chain.get("is_type_line", false)
+		)
+
+	chain_animation_tween = null
+
+func _get_unique_chain_pieces(chains: Array) -> Array:
+	var unique_by_position: Dictionary = {}
+
+	for chain in chains:
+		for piece in chain["pieces"]:
+			unique_by_position[piece.grid_position] = piece
+
+	return unique_by_position.values()
 
 func _animate_chain_removal(chain):
 	AudioManager.play_sound("chain_clear")

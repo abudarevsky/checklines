@@ -1,8 +1,6 @@
 extends Node2D
 class_name Piece
 
-signal clicked(piece)
-
 @export var piece_type = GameManager.PieceType.PAWN
 @export var piece_color = GameManager.PieceColor.RED
 @export var grid_position: Vector2i = Vector2i(-1, -1)
@@ -27,7 +25,6 @@ const SELECTED_JUMP_DURATION: float = 0.35
 const SVG_PATH = "res://assets/sprites/png/white_%s.png"
 
 func _ready():
-	clicked.connect(_on_clicked)
 	base_sprite_position = sprite.position
 	base_selection_indicator_position = selection_indicator.position
 	_load_sprite()
@@ -68,13 +65,6 @@ func update_visual():
 	
 	if highlight_overlay:
 		highlight_overlay.visible = is_highlighted
-
-func _on_clicked(_piece: Piece):
-	clicked.emit(self)
-
-func _on_area_input_event(_viewport, event, _shape_idx):
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		clicked.emit(self)
 
 func set_selected(selected: bool):
 	is_selected = selected

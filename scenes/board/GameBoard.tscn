@@ -1,7 +1,8 @@
-[gd_scene load_steps=4 format=3 uid="uid://game_board"]
+[gd_scene load_steps=5 format=3 uid="uid://game_board"]
 
 [ext_resource type="Script" path="res://scripts/board/GameBoard.gd" id="1_game"]
 [ext_resource type="PackedScene" uid="uid://board_manager" path="res://scenes/board/BoardManager.tscn" id="2_board"]
+[ext_resource type="Script" path="res://scripts/ui/LineMetricBadge.gd" id="3_metric_badge"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_score_bg"]
 bg_color = Color(0.3, 0.3, 0.3, 0.95)
@@ -48,7 +49,7 @@ offset_top = 0
 offset_right = 0
 offset_bottom = 60
 grow_horizontal = 2
-theme_override_constants/separation = 50
+theme_override_constants/separation = 24
 
 [node name="ScoreLabel" type="Label" parent="CanvasLayer/ScoreHBox"]
 layout_mode = 2
@@ -71,6 +72,58 @@ theme_override_colors/font_outline_color = Color(0.25, 0.25, 0.25, 0.3)
 theme_override_font_sizes/font_size = 30
 text = "Best: 0"
 horizontal_alignment = 1
+
+[node name="StatsPanel" type="MarginContainer" parent="CanvasLayer/ScoreHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="StatsHBox" type="HBoxContainer" parent="CanvasLayer/ScoreHBox/StatsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="ColorLinesStat" type="HBoxContainer" parent="CanvasLayer/ScoreHBox/StatsPanel/StatsHBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Badge" type="Control" parent="CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+script = ExtResource("3_metric_badge")
+badge_mode = "color"
+
+[node name="ValueLabel" type="Label" parent="CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat"]
+layout_mode = 2
+custom_minimum_size = Vector2(32, 0)
+theme_override_colors/font_color = Color(0.05, 0.05, 0.05, 1)
+theme_override_constants/outline_size = 2
+theme_override_colors/font_outline_color = Color(0.25, 0.25, 0.25, 0.3)
+theme_override_font_sizes/font_size = 26
+text = "0"
+vertical_alignment = 1
+
+[node name="TypeLinesStat" type="HBoxContainer" parent="CanvasLayer/ScoreHBox/StatsPanel/StatsHBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Badge" type="Control" parent="CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+script = ExtResource("3_metric_badge")
+badge_mode = "type"
+
+[node name="ValueLabel" type="Label" parent="CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat"]
+layout_mode = 2
+custom_minimum_size = Vector2(32, 0)
+theme_override_colors/font_color = Color(0.05, 0.05, 0.05, 1)
+theme_override_constants/outline_size = 2
+theme_override_colors/font_outline_color = Color(0.25, 0.25, 0.25, 0.3)
+theme_override_font_sizes/font_size = 26
+text = "0"
+vertical_alignment = 1
 
 [node name="UI" type="Control" parent="CanvasLayer"]
 layout_mode = 3

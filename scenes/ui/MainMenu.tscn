@@ -134,14 +134,14 @@ theme_override_constants/separation = 20
 [node name="Title" type="Label" parent="CenterContainer/MenuPanel/MenuContent"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.98)
-theme_override_font_sizes/font_size = 44
+theme_override_font_sizes/font_size = 66
 text = "Check Lines"
 horizontal_alignment = 1
 
 [node name="Subtitle" type="Label" parent="CenterContainer/MenuPanel/MenuContent"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.72)
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 27
 text = "Chess movement. Lines puzzle. 5 in a row."
 horizontal_alignment = 1
 
@@ -151,29 +151,29 @@ layout_mode = 2
 
 [node name="ButtonPlay" type="Button" parent="CenterContainer/MenuPanel/MenuContent"]
 layout_mode = 2
-custom_minimum_size = Vector2(280, 52)
+custom_minimum_size = Vector2(320, 68)
 theme_override_styles/normal = SubResource("StyleBoxFlat_green")
 theme_override_styles/hover = SubResource("StyleBoxFlat_green_hover")
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 36
 text = "Play"
 
 [node name="ButtonHowToPlay" type="Button" parent="CenterContainer/MenuPanel/MenuContent"]
 layout_mode = 2
-custom_minimum_size = Vector2(280, 52)
+custom_minimum_size = Vector2(320, 68)
 theme_override_styles/normal = SubResource("StyleBoxFlat_orange")
 theme_override_styles/hover = SubResource("StyleBoxFlat_orange_hover")
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 36
 text = "How to Play"
 
 [node name="ButtonQuit" type="Button" parent="CenterContainer/MenuPanel/MenuContent"]
 layout_mode = 2
-custom_minimum_size = Vector2(280, 52)
+custom_minimum_size = Vector2(320, 68)
 theme_override_styles/normal = SubResource("StyleBoxFlat_outline")
 theme_override_styles/hover = SubResource("StyleBoxFlat_outline_hover")
 theme_override_colors/font_color = Color(1, 1, 1, 0.9)
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 36
 text = "Quit"
 
 [node name="HowToPlayPanel" type="PanelContainer" parent="."]
@@ -202,7 +202,7 @@ theme_override_constants/separation = 16
 [node name="Header" type="Label" parent="HowToPlayPanel/HowToPlayCenter/InstructionsContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.98)
-theme_override_font_sizes/font_size = 42
+theme_override_font_sizes/font_size = 63
 text = "How to Play"
 horizontal_alignment = 1
 
@@ -214,7 +214,7 @@ custom_minimum_size = Vector2(0, 520)
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
-theme_override_font_sizes/normal_font_size = 24
+theme_override_font_sizes/normal_font_size = 36
 text = "[b]Goal:[/b]
 Move chess pieces to create lines of 5 or more matching pieces to clear them and score points.
 
@@ -246,9 +246,9 @@ theme_override_constants/separation = 18
 
 [node name="ButtonBack" type="Button" parent="HowToPlayPanel/HowToPlayCenter/InstructionsContainer/ButtonRow"]
 layout_mode = 2
-custom_minimum_size = Vector2(180, 48)
+custom_minimum_size = Vector2(220, 64)
 theme_override_styles/normal = SubResource("StyleBoxFlat_outline")
 theme_override_styles/hover = SubResource("StyleBoxFlat_outline_hover")
 theme_override_colors/font_color = Color(1, 1, 1, 0.9)
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 33
 text = "Back"

@@ -26,10 +26,13 @@ var cell_size: float = CELL_SIZE
 var current_score: int = 0
 var high_score: int = 0
 var combo_multiplier: int = 1
+var color_lines_cleared: int = 0
+var type_lines_cleared: int = 0
 
 signal score_updated(new_score: int)
 signal game_over(final_score: int)
 signal chain_detected(chain)
+signal line_metrics_updated(color_lines: int, type_lines: int)
 
 func _ready():
 	load_high_score()
@@ -63,10 +66,26 @@ func add_score(pieces_removed: int, chain_length: int, score_multiplier: float =
 	
 	score_updated.emit(current_score)
 
+func register_cleared_line(is_color_line: bool, is_type_line: bool):
+	var changed := false
+
+	if is_color_line:
+		color_lines_cleared += 1
+		changed = true
+	if is_type_line:
+		type_lines_cleared += 1
+		changed = true
+
+	if changed:
+		line_metrics_updated.emit(color_lines_cleared, type_lines_cleared)
+
 func reset_game():
 	current_score = 0
 	combo_multiplier = 1
+	color_lines_cleared = 0
+	type_lines_cleared = 0
 	score_updated.emit(0)
+	line_metrics_updated.emit(color_lines_cleared, type_lines_cleared)
 
 func end_game():
 	game_over.emit(current_score)

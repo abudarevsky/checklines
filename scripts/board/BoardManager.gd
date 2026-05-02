@@ -17,6 +17,7 @@ var dimmed_pieces = []
 var highlight_nodes = []
 var dim_border_nodes = []
 var input_enabled: bool = true
+var pending_click_grid_pos: Vector2i = Vector2i(-1, -1)
 var show_borders: bool = true
 var left_border_width: float = GameManager.BORDER_WIDTH
 var top_border_width: float = GameManager.BORDER_WIDTH
@@ -46,6 +47,7 @@ func clear_board():
 	highlight_nodes.clear()
 	dim_border_nodes.clear()
 	dimmed_pieces.clear()
+	pending_click_grid_pos = Vector2i(-1, -1)
 	if border_tween:
 		border_tween.kill()
 		border_tween = null
@@ -193,16 +195,24 @@ func get_all_pieces():
 	return board.values()
 
 func _input(event):
-	if not input_enabled:
-		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos = get_local_mouse_position()
 		var grid_pos = world_to_grid(local_pos)
-		if grid_pos.x >= 0 and grid_pos.x < board_size and grid_pos.y >= 0 and grid_pos.y < board_size:
-			if board.has(grid_pos):
-				handle_occupied_cell_click(grid_pos)
-			else:
-				handle_empty_cell_click(grid_pos)
+		if not _is_grid_in_bounds(grid_pos):
+			return
+		if not input_enabled:
+			pending_click_grid_pos = grid_pos
+			return
+		_handle_grid_click(grid_pos)
+
+func _is_grid_in_bounds(grid_pos: Vector2i) -> bool:
+	return grid_pos.x >= 0 and grid_pos.x < board_size and grid_pos.y >= 0 and grid_pos.y < board_size
+
+func _handle_grid_click(grid_pos: Vector2i):
+	if board.has(grid_pos):
+		handle_occupied_cell_click(grid_pos)
+	else:
+		handle_empty_cell_click(grid_pos)
 
 func handle_occupied_cell_click(grid_pos: Vector2i):
 	if selected_piece:
@@ -262,6 +272,11 @@ func set_input_enabled(enabled: bool):
 	input_enabled = enabled
 	if not enabled:
 		deselect_piece()
+		return
+	if pending_click_grid_pos != Vector2i(-1, -1):
+		var queued_click := pending_click_grid_pos
+		pending_click_grid_pos = Vector2i(-1, -1)
+		call_deferred("_handle_grid_click", queued_click)
 
 func _draw_highlight(cell: Vector2i) -> Node:
 	var highlight = ColorRect.new()
