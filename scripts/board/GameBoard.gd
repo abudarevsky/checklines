@@ -3,13 +3,11 @@ extends Node2D
 @onready var board_manager = $BoardManager
 @onready var score_label: Label = $CanvasLayer/ScoreHBox/ScoreLabel
 @onready var high_score_label: Label = $CanvasLayer/ScoreHBox/HighScoreLabel
-@onready var pause_button: Button = $CanvasLayer/UI/PauseButton
 @onready var game_over_panel: Control = $CanvasLayer/UI/GameOverPanel
 @onready var game_over_score_label: Label = $CanvasLayer/UI/GameOverPanel/VBox/FinalScoreLabel
 @onready var restart_button: Button = $CanvasLayer/UI/GameOverPanel/VBox/RestartButton
 @onready var main_menu_button: Button = $CanvasLayer/UI/GameOverPanel/VBox/MainMenuButton
 
-var is_paused: bool = false
 var is_processing_move: bool = false
 var chain_animation_tween: Tween
 
@@ -30,7 +28,6 @@ func _setup_signals():
 	GameManager.game_over.connect(_on_game_over)
 	restart_button.pressed.connect(_on_restart_pressed)
 	main_menu_button.pressed.connect(_on_main_menu_pressed)
-	pause_button.pressed.connect(_on_pause_pressed)
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 
 func _on_viewport_size_changed():
@@ -53,17 +50,7 @@ func _update_layout():
 
 func _input(event):
 	if event.is_action_pressed("ui_cancel"):
-		_toggle_pause()
-
-func _toggle_pause():
-	if game_over_panel.visible:
 		return
-	is_paused = not is_paused
-	get_tree().paused = is_paused
-	pause_button.text = ">" if is_paused else "II"
-
-func _on_pause_pressed():
-	_toggle_pause()
 
 func _initialize_game():
 	board_manager.board_size = GameManager.board_size
@@ -87,9 +74,8 @@ func _spawn_initial_pieces():
 		
 		empty_cells.shuffle()
 		var cell = empty_cells[0]
-		var piece_type = GameManager.get_random_piece_type()
-		var color = GameManager.get_random_piece_color()
-		board_manager.add_piece(piece_type, color, cell)
+		var spawn_data: Dictionary = board_manager.get_random_spawn_piece_data()
+		board_manager.add_piece(spawn_data["piece_type"], spawn_data["color"], cell)
 
 func _on_capture_made(_piece, _target):
 	AudioManager.play_sound("capture")

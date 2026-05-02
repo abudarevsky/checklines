@@ -424,12 +424,48 @@ func get_empty_cells():
 				empty.append(pos)
 	return empty
 
+func has_king_of_color(color: GameManager.PieceColor) -> bool:
+	for piece in board.values():
+		if piece.piece_type == GameManager.PieceType.KING and piece.piece_color == color:
+			return true
+	return false
+
+func _get_available_king_colors() -> Array:
+	var available_colors: Array = []
+	for color in GameManager.PieceColor.values():
+		if not has_king_of_color(color):
+			available_colors.append(color)
+	return available_colors
+
+func resolve_spawn_piece_data(piece_type, color) -> Dictionary:
+	if piece_type != GameManager.PieceType.KING:
+		return {"piece_type": piece_type, "color": color}
+
+	var available_king_colors := _get_available_king_colors()
+	if not available_king_colors.is_empty():
+		available_king_colors.shuffle()
+		return {"piece_type": piece_type, "color": available_king_colors[0]}
+
+	return {"piece_type": GameManager.PieceType.PAWN, "color": color}
+
+func get_random_spawn_piece_data() -> Dictionary:
+	var piece_type = GameManager.get_random_piece_type()
+	var color = GameManager.get_random_piece_color()
+
+	var resolved_spawn := resolve_spawn_piece_data(piece_type, color)
+	if resolved_spawn["piece_type"] != GameManager.PieceType.KING:
+		return resolved_spawn
+
+	while piece_type == GameManager.PieceType.KING:
+		piece_type = GameManager.get_random_piece_type()
+
+	return resolve_spawn_piece_data(piece_type, color)
+
 func spawn_random_pieces(count: int):
 	var empty_cells = get_empty_cells()
 	empty_cells.shuffle()
 	
 	for i in range(min(count, empty_cells.size())):
 		var cell = empty_cells[i]
-		var piece_type = GameManager.get_random_piece_type()
-		var color = GameManager.get_random_piece_color()
-		add_piece(piece_type, color, cell)
+		var spawn_data: Dictionary = get_random_spawn_piece_data()
+		add_piece(spawn_data["piece_type"], spawn_data["color"], cell)
