@@ -119,6 +119,9 @@ func get_random_piece_color() -> PieceColor:
 	return PieceColor.values()[randi() % PieceColor.size()]
 
 func get_color_value(color: PieceColor) -> Color:
+	var theme_manager = get_node_or_null("/root/ThemeManager")
+	if theme_manager != null and theme_manager.get_active_theme() != null:
+		return theme_manager.get_piece_color(int(color))
 	return COLOR_MAP.get(color, Color.WHITE)
 
 func get_piece_type_limit(piece_type: PieceType) -> int:

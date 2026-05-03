@@ -34,6 +34,16 @@ func _ready():
 	piece_scene = preload("res://scenes/pieces/Piece.tscn")
 	_sync_container_positions()
 	clear_board()
+	apply_theme(_get_theme())
+
+func _get_theme():
+	var theme_manager = get_node_or_null("/root/ThemeManager")
+	if theme_manager != null:
+		return theme_manager.get_active_theme()
+	return null
+
+func apply_theme(_theme):
+	queue_redraw()
 
 func clear_board():
 	for child in pieces_container.get_children():
@@ -75,11 +85,14 @@ func _sync_container_positions():
 	highlights_container.position = board_origin
 
 func _draw_board():
+	var theme = _get_theme()
+	if theme == null:
+		return
 	var board_origin := _get_board_origin()
 	for y in range(board_size):
 		for x in range(board_size):
 			var is_light: bool = (x + y) % 2 == 0
-			var color: Color = Color(0.7, 0.7, 0.7) if is_light else Color(0.3, 0.3, 0.3)
+			var color: Color = theme.board_cell_light_color if is_light else theme.board_cell_dark_color
 			var rect := Rect2(
 				board_origin.x + x * cell_size,
 				board_origin.y + y * cell_size,
@@ -91,6 +104,9 @@ func _draw_board():
 func _draw_borders():
 	if not show_borders:
 		return
+	var theme = _get_theme()
+	if theme == null:
+		return
 	var board_origin := _get_board_origin()
 	var board_size_px := _get_board_pixel_size()
 	var board_end_x := board_origin.x + board_size_px
@@ -99,19 +115,19 @@ func _draw_borders():
 	
 	draw_rect(
 		Rect2(board_origin.x - padding - left_border_width, board_origin.y, left_border_width, board_size_px),
-		Color.RED
+		theme.left_border_color
 	)
 	draw_rect(
 		Rect2(board_origin.x, board_origin.y - padding - top_border_width, board_size_px, top_border_width),
-		Color.BLUE
+		theme.top_border_color
 	)
 	draw_rect(
 		Rect2(board_end_x + padding, board_origin.y, right_border_width, board_size_px),
-		Color.GREEN
+		theme.right_border_color
 	)
 	draw_rect(
 		Rect2(board_origin.x, board_end_y + padding, board_size_px, bottom_border_width),
-		Color.ORANGE
+		theme.bottom_border_color
 	)
 
 func _get_cell_local_position(grid_pos: Vector2i) -> Vector2:
@@ -279,21 +295,22 @@ func set_input_enabled(enabled: bool):
 		call_deferred("_handle_grid_click", queued_click)
 
 func _draw_highlight(cell: Vector2i) -> Node:
+	var theme = _get_theme()
 	var highlight = ColorRect.new()
 	highlight.position = Vector2(cell.x * cell_size, cell.y * cell_size)
 	highlight.size = Vector2(cell_size, cell_size)
-	highlight.color = Color(1, 1, 0, 0.4)
+	highlight.color = theme.move_highlight_color
 	highlights_container.add_child(highlight)
 	return highlight
 
 func _draw_attack_overlay(attacker: Piece, target_cell: Vector2i) -> Node:
+	var theme = _get_theme()
 	var overlay_container = Node2D.new()
 	overlay_container.name = "AttackOverlay"
 	overlay_container.position = Vector2(target_cell.x * cell_size, target_cell.y * cell_size)
 	
 	var overlay_sprite = Sprite2D.new()
-	var type_str = _get_type_string(attacker.piece_type)
-	overlay_sprite.texture = load("res://assets/sprites/png/white_%s.png" % type_str)
+	overlay_sprite.texture = theme.get_piece_texture(int(attacker.piece_type))
 	var overlay_scale = cell_size / 4.0 / 512.0
 	overlay_sprite.scale = Vector2(overlay_scale, overlay_scale)
 	overlay_sprite.modulate = attacker.sprite.modulate
@@ -305,7 +322,7 @@ func _draw_attack_overlay(attacker: Piece, target_cell: Vector2i) -> Node:
 	
 	var bg_rect = ColorRect.new()
 	bg_rect.size = Vector2(overlay_size, overlay_size)
-	bg_rect.color = Color(0, 0, 0, 0.5)
+	bg_rect.color = theme.attack_overlay_background_color
 	bg_rect.position = Vector2(offset_x - overlay_size / 2, offset_y - overlay_size / 2)
 	
 	overlay_container.add_child(bg_rect)
@@ -314,12 +331,13 @@ func _draw_attack_overlay(attacker: Piece, target_cell: Vector2i) -> Node:
 	return overlay_container
 
 func _dim_target_piece(target_cell: Vector2i, attacker_color: GameManager.PieceColor):
+	var theme = _get_theme()
 	if board.has(target_cell):
 		var piece = board[target_cell]
 		dimmed_pieces.append({"piece": piece, "original_a": piece.modulate.a})
-		piece.modulate.a = 0.35
+		piece.modulate.a = theme.dim_target_alpha
 		
-		var border_color = GameManager.get_color_value(attacker_color)
+		var border_color = theme.get_border_color(int(attacker_color))
 		var border_width = 3
 		var cell_pixel = Vector2(target_cell.x * cell_size, target_cell.y * cell_size)
 		
@@ -350,16 +368,6 @@ func _dim_target_piece(target_cell: Vector2i, attacker_color: GameManager.PieceC
 		right.color = border_color
 		highlights_container.add_child(right)
 		dim_border_nodes.append(right)
-
-func _get_type_string(piece_type) -> String:
-	match piece_type:
-		GameManager.PieceType.PAWN: return "pawn"
-		GameManager.PieceType.KNIGHT: return "knight"
-		GameManager.PieceType.BISHOP: return "bishop"
-		GameManager.PieceType.ROOK: return "rook"
-		GameManager.PieceType.QUEEN: return "queen"
-		GameManager.PieceType.KING: return "king"
-	return "pawn"
 
 func _restore_dimmed_pieces():
 	for entry in dimmed_pieces:

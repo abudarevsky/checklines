@@ -1,9 +1,13 @@
 extends Node2D
 
 @onready var board_manager = $BoardManager
+@onready var score_panel: ColorRect = $CanvasLayer/ScorePanel
+@onready var score_shadow: ColorRect = $CanvasLayer/ScoreShadow
 @onready var score_label: Label = $CanvasLayer/ScoreHBox/ScoreLabel
 @onready var high_score_label: Label = $CanvasLayer/ScoreHBox/HighScoreLabel
+@onready var color_lines_badge: LineMetricBadge = $CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat/Badge
 @onready var color_lines_value_label: Label = $CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat/ValueLabel
+@onready var type_lines_badge: LineMetricBadge = $CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat/Badge
 @onready var type_lines_value_label: Label = $CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat/ValueLabel
 @onready var game_over_panel: Control = $CanvasLayer/UI/GameOverPanel
 @onready var game_over_score_label: Label = $CanvasLayer/UI/GameOverPanel/VBox/FinalScoreLabel
@@ -19,6 +23,7 @@ const TOP_BAR_SHADOW_HEIGHT: float = 5.0
 func _ready():
 	GameManager.reset_game()
 	_lock_mobile_orientation()
+	apply_theme(_get_theme())
 	_setup_signals()
 	_initialize_game()
 	_update_layout()
@@ -27,6 +32,32 @@ func _ready():
 func _lock_mobile_orientation():
 	if OS.has_feature("android"):
 		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_PORTRAIT)
+
+func _get_theme():
+	var theme_manager = get_node_or_null("/root/ThemeManager")
+	if theme_manager != null:
+		return theme_manager.get_active_theme()
+	return null
+
+func apply_theme(theme):
+	if theme == null:
+		return
+
+	score_panel.color = theme.hud_panel_color
+	score_shadow.color = theme.hud_shadow_color
+
+	score_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
+	score_label.add_theme_color_override("font_outline_color", theme.hud_outline_color)
+	high_score_label.add_theme_color_override("font_color", theme.hud_secondary_text_color)
+	high_score_label.add_theme_color_override("font_outline_color", theme.hud_secondary_outline_color)
+	color_lines_value_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
+	color_lines_value_label.add_theme_color_override("font_outline_color", theme.hud_secondary_outline_color)
+	type_lines_value_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
+	type_lines_value_label.add_theme_color_override("font_outline_color", theme.hud_secondary_outline_color)
+
+	board_manager.apply_theme(theme)
+	color_lines_badge.apply_theme(theme)
+	type_lines_badge.apply_theme(theme)
 
 func _setup_signals():
 	board_manager.capture_made.connect(_on_capture_made)

@@ -22,39 +22,35 @@ const SELECTED_JUMP_DURATION: float = 0.35
 @onready var selection_indicator: Node2D = $SelectionIndicator
 @onready var highlight_overlay: ColorRect = $HighlightOverlay
 
-const SVG_PATH = "res://assets/sprites/png/white_%s.png"
-
 func _ready():
 	base_sprite_position = sprite.position
 	base_selection_indicator_position = selection_indicator.position
-	_load_sprite()
+	apply_theme(_get_theme())
 
-func _load_sprite():
+func _get_theme():
+	var theme_manager = get_node_or_null("/root/ThemeManager")
+	if theme_manager != null:
+		return theme_manager.get_active_theme()
+	return null
+
+func apply_theme(theme):
+	if theme == null:
+		return
+	_load_sprite(theme)
+
+func _load_sprite(theme):
 	if not sprite:
 		return
-	
-	var type_str = _get_type_string()
-	var path = SVG_PATH % type_str
-	
-	sprite.texture = load(path)
-	sprite.scale = Vector2(sprite_scale, sprite_scale)
-	sprite.modulate = GameManager.get_color_value(piece_color)
 
-func _get_type_string() -> String:
-	match piece_type:
-		GameManager.PieceType.PAWN: return "pawn"
-		GameManager.PieceType.KNIGHT: return "knight"
-		GameManager.PieceType.BISHOP: return "bishop"
-		GameManager.PieceType.ROOK: return "rook"
-		GameManager.PieceType.QUEEN: return "queen"
-		GameManager.PieceType.KING: return "king"
-	return "pawn"
+	sprite.texture = theme.get_piece_texture(int(piece_type))
+	sprite.scale = Vector2(sprite_scale, sprite_scale)
+	sprite.modulate = theme.get_piece_color(int(piece_color))
 
 func setup(type, color, pos: Vector2i):
 	piece_type = type
 	piece_color = color
 	grid_position = pos
-	_load_sprite()
+	apply_theme(_get_theme())
 
 func update_visual():
 	if sprite:

@@ -162,6 +162,7 @@ Do not build current features around attacking or defending kings.
   - `GameManager`
   - `AudioManager`
   - `Settings`
+  - `ThemeManager`
 
 - `scenes/`
   - board and gameplay scenes
@@ -178,6 +179,10 @@ Do not build current features around attacking or defending kings.
 - `assets/sprites/`
   - chess piece SVG sources
   - rendered PNG sprites
+
+- `themes/`
+  - theme resources
+  - `default_theme.tres`
 
 ## Global Constants
 
@@ -225,6 +230,52 @@ assets/sprites/
 
 Avoid Godot SVG import dependency for runtime rendering.
 
+### Theme System
+
+The project now has a theme concept.
+
+A theme is a collection of visual resources and presentation values only.
+
+Current implementation uses:
+
+```text
+autoload/ThemeManager.gd
+scripts/theme/ThemeData.gd
+themes/default_theme.tres
+```
+
+Theme scope includes:
+
+- piece textures
+- piece tint colors
+- board cell colors
+- side border colors
+- move and attack overlay colors
+- HUD colors
+- menu colors and button styles
+- other purely visual presentation values
+
+Theme scope does not include:
+
+- board size
+- scoring
+- movement rules
+- spawn counts
+- piece inventory limits
+- king gameplay rules
+
+The active theme is currently fixed to `default_theme.tres`.
+
+Do not add theme selection UI, persistence, or runtime switching unless explicitly requested.
+
+When adding new visual elements, route their colors/resources through `ThemeData` instead of hardcoding them locally.
+
+When refactoring themed code, preserve default-theme parity:
+
+- the game should look the same after extraction
+- `default_theme.tres` is the canonical baseline for the current look
+- theme work should not alter gameplay behavior
+
 ### Main Menu Rendering
 
 Current main menu implementation uses:
@@ -253,6 +304,8 @@ Prefer stable node paths and direct button signal wiring in `MainMenu.gd`.
 Avoid duplicated scene subtrees or duplicate node names in `MainMenu.tscn`.
 
 If you change the HowToPlay layout, update script node paths at the same time.
+
+Main menu visuals should remain theme-driven through `ThemeManager` and `ThemeData`, even though only the default theme exists for now.
 
 ### Resize / Layout Principles
 
@@ -402,6 +455,8 @@ Owns:
 - piece weights
 - global gameplay parameters
 
+`GameManager.gd` should not become the primary owner of visual styling now that themes exist.
+
 ### `BoardManager.gd`
 
 Owns:
@@ -424,6 +479,7 @@ Owns or coordinates:
 - score updates
 - UI updates
 - game-over condition
+- applying HUD theme values to runtime UI nodes
 
 ### `Piece.gd`
 
@@ -433,6 +489,14 @@ Owns:
 - piece color
 - sprite setup
 - movement logic
+
+### `ThemeManager.gd`
+
+Owns:
+
+- loading the active theme resource
+- exposing the current `ThemeData`
+- central access point for theme-driven visuals
 
 ## Scoring Rules
 
@@ -506,6 +570,7 @@ Preserve working behavior:
 - centered main menu layout
 - checkerboard menu background
 - resize-safe board presentation
+- default theme visual parity
 
 ### When Changing Rules
 
@@ -515,6 +580,7 @@ Update only the relevant system:
 - board selection/movement → `BoardManager.gd`
 - spawning/scoring/game loop → `GameBoard.gd`
 - global values → `GameManager.gd`
+- visual styling/resources → `ThemeData.gd` and `ThemeManager.gd`
 - line detection → detector script
 
 ### Avoid

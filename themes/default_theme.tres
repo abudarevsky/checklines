@@ -1,0 +1,56 @@
+[gd_resource type="Resource" script_class="ThemeData" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/theme/ThemeData.gd" id="1_theme"]
+[ext_resource type="Texture2D" path="res://assets/sprites/png/white_pawn.png" id="2_pawn"]
+[ext_resource type="Texture2D" path="res://assets/sprites/png/white_knight.png" id="3_knight"]
+[ext_resource type="Texture2D" path="res://assets/sprites/png/white_bishop.png" id="4_bishop"]
+[ext_resource type="Texture2D" path="res://assets/sprites/png/white_rook.png" id="5_rook"]
+[ext_resource type="Texture2D" path="res://assets/sprites/png/white_queen.png" id="6_queen"]
+[ext_resource type="Texture2D" path="res://assets/sprites/png/white_king.png" id="7_king"]
+
+[resource]
+script = ExtResource("1_theme")
+pawn_texture = ExtResource("2_pawn")
+knight_texture = ExtResource("3_knight")
+bishop_texture = ExtResource("4_bishop")
+rook_texture = ExtResource("5_rook")
+queen_texture = ExtResource("6_queen")
+king_texture = ExtResource("7_king")
+red_piece_color = Color(1, 0, 0, 1)
+blue_piece_color = Color(0, 0, 1, 1)
+green_piece_color = Color(0, 1, 0, 1)
+orange_piece_color = Color(1, 0.647059, 0, 1)
+board_cell_light_color = Color(0.7, 0.7, 0.7, 1)
+board_cell_dark_color = Color(0.3, 0.3, 0.3, 1)
+left_border_color = Color(1, 0, 0, 1)
+top_border_color = Color(0, 0, 1, 1)
+right_border_color = Color(0, 1, 0, 1)
+bottom_border_color = Color(1, 0.647059, 0, 1)
+move_highlight_color = Color(1, 1, 0, 0.4)
+attack_overlay_background_color = Color(0, 0, 0, 0.5)
+dim_target_alpha = 0.35
+hud_panel_color = Color(0.8, 0.8, 0.8, 0.9)
+hud_shadow_color = Color(0.1, 0.1, 0.1, 0.5)
+hud_primary_text_color = Color(0.05, 0.05, 0.05, 1)
+hud_secondary_text_color = Color(0.05, 0.05, 0.05, 0.92)
+hud_outline_color = Color(0.25, 0.25, 0.25, 0.35)
+hud_secondary_outline_color = Color(0.25, 0.25, 0.25, 0.3)
+metric_tile_background_color = Color(0.92, 0.92, 0.92, 1)
+metric_outline_color = Color(0.08, 0.08, 0.08, 0.6)
+menu_checker_light_color = Color(0.34, 0.34, 0.34, 1)
+menu_checker_dark_color = Color(0.22, 0.22, 0.22, 1)
+menu_overlay_color = Color(0, 0, 0, 0.75)
+menu_panel_background_color = Color(0.08, 0.08, 0.08, 0.88)
+menu_panel_border_color = Color(1, 1, 1, 0.12)
+menu_title_color = Color(1, 1, 1, 0.98)
+menu_subtitle_color = Color(1, 1, 1, 0.72)
+menu_button_text_color = Color(1, 1, 1, 1)
+menu_outline_button_text_color = Color(1, 1, 1, 0.9)
+menu_button_green_color = Color(0.2, 0.8, 0.2, 1)
+menu_button_green_hover_color = Color(0.3, 0.9, 0.3, 1)
+menu_button_orange_color = Color(1, 0.5, 0, 1)
+menu_button_orange_hover_color = Color(1, 0.6, 0.1, 1)
+menu_button_outline_color = Color(0.2, 0.2, 0.2, 0.92)
+menu_button_outline_hover_color = Color(0.3, 0.3, 0.3, 0.96)
+menu_button_outline_border_color = Color(1, 1, 1, 0.35)
+menu_button_outline_border_hover_color = Color(1, 1, 1, 0.55)

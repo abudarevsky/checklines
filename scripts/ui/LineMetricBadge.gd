@@ -6,22 +6,35 @@ class_name LineMetricBadge
 		badge_mode = value
 		queue_redraw()
 
-const QUADRANT_COLORS: Array[Color] = [
-	Color(1.0, 0.55, 0.2, 1.0),
-	Color(0.9, 0.2, 0.2, 1.0),
-	Color(0.2, 0.45, 0.95, 1.0),
-	Color(0.2, 0.7, 0.35, 1.0),
-]
-const KNIGHT_TEXTURE_PATH: String = "res://assets/sprites/png/white_knight.png"
-const TILE_OUTLINE_COLOR: Color = Color(0.08, 0.08, 0.08, 0.6)
-const TILE_BACKGROUND_COLOR: Color = Color(0.92, 0.92, 0.92, 1.0)
-
 var knight_texture: Texture2D
+var quadrant_colors: Array[Color] = []
+var tile_outline_color: Color = Color(0.08, 0.08, 0.08, 0.6)
+var tile_background_color: Color = Color(0.92, 0.92, 0.92, 1.0)
 
 func _ready():
 	custom_minimum_size = Vector2(36.0, 36.0)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	knight_texture = load(KNIGHT_TEXTURE_PATH) as Texture2D
+	apply_theme(_get_theme())
+
+func _get_theme():
+	var theme_manager = get_node_or_null("/root/ThemeManager")
+	if theme_manager != null:
+		return theme_manager.get_active_theme()
+	return null
+
+func apply_theme(theme):
+	if theme == null:
+		return
+	quadrant_colors = [
+		theme.orange_piece_color,
+		theme.red_piece_color,
+		theme.blue_piece_color,
+		theme.green_piece_color,
+	]
+	tile_outline_color = theme.metric_outline_color
+	tile_background_color = theme.metric_tile_background_color
+	knight_texture = theme.knight_texture
+	queue_redraw()
 
 func _draw():
 	var size_px := size
@@ -33,16 +46,16 @@ func _draw():
 		var row := index / 2
 		var column := index % 2
 		var tile_rect := Rect2(Vector2(column, row) * tile_size, tile_size)
-		draw_rect(tile_rect, TILE_BACKGROUND_COLOR)
+		draw_rect(tile_rect, tile_background_color)
 
 		if badge_mode == "color":
-			draw_rect(tile_rect.grow(-2.0), QUADRANT_COLORS[index])
+			draw_rect(tile_rect.grow(-2.0), quadrant_colors[index])
 		else:
-			_draw_knight_quadrant(tile_rect.grow(-2.0), QUADRANT_COLORS[index])
+			_draw_knight_quadrant(tile_rect.grow(-2.0), quadrant_colors[index])
 
-	draw_line(Vector2(size_px.x * 0.5, 0.0), Vector2(size_px.x * 0.5, size_px.y), TILE_OUTLINE_COLOR, 1.5)
-	draw_line(Vector2(0.0, size_px.y * 0.5), Vector2(size_px.x, size_px.y * 0.5), TILE_OUTLINE_COLOR, 1.5)
-	draw_rect(Rect2(Vector2.ZERO, size_px), TILE_OUTLINE_COLOR, false, 2.0)
+	draw_line(Vector2(size_px.x * 0.5, 0.0), Vector2(size_px.x * 0.5, size_px.y), tile_outline_color, 1.5)
+	draw_line(Vector2(0.0, size_px.y * 0.5), Vector2(size_px.x, size_px.y * 0.5), tile_outline_color, 1.5)
+	draw_rect(Rect2(Vector2.ZERO, size_px), tile_outline_color, false, 2.0)
 
 func _draw_knight_quadrant(rect: Rect2, tint: Color):
 	draw_rect(rect, tint.darkened(0.78))
