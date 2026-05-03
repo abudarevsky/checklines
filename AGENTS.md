@@ -114,6 +114,9 @@ Kings are not treated as normal pieces for removal unless explicitly part of a v
 - Spawned pieces may complete normal Lines-style removals
 - King spawn is very rare
 - Random spawning must respect per-color inventory limits based on normal chess counts
+- Spawn placement should avoid creating removable lines when an alternative empty cell exists
+- If every remaining empty cell would create a line, spawning may still use one of those cells
+- If normal spawn inventory is exhausted under the current one-king-total rule, remaining empty cells should be filled with kings and the game should end immediately
 
 ### Movement Rule
 
@@ -167,9 +170,10 @@ Do not build current features around attacking or defending kings.
 - `scenes/`
   - board and gameplay scenes
   - `BoardManager`
-  - `GameBoard`
-  - `Piece`
-  - `MainMenu`
+- `GameBoard`
+- `Piece`
+- `MainMenu`
+- `SpawnPlanner`
 
 - `scripts/`
   - game logic
@@ -501,6 +505,7 @@ Owns:
 - move execution
 - move highlights
 - board occupancy
+- spawn placement over currently empty cells
 
 ### `GameBoard.gd`
 
@@ -512,6 +517,15 @@ Owns or coordinates:
 - score updates
 - UI updates
 - game-over condition
+- exhausted-spawn fallback to king-filled board ending
+
+### `SpawnPlanner.gd`
+
+Owns:
+
+- spawn-cell preference logic
+- avoiding line-making spawn placements when alternatives exist
+- detecting when normal spawn inventory is exhausted
 - applying HUD theme values to runtime UI nodes
 
 ### `Piece.gd`
@@ -674,6 +688,8 @@ Core functionality:
 11. Game-over condition still works
 12. At most one king exists on the board at any time
 13. No color exceeds chess-style inventory limits for any piece type
+14. Spawn placement avoids immediate line clears when another empty cell exists
+15. If normal spawn inventory is exhausted, remaining empty cells are filled with kings before game over
 
 Attack highlighting:
 14. Attack overlays display attacker sprite on target pieces
@@ -694,4 +710,4 @@ UI:
 
 ## Current Working Definition
 
-Check Lines is a Lines-style puzzle game on an 8x8 chess-sized board where colored chess pieces are moved using chess-inspired movement rules. The player clears lines of 5+ matching colors or 5+ matching piece types, can make limited color-based captures that do not score by themselves, and reveals puzzle artwork through piece removals during play. Random spawning respects chess-like per-color piece inventories, and the current build allows only one king on the board at a time.
+Check Lines is a Lines-style puzzle game on an 8x8 chess-sized board where colored chess pieces are moved using chess-inspired movement rules. The player clears lines of 5+ matching colors or 5+ matching piece types, can make limited color-based captures that do not score by themselves, and reveals puzzle artwork through piece removals during play. Random spawning respects chess-like per-color piece inventories, avoids immediate line-making placements when alternatives exist, and under the current one-king-total rule ends by filling remaining empty cells with kings when normal spawn inventory is exhausted.

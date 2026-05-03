@@ -307,23 +307,18 @@ func _get_ordinal(number: int) -> String:
 	return str(number) + "th"
 
 func _check_game_over():
-	if not board_manager.has_legal_moves():
+	if not board_manager.has_legal_moves() or not board_manager.can_spawn_any_piece():
 		GameManager.end_game()
 
 func _spawn_initial_pieces():
 	var piece_count = 3
 	
 	for i in range(piece_count):
-		var empty_cells = board_manager.get_empty_cells()
-		if empty_cells.is_empty():
-			break
-		
-		empty_cells.shuffle()
-		var cell = empty_cells[0]
 		var spawn_data: Dictionary = board_manager.get_random_spawn_piece_data()
 		if spawn_data.is_empty():
 			break
-		board_manager.add_piece(spawn_data["piece_type"], spawn_data["color"], cell)
+		if not board_manager.spawn_piece_with_preferred_placement(spawn_data):
+			break
 
 func _on_capture_made(_piece, _target):
 	AudioManager.play_sound("capture")
@@ -371,7 +366,12 @@ func _resolve_turn():
 
 	var cleared_from_move := await _resolve_chain_waves()
 	if not cleared_from_move:
-		_spawn_new_pieces()
+		var spawned_count: int = _spawn_new_pieces()
+		if spawned_count == 0:
+			board_manager.fill_empty_cells_with_kings()
+			_check_game_over()
+			is_processing_move = false
+			return
 		await get_tree().create_timer(0.3).timeout
 		await _resolve_chain_waves()
 
@@ -441,5 +441,5 @@ func _animate_chain_removal(chain):
 	for piece in chain:
 		board_manager.remove_piece(piece.grid_position)
 
-func _spawn_new_pieces():
-	board_manager.spawn_random_pieces(3)
+func _spawn_new_pieces() -> int:
+	return board_manager.spawn_random_pieces(3)

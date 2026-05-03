@@ -1,6 +1,8 @@
 extends Node2D
 class_name BoardManager
 
+const SpawnPlannerScript = preload("res://scripts/board/SpawnPlanner.gd")
+
 signal piece_selected(piece)
 signal piece_moved(from, to)
 signal capture_made(piece, target)
@@ -480,6 +482,9 @@ func get_available_colors_for_spawn() -> Array:
 			available_colors.append(color)
 	return available_colors
 
+func can_spawn_any_piece() -> bool:
+	return SpawnPlannerScript.has_spawn_capacity(board)
+
 func get_weighted_random_piece_type(available_types: Array) -> int:
 	var weights := GameManager.get_piece_spawn_weights()
 	var total_weight := 0.0
@@ -519,13 +524,44 @@ func get_random_spawn_piece_data() -> Dictionary:
 	var piece_type = GameManager.get_random_piece_type()
 	return resolve_spawn_piece_data(piece_type, color)
 
-func spawn_random_pieces(count: int):
-	var empty_cells = get_empty_cells()
-	empty_cells.shuffle()
-	
-	for i in range(min(count, empty_cells.size())):
-		var cell = empty_cells[i]
+func get_preferred_spawn_cell(piece_type: int, color: int) -> Vector2i:
+	var empty_cells: Array = get_empty_cells()
+	return SpawnPlannerScript.get_preferred_spawn_cell(board, empty_cells, piece_type, color)
+
+func spawn_piece_with_preferred_placement(spawn_data: Dictionary) -> bool:
+	if spawn_data.is_empty():
+		return false
+
+	var grid_pos: Vector2i = get_preferred_spawn_cell(spawn_data["piece_type"], spawn_data["color"])
+	if grid_pos == Vector2i(-1, -1):
+		return false
+
+	add_piece(spawn_data["piece_type"], spawn_data["color"], grid_pos)
+	return true
+
+func spawn_random_pieces(count: int) -> int:
+	var spawn_count: int = mini(count, get_empty_cells().size())
+	var spawned_count := 0
+
+	for i in range(spawn_count):
 		var spawn_data: Dictionary = get_random_spawn_piece_data()
 		if spawn_data.is_empty():
-			return
-		add_piece(spawn_data["piece_type"], spawn_data["color"], cell)
+			return spawned_count
+		if not spawn_piece_with_preferred_placement(spawn_data):
+			return spawned_count
+		spawned_count += 1
+
+	return spawned_count
+
+func fill_empty_cells_with_kings():
+	var empty_cells: Array = get_empty_cells()
+	if empty_cells.is_empty():
+		return
+
+	var king_colors: Array = GameManager.PieceColor.values()
+	king_colors.shuffle()
+
+	for i in range(empty_cells.size()):
+		var grid_pos: Vector2i = empty_cells[i]
+		var king_color: int = king_colors[i % king_colors.size()]
+		add_piece(GameManager.PieceType.KING, king_color, grid_pos)
