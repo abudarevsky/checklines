@@ -258,6 +258,7 @@ Theme scope includes:
 - HUD colors
 - puzzle board images and reveal-cover colors
 - message display colors
+- dialog colors and typography
 - menu colors and button styles
 - other purely visual presentation values
 
@@ -312,6 +313,7 @@ Avoid duplicated scene subtrees or duplicate node names in `MainMenu.tscn`.
 If you change the HowToPlay layout, update script node paths at the same time.
 
 Main menu visuals should remain theme-driven through `ThemeManager` and `ThemeData`, even though only the default theme exists for now.
+Main menu typography should use the same brisk dialog font family as the game-over screen and other modal dialogs.
 
 ### Resize / Layout Principles
 
@@ -354,12 +356,30 @@ Message display rules:
 - color line message: `"$number in a row"`
 - type line message: `"$number $piece_name on the march"`
 - level complete message: `"Completed the $ordinal level!"`
+- HUD messages should use the dialog font family at a larger, more prominent size
+- HUD messages currently animate from left to right and dismiss in reverse order
 
 If HUD layout changes, preserve:
 
 - full-width board presentation below the HUD
 - anchored top HUD controls
 - theme-driven puzzle visuals and message styling
+
+### Dialogs
+
+Current modal/dialog presentation includes:
+
+- a large centered game-over card
+- dark overlay backdrop
+- brisk modern dialog typography
+- shared font family for menu, HUD messages, and game-over text
+
+When adding or refactoring dialogs:
+
+- keep titles proportionally larger than body text
+- keep dialog buttons large and easy to hit
+- route dialog colors and font settings through `ThemeData`
+- preserve the current centered card style for game over unless explicitly redesigned
 
 ## Input Handling
 
@@ -526,7 +546,6 @@ Owns:
 - spawn-cell preference logic
 - avoiding line-making spawn placements when alternatives exist
 - detecting when normal spawn inventory is exhausted
-- applying HUD theme values to runtime UI nodes
 
 ### `Piece.gd`
 
@@ -707,6 +726,8 @@ UI:
 24. Score bar stretches to the current window width
 25. Puzzle board reveals tiles as pieces are removed
 26. Message display shows line-clear and level-complete messages with the expected wording
+27. HUD messages animate in from the left and dismiss in reverse order
+28. Game-over dialog uses a large centered card with brisk modern typography
 
 ## Current Working Definition
 
