@@ -25,54 +25,57 @@ func _lock_mobile_orientation():
 		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_PORTRAIT)
 
 func _get_theme():
-	var theme_manager = get_node_or_null("/root/ThemeManager")
-	if theme_manager != null:
-		return theme_manager.get_active_theme()
+	var main_loop: MainLoop = Engine.get_main_loop()
+	if main_loop is SceneTree:
+		var root: Window = main_loop.root
+		var theme_manager = root.get_node_or_null("ThemeManager")
+		if theme_manager != null:
+			return theme_manager.get_active_theme()
 	return null
 
-func apply_theme(theme):
-	if theme == null:
+func apply_theme(theme_data):
+	if theme_data == null:
 		return
 
 	if background.has_method("apply_theme"):
-		background.apply_theme(theme)
+		background.apply_theme(theme_data)
 
-	var panel_style := _build_panel_style(theme.menu_panel_background_color, theme.menu_panel_border_color)
+	var panel_style := _build_panel_style(theme_data.menu_panel_background_color, theme_data.menu_panel_border_color)
 	menu_panel.add_theme_stylebox_override("panel", panel_style)
 	how_to_play_panel.add_theme_stylebox_override("panel", panel_style.duplicate())
 
-	title_label.add_theme_color_override("font_color", theme.menu_title_color)
-	subtitle_label.add_theme_color_override("font_color", theme.menu_subtitle_color)
-	how_to_play_header.add_theme_color_override("font_color", theme.menu_title_color)
-	how_to_play_instructions.add_theme_color_override("default_color", theme.menu_title_color)
+	title_label.add_theme_color_override("font_color", theme_data.menu_title_color)
+	subtitle_label.add_theme_color_override("font_color", theme_data.menu_subtitle_color)
+	how_to_play_header.add_theme_color_override("font_color", theme_data.menu_title_color)
+	how_to_play_instructions.add_theme_color_override("default_color", theme_data.menu_title_color)
 
 	_apply_button_style(
 		button_play,
-		theme.menu_button_green_color,
-		theme.menu_button_green_hover_color,
-		theme.menu_button_text_color
+		theme_data.menu_button_green_color,
+		theme_data.menu_button_green_hover_color,
+		theme_data.menu_button_text_color
 	)
 	_apply_button_style(
 		button_how_to_play,
-		theme.menu_button_orange_color,
-		theme.menu_button_orange_hover_color,
-		theme.menu_button_text_color
+		theme_data.menu_button_orange_color,
+		theme_data.menu_button_orange_hover_color,
+		theme_data.menu_button_text_color
 	)
 	_apply_button_style(
 		button_quit,
-		theme.menu_button_outline_color,
-		theme.menu_button_outline_hover_color,
-		theme.menu_outline_button_text_color,
-		theme.menu_button_outline_border_color,
-		theme.menu_button_outline_border_hover_color
+		theme_data.menu_button_outline_color,
+		theme_data.menu_button_outline_hover_color,
+		theme_data.menu_outline_button_text_color,
+		theme_data.menu_button_outline_border_color,
+		theme_data.menu_button_outline_border_hover_color
 	)
 	_apply_button_style(
 		button_back,
-		theme.menu_button_outline_color,
-		theme.menu_button_outline_hover_color,
-		theme.menu_outline_button_text_color,
-		theme.menu_button_outline_border_color,
-		theme.menu_button_outline_border_hover_color
+		theme_data.menu_button_outline_color,
+		theme_data.menu_button_outline_hover_color,
+		theme_data.menu_outline_button_text_color,
+		theme_data.menu_button_outline_border_color,
+		theme_data.menu_button_outline_border_hover_color
 	)
 
 func _build_panel_style(background_color: Color, border_color: Color) -> StyleBoxFlat:

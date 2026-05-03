@@ -33,6 +33,11 @@ class_name ThemeData
 @export var hud_secondary_outline_color: Color = Color(0.25, 0.25, 0.25, 0.3)
 @export var metric_tile_background_color: Color = Color(0.92, 0.92, 0.92, 1.0)
 @export var metric_outline_color: Color = Color(0.08, 0.08, 0.08, 0.6)
+@export var puzzle_level_images: Array = []
+@export var puzzle_board_background_color: Color = Color(0.16, 0.16, 0.16, 1.0)
+@export var puzzle_tile_cover_color: Color = Color(0.06, 0.06, 0.06, 0.92)
+@export var puzzle_message_text_color: Color = Color(0.12, 0.12, 0.12, 1.0)
+@export var puzzle_message_outline_color: Color = Color(1.0, 1.0, 1.0, 0.28)
 
 @export var menu_checker_light_color: Color = Color(0.34, 0.34, 0.34)
 @export var menu_checker_dark_color: Color = Color(0.22, 0.22, 0.22)

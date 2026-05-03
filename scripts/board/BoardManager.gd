@@ -4,8 +4,6 @@ class_name BoardManager
 signal piece_selected(piece)
 signal piece_moved(from, to)
 signal capture_made(piece, target)
-signal chain_cleared(chain)
-signal no_moves_available
 
 var board: Dictionary = {}
 var board_size: int = GameManager.BOARD_SIZE
@@ -37,9 +35,12 @@ func _ready():
 	apply_theme(_get_theme())
 
 func _get_theme():
-	var theme_manager = get_node_or_null("/root/ThemeManager")
-	if theme_manager != null:
-		return theme_manager.get_active_theme()
+	var main_loop: MainLoop = Engine.get_main_loop()
+	if main_loop is SceneTree:
+		var root: Window = main_loop.root
+		var theme_manager = root.get_node_or_null("ThemeManager")
+		if theme_manager != null:
+			return theme_manager.get_active_theme()
 	return null
 
 func apply_theme(_theme):
@@ -240,12 +241,10 @@ func handle_occupied_cell_click(grid_pos: Vector2i):
 	_on_piece_clicked(board[grid_pos])
 
 func _on_piece_clicked(piece):
-	print("piece_clicked: " + str(piece.grid_position))
 	if selected_piece == piece:
 		deselect_piece()
 		return
 	
-	print("  calling select_piece")
 	select_piece(piece)
 
 func handle_empty_cell_click(grid_pos: Vector2i):

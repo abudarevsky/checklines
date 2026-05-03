@@ -17,23 +17,26 @@ func _ready():
 	apply_theme(_get_theme())
 
 func _get_theme():
-	var theme_manager = get_node_or_null("/root/ThemeManager")
-	if theme_manager != null:
-		return theme_manager.get_active_theme()
+	var main_loop: MainLoop = Engine.get_main_loop()
+	if main_loop is SceneTree:
+		var root: Window = main_loop.root
+		var theme_manager = root.get_node_or_null("ThemeManager")
+		if theme_manager != null:
+			return theme_manager.get_active_theme()
 	return null
 
-func apply_theme(theme):
-	if theme == null:
+func apply_theme(theme_data):
+	if theme_data == null:
 		return
 	quadrant_colors = [
-		theme.orange_piece_color,
-		theme.red_piece_color,
-		theme.blue_piece_color,
-		theme.green_piece_color,
+		theme_data.orange_piece_color,
+		theme_data.red_piece_color,
+		theme_data.blue_piece_color,
+		theme_data.green_piece_color,
 	]
-	tile_outline_color = theme.metric_outline_color
-	tile_background_color = theme.metric_tile_background_color
-	knight_texture = theme.knight_texture
+	tile_outline_color = theme_data.metric_outline_color
+	tile_background_color = theme_data.metric_tile_background_color
+	knight_texture = theme_data.knight_texture
 	queue_redraw()
 
 func _draw():
@@ -43,8 +46,8 @@ func _draw():
 
 	var tile_size := size_px * 0.5
 	for index in range(4):
-		var row := index / 2
-		var column := index % 2
+		var row: int = index >> 1
+		var column: int = index % 2
 		var tile_rect := Rect2(Vector2(column, row) * tile_size, tile_size)
 		draw_rect(tile_rect, tile_background_color)
 

@@ -23,7 +23,7 @@ anchor_bottom = 0.0
 offset_left = 0
 offset_top = 0
 offset_right = 0
-offset_bottom = 60
+offset_bottom = 238
 grow_horizontal = 2
 color = Color(0.8, 0.8, 0.8, 0.9)
 
@@ -33,11 +33,60 @@ anchors_preset = 10
 anchor_right = 1.0
 anchor_bottom = 0.0
 offset_left = 0
-offset_top = 60
+offset_top = 238
 offset_right = 0
-offset_bottom = 65
+offset_bottom = 243
 grow_horizontal = 2
 color = Color(0.1, 0.1, 0.1, 0.5)
+
+[node name="PuzzlePanel" type="ColorRect" parent="CanvasLayer"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = 16
+offset_top = 12
+offset_right = -16
+offset_bottom = 146
+grow_horizontal = 2
+color = Color(0.16, 0.16, 0.16, 1)
+
+[node name="PuzzleImage" type="TextureRect" parent="CanvasLayer/PuzzlePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PuzzleTiles" type="Control" parent="CanvasLayer/PuzzlePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="MessageLabel" type="Label" parent="CanvasLayer"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = 16
+offset_top = 150
+offset_right = -16
+offset_bottom = 182
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.12, 0.12, 0.12, 1)
+theme_override_constants/outline_size = 2
+theme_override_colors/font_outline_color = Color(1, 1, 1, 0.28)
+theme_override_font_sizes/font_size = 22
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="ScoreHBox" type="HBoxContainer" parent="CanvasLayer"]
 layout_mode = 3
@@ -45,9 +94,9 @@ anchors_preset = 10
 anchor_right = 1.0
 anchor_bottom = 0.0
 offset_left = 0
-offset_top = 0
+offset_top = 182
 offset_right = 0
-offset_bottom = 60
+offset_bottom = 238
 grow_horizontal = 2
 theme_override_constants/separation = 24
 

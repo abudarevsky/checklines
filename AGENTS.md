@@ -10,7 +10,7 @@ source: /Users/andreybudarevskiy/dev/games/chessline/AGENTS.md
 
 Check Lines is a Godot 4.6 puzzle game combining classic Lines-style clearing with chess-piece movement.
 
-The player moves chess pieces on a fixed 8x8 board. Pieces move according to chess-inspired movement rules, but they do not capture by moving onto occupied cells. The goal is to create removable lines of 5+ pieces.
+The player moves chess pieces on a fixed 8x8 board. Pieces move according to chess-inspired movement rules, can capture eligible opposing-color pieces by moving onto occupied cells, and primarily score by creating removable lines of 5+ pieces.
 
 The current design direction is closer to classic Lines than chess combat.
 
@@ -252,6 +252,8 @@ Theme scope includes:
 - side border colors
 - move and attack overlay colors
 - HUD colors
+- puzzle board images and reveal-cover colors
+- message display colors
 - menu colors and button styles
 - other purely visual presentation values
 
@@ -315,7 +317,9 @@ Current approach:
 
 - UI overlays use `Control` anchors
 - gameplay board remains a fixed logical 8x8 board
-- `GameBoard.gd` scales and centers `BoardManager` to fit the current viewport
+- `GameBoard.gd` scales `BoardManager` to fill the viewport width
+- gameplay board is positioned directly below the HUD instead of vertically centered in leftover space
+- desktop windowed mode may increase window height so the full-width board and HUD remain fully visible
 - top HUD stretches horizontally with anchors instead of fixed pixel widths
 
 Prefer viewport-aware scaling at the scene container level.
@@ -323,6 +327,35 @@ Prefer viewport-aware scaling at the scene container level.
 Do not rewrite board logic to use dynamic per-cell coordinates just to support window resizing.
 
 Use `GameManager.BOARD_PIXEL_SIZE` and `GameManager.CELL_SIZE` as the logical board dimensions, then scale the board scene visually.
+
+The current default desktop viewport height in `project.godot` should stay aligned with the HUD plus full-width board footprint.
+
+### HUD / Puzzle Board
+
+Current gameplay HUD includes:
+
+- a top puzzle board image panel
+- a message display beneath the puzzle board
+- score and session line counters beneath the message display
+
+Puzzle board rules:
+
+- one removed piece reveals one puzzle tile
+- fully revealing one picture completes one level
+- level images come from the active `ThemeData`
+- puzzle tile cover and puzzle board colors should remain theme-driven
+
+Message display rules:
+
+- color line message: `"$number in a row"`
+- type line message: `"$number $piece_name on the march"`
+- level complete message: `"Completed the $ordinal level!"`
+
+If HUD layout changes, preserve:
+
+- full-width board presentation below the HUD
+- anchored top HUD controls
+- theme-driven puzzle visuals and message styling
 
 ## Input Handling
 
@@ -653,9 +686,12 @@ UI:
 19. Main menu centered with dark panel and board visible beneath
 20. HowToPlay panel fully opaque
 21. Main menu buttons remain centered after window resize
-22. Gameplay board stays centered and fully visible after window resize
-23. Score bar stretches to the current window width
+22. Gameplay board fills the viewport width and remains fully visible after window resize
+23. Desktop window height expands when needed so the HUD and full-width board are not cut off
+24. Score bar stretches to the current window width
+25. Puzzle board reveals tiles as pieces are removed
+26. Message display shows line-clear and level-complete messages with the expected wording
 
 ## Current Working Definition
 
-Check Lines is a Lines-style puzzle game on an 8x8 chess-sized board where colored chess pieces are moved using chess-inspired movement rules. The player clears lines of 5+ matching colors or 5+ matching piece types. Color lines are standard clears, while harder type lines give double score. Random spawning respects chess-like per-color piece inventories, and the current build allows only one king on the board at a time.
+Check Lines is a Lines-style puzzle game on an 8x8 chess-sized board where colored chess pieces are moved using chess-inspired movement rules. The player clears lines of 5+ matching colors or 5+ matching piece types, can make limited color-based captures that do not score by themselves, and reveals puzzle artwork through piece removals during play. Random spawning respects chess-like per-color piece inventories, and the current build allows only one king on the board at a time.

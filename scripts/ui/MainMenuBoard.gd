@@ -11,17 +11,20 @@ func _ready():
 	queue_redraw()
 
 func _get_theme():
-	var theme_manager = get_node_or_null("/root/ThemeManager")
-	if theme_manager != null:
-		return theme_manager.get_active_theme()
+	var main_loop: MainLoop = Engine.get_main_loop()
+	if main_loop is SceneTree:
+		var root: Window = main_loop.root
+		var theme_manager = root.get_node_or_null("ThemeManager")
+		if theme_manager != null:
+			return theme_manager.get_active_theme()
 	return null
 
-func apply_theme(theme):
-	if theme == null:
+func apply_theme(theme_data):
+	if theme_data == null:
 		return
-	board_color_light = theme.menu_checker_light_color
-	board_color_dark = theme.menu_checker_dark_color
-	overlay_color = theme.menu_overlay_color
+	board_color_light = theme_data.menu_checker_light_color
+	board_color_dark = theme_data.menu_checker_dark_color
+	overlay_color = theme_data.menu_overlay_color
 	queue_redraw()
 
 func _draw():

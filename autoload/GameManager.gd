@@ -39,7 +39,6 @@ var type_lines_cleared: int = 0
 
 signal score_updated(new_score: int)
 signal game_over(final_score: int)
-signal chain_detected(chain)
 signal line_metrics_updated(color_lines: int, type_lines: int)
 
 func _ready():
@@ -119,9 +118,12 @@ func get_random_piece_color() -> PieceColor:
 	return PieceColor.values()[randi() % PieceColor.size()]
 
 func get_color_value(color: PieceColor) -> Color:
-	var theme_manager = get_node_or_null("/root/ThemeManager")
-	if theme_manager != null and theme_manager.get_active_theme() != null:
-		return theme_manager.get_piece_color(int(color))
+	var main_loop: MainLoop = Engine.get_main_loop()
+	if main_loop is SceneTree:
+		var root: Window = main_loop.root
+		var theme_manager = root.get_node_or_null("ThemeManager")
+		if theme_manager != null and theme_manager.get_active_theme() != null:
+			return theme_manager.get_piece_color(int(color))
 	return COLOR_MAP.get(color, Color.WHITE)
 
 func get_piece_type_limit(piece_type: PieceType) -> int:

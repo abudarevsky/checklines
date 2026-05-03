@@ -28,9 +28,12 @@ func _ready():
 	apply_theme(_get_theme())
 
 func _get_theme():
-	var theme_manager = get_node_or_null("/root/ThemeManager")
-	if theme_manager != null:
-		return theme_manager.get_active_theme()
+	var main_loop: MainLoop = Engine.get_main_loop()
+	if main_loop is SceneTree:
+		var root: Window = main_loop.root
+		var theme_manager = root.get_node_or_null("ThemeManager")
+		if theme_manager != null:
+			return theme_manager.get_active_theme()
 	return null
 
 func apply_theme(theme):

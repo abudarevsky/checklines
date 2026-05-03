@@ -4,8 +4,6 @@ const DEFAULT_THEME_PATH := "res://themes/default_theme.tres"
 
 var active_theme = null
 
-signal theme_changed(theme)
-
 func _ready():
 	active_theme = load(DEFAULT_THEME_PATH)
 

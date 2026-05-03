@@ -25,9 +25,9 @@ AudioManager="*res://autoload/AudioManager.gd"
 [display]
 
 window/size/viewport_width=900
-window/size/viewport_height=960
-window/handheld/orientation="portrait"
+window/size/viewport_height=1143
 window/stretch/mode="canvas_items"
+window/handheld/orientation="portrait"
 
 [rendering]
 
