@@ -82,6 +82,8 @@ func _spawn_initial_pieces():
 		empty_cells.shuffle()
 		var cell = empty_cells[0]
 		var spawn_data: Dictionary = board_manager.get_random_spawn_piece_data()
+		if spawn_data.is_empty():
+			break
 		board_manager.add_piece(spawn_data["piece_type"], spawn_data["color"], cell)
 
 func _on_capture_made(_piece, _target):

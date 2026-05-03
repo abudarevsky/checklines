@@ -10,7 +10,7 @@ source: /Users/andreybudarevskiy/dev/games/chessline/AGENTS.md
 
 Check Lines is a Godot 4.6 puzzle game combining classic Lines-style clearing with chess-piece movement.
 
-The player moves chess pieces on a 9x9 board. Pieces move according to chess-inspired movement rules, but they do not capture by moving onto occupied cells. The goal is to create removable lines of 5+ pieces.
+The player moves chess pieces on a fixed 8x8 board. Pieces move according to chess-inspired movement rules, but they do not capture by moving onto occupied cells. The goal is to create removable lines of 5+ pieces.
 
 The current design direction is closer to classic Lines than chess combat.
 
@@ -26,7 +26,7 @@ Puzzle colors for pieces and borders:
 
 ### Board
 
-- Board size: 9x9
+- Board size: 8x8
 - Board cells: Light gray / Dark gray (neutral colors)
 - Pieces occupy grid cells
 - Pieces move only to empty cells
@@ -53,23 +53,58 @@ Color defines one type of removable line.
 
 Do not use White/Black faction combat as the main rule anymore.
 
-### Removal Rules
+## Removal Rules (Scoring)
 
-A line is removed when it contains 5 or more aligned pieces.
+The primary way to score is by forming and removing lines of 5 or more aligned pieces.
 
-There are two valid line types:
+Two types of lines are supported:
 
-1. Color line  
-   - 5+ pieces of the same color
-   - piece type does not matter
-   - normal score
+1. Color Line  
+   - 5 or more pieces of the same color  
+   - piece type does not matter  
+   - awards base score  
 
-2. Type line  
-   - 5+ pieces of the same chess type
-   - color does not matter
-   - double score
+2. Type Line  
+   - 5 or more pieces of the same chess type  
+   - color does not matter  
+   - awards double score  
 
-If a line satisfies both color and type match, apply a combo bonus.
+If a line satisfies both conditions (same color and same type), apply a combo bonus.
+
+Only line-based removals generate score.
+
+---
+
+## Attack Rule (Board Manipulation)
+
+A piece may capture another piece by moving onto its cell if:
+
+- the target piece is of a different color  
+- the movement follows the attacking piece’s movement rules  
+
+Result:
+- the attacking piece replaces the target piece  
+- the target piece is removed  
+
+Restrictions:
+- same-color pieces cannot be captured  
+- Kings cannot be captured  
+
+Attacks do not generate score and do not count as line completion.  
+After an attack, line detection is evaluated normally.
+
+---
+
+## King Rule
+
+Kings are special joker pieces with the following behavior:
+
+- can move and capture using standard king movement  
+- cannot be captured by other pieces  
+- can participate in type-based lines as a wildcard (joker)  
+- only one king should exist on the board at a time  
+
+Kings are not treated as normal pieces for removal unless explicitly part of a valid line.
 
 ### Spawn Rule
 
@@ -77,6 +112,8 @@ If a line satisfies both color and type match, apply a combo bonus.
 - After each player move, spawn 3 new random pieces
 - Preview next 3 pieces if implemented
 - Spawned pieces may complete normal Lines-style removals
+- King spawn is very rare
+- Random spawning must respect per-color inventory limits based on normal chess counts
 
 ### Movement Rule
 
@@ -106,7 +143,7 @@ King is a rare special piece.
 Possible target role:
 
 - wildcard / joker-like piece
-- only limited number of kings should exist
+- only one king should exist on the board at a time
 - king should help difficult line completion
 - king should not introduce separate king-attack gameplay
 
@@ -151,7 +188,7 @@ Do not hardcode board or cell sizes.
 Expected constants:
 
 ```gdscript
-const BOARD_SIZE: int = 9
+const BOARD_SIZE: int = 8
 const CELL_SIZE: int = 100
 const BOARD_PIXEL_SIZE: int = BOARD_SIZE * CELL_SIZE
 const WINDOW_WIDTH: int = BOARD_PIXEL_SIZE
@@ -224,7 +261,7 @@ The game should remain usable when the window size changes.
 Current approach:
 
 - UI overlays use `Control` anchors
-- gameplay board remains a fixed logical 9x9 board
+- gameplay board remains a fixed logical 8x8 board
 - `GameBoard.gd` scales and centers `BoardManager` to fit the current viewport
 - top HUD stretches horizontally with anchors instead of fixed pixel widths
 
@@ -423,6 +460,17 @@ Suggested identity:
 
 Piece distribution should support board variety without making powerful pieces too common.
 
+Current enforced inventory limits per color:
+
+- 8 pawns
+- 2 knights
+- 2 bishops
+- 2 rooks
+- 1 queen
+- 1 king by type inventory, but current gameplay further restricts this to one king total on the whole board
+
+Spawn logic should only generate colors and piece types that are still legal under these limits.
+
 ## Development Rules for opencode / qwen3-coder
 
 ### Before Editing
@@ -515,7 +563,7 @@ GODOT="/Applications/Godot.app/Contents/MacOS/Godot"
 
 Core functionality:
 1. Game starts
-2. 3 random pieces appear
+2. Board is 8x8
 3. Clicking a piece selects it
 4. Valid empty moves are highlighted
 5. Clicking a highlighted cell moves the piece
@@ -525,21 +573,23 @@ Core functionality:
 9. 3 new pieces spawn after a move
 10. Board state remains consistent
 11. Game-over condition still works
+12. At most one king exists on the board at any time
+13. No color exceeds chess-style inventory limits for any piece type
 
 Attack highlighting:
-12. Attack overlays display attacker sprite on target pieces
-13. Attack borders show attacker color on target cell
-14. Target pieces dimmed (0.35 opacity) when selectable
-15. Overlays disappear on piece deselection
-16. Pawn moves in correct direction (away from home border)
+14. Attack overlays display attacker sprite on target pieces
+15. Attack borders show attacker color on target cell
+16. Target pieces dimmed (0.35 opacity) when selectable
+17. Overlays disappear on piece deselection
+18. Pawn moves in correct direction (away from home border)
 
 UI:
-17. Main menu centered with dark panel and board visible beneath
-18. HowToPlay panel fully opaque
-19. Main menu buttons remain centered after window resize
-20. Gameplay board stays centered and fully visible after window resize
-21. Score bar stretches to the current window width
+19. Main menu centered with dark panel and board visible beneath
+20. HowToPlay panel fully opaque
+21. Main menu buttons remain centered after window resize
+22. Gameplay board stays centered and fully visible after window resize
+23. Score bar stretches to the current window width
 
 ## Current Working Definition
 
-Check Lines is a Lines-style puzzle game where colored chess pieces are moved using chess-inspired movement rules. The player clears lines of 5+ matching colors or 5+ matching piece types. Color lines are standard clears, while harder type lines give double score.
+Check Lines is a Lines-style puzzle game on an 8x8 chess-sized board where colored chess pieces are moved using chess-inspired movement rules. The player clears lines of 5+ matching colors or 5+ matching piece types. Color lines are standard clears, while harder type lines give double score. Random spawning respects chess-like per-color piece inventories, and the current build allows only one king on the board at a time.

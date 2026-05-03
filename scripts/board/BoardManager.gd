@@ -439,41 +439,77 @@ func get_empty_cells():
 				empty.append(pos)
 	return empty
 
-func has_king_of_color(color: GameManager.PieceColor) -> bool:
+func has_king_on_board() -> bool:
 	for piece in board.values():
-		if piece.piece_type == GameManager.PieceType.KING and piece.piece_color == color:
+		if piece.piece_type == GameManager.PieceType.KING:
 			return true
 	return false
 
-func _get_available_king_colors() -> Array:
+func get_piece_count_for_color_and_type(color: GameManager.PieceColor, piece_type: GameManager.PieceType) -> int:
+	var count := 0
+	for piece in board.values():
+		if piece.piece_color == color and piece.piece_type == piece_type:
+			count += 1
+	return count
+
+func can_spawn_piece_type_for_color(piece_type: GameManager.PieceType, color: GameManager.PieceColor) -> bool:
+	if piece_type == GameManager.PieceType.KING and has_king_on_board():
+		return false
+
+	var limit := GameManager.get_piece_type_limit(piece_type)
+	return get_piece_count_for_color_and_type(color, piece_type) < limit
+
+func get_available_piece_types_for_color(color: GameManager.PieceColor) -> Array:
+	var available_types: Array = []
+	for piece_type in GameManager.PieceType.values():
+		if can_spawn_piece_type_for_color(piece_type, color):
+			available_types.append(piece_type)
+	return available_types
+
+func get_available_colors_for_spawn() -> Array:
 	var available_colors: Array = []
 	for color in GameManager.PieceColor.values():
-		if not has_king_of_color(color):
+		if not get_available_piece_types_for_color(color).is_empty():
 			available_colors.append(color)
 	return available_colors
 
+func get_weighted_random_piece_type(available_types: Array) -> int:
+	var weights := GameManager.get_piece_spawn_weights()
+	var total_weight := 0.0
+
+	for piece_type in available_types:
+		total_weight += weights[piece_type]
+
+	if total_weight <= 0.0:
+		return available_types[0]
+
+	var threshold := randf() * total_weight
+	var cumulative := 0.0
+	for piece_type in available_types:
+		cumulative += weights[piece_type]
+		if threshold <= cumulative:
+			return piece_type
+
+	return available_types[available_types.size() - 1]
+
 func resolve_spawn_piece_data(piece_type, color) -> Dictionary:
-	if piece_type != GameManager.PieceType.KING:
+	if can_spawn_piece_type_for_color(piece_type, color):
 		return {"piece_type": piece_type, "color": color}
 
-	var available_king_colors := _get_available_king_colors()
-	if not available_king_colors.is_empty():
-		available_king_colors.shuffle()
-		return {"piece_type": piece_type, "color": available_king_colors[0]}
+	var available_types := get_available_piece_types_for_color(color)
+	if available_types.is_empty():
+		return {}
 
-	return {"piece_type": GameManager.PieceType.PAWN, "color": color}
+	return {"piece_type": get_weighted_random_piece_type(available_types), "color": color}
 
 func get_random_spawn_piece_data() -> Dictionary:
+	var available_colors := get_available_colors_for_spawn()
+	if available_colors.is_empty():
+		return {}
+
+	available_colors.shuffle()
+	var color = available_colors[0]
 	var piece_type = GameManager.get_random_piece_type()
-	var color = GameManager.get_random_piece_color()
-
-	var resolved_spawn := resolve_spawn_piece_data(piece_type, color)
-	if resolved_spawn["piece_type"] != GameManager.PieceType.KING:
-		return resolved_spawn
-
-	while piece_type == GameManager.PieceType.KING:
-		piece_type = GameManager.get_random_piece_type()
-
 	return resolve_spawn_piece_data(piece_type, color)
 
 func spawn_random_pieces(count: int):
@@ -483,4 +519,6 @@ func spawn_random_pieces(count: int):
 	for i in range(min(count, empty_cells.size())):
 		var cell = empty_cells[i]
 		var spawn_data: Dictionary = get_random_spawn_piece_data()
+		if spawn_data.is_empty():
+			return
 		add_piece(spawn_data["piece_type"], spawn_data["color"], cell)

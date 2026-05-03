@@ -3,7 +3,7 @@ extends Node
 enum PieceType { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING }
 enum PieceColor { RED, BLUE, GREEN, ORANGE }
 
-const BOARD_SIZE: int = 9
+const BOARD_SIZE: int = 8
 const CELL_SIZE: int = 100
 const BOARD_PIXEL_SIZE: int = BOARD_SIZE * CELL_SIZE
 const WINDOW_WIDTH: int = BOARD_PIXEL_SIZE
@@ -18,6 +18,14 @@ const COLOR_MAP: Dictionary = {
 	PieceColor.BLUE: Color.BLUE,
 	PieceColor.GREEN: Color.GREEN,
 	PieceColor.ORANGE: Color.ORANGE
+}
+const PIECE_TYPE_LIMITS: Dictionary = {
+	PieceType.PAWN: 8,
+	PieceType.KNIGHT: 2,
+	PieceType.BISHOP: 2,
+	PieceType.ROOK: 2,
+	PieceType.QUEEN: 1,
+	PieceType.KING: 1
 }
 
 var board_size: int = BOARD_SIZE
@@ -93,7 +101,7 @@ func end_game():
 		save_high_score()
 
 func get_piece_spawn_weights() -> Array[float]:
-	return [0.35, 0.22, 0.15, 0.12, 0.10, 0.06]
+	return [0.37, 0.23, 0.16, 0.12, 0.10, 0.02]
 
 func get_random_piece_type() -> PieceType:
 	var weights := get_piece_spawn_weights()
@@ -112,3 +120,6 @@ func get_random_piece_color() -> PieceColor:
 
 func get_color_value(color: PieceColor) -> Color:
 	return COLOR_MAP.get(color, Color.WHITE)
+
+func get_piece_type_limit(piece_type: PieceType) -> int:
+	return PIECE_TYPE_LIMITS.get(piece_type, 0)
