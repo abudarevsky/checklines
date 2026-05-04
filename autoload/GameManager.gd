@@ -14,10 +14,10 @@ const BORDER_PADDING: int = 8
 const BOARD_FRAME_MARGIN: int = SELECTED_BORDER_WIDTH + BORDER_PADDING
 
 const COLOR_MAP: Dictionary = {
-	PieceColor.RED: Color.RED,
-	PieceColor.BLUE: Color.BLUE,
-	PieceColor.GREEN: Color.GREEN,
-	PieceColor.ORANGE: Color.ORANGE
+	PieceColor.RED: Color(1, 1, 0, 1),
+	PieceColor.BLUE: Color(1, 0, 1, 1),
+	PieceColor.GREEN: Color(0, 0, 0.8, 1),
+	PieceColor.ORANGE: Color(0, 1, 1, 1)
 }
 const PIECE_TYPE_LIMITS: Dictionary = {
 	PieceType.PAWN: 8,

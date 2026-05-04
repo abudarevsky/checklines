@@ -13,10 +13,14 @@ extends Node2D
 @onready var color_lines_value_label: Label = $CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat/ValueLabel
 @onready var type_lines_badge: LineMetricBadge = $CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat/Badge
 @onready var type_lines_value_label: Label = $CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat/ValueLabel
-@onready var game_over_panel: Control = $CanvasLayer/UI/GameOverPanel
-@onready var game_over_score_label: Label = $CanvasLayer/UI/GameOverPanel/VBox/FinalScoreLabel
-@onready var restart_button: Button = $CanvasLayer/UI/GameOverPanel/VBox/RestartButton
-@onready var main_menu_button: Button = $CanvasLayer/UI/GameOverPanel/VBox/MainMenuButton
+@onready var game_over_overlay: Control = $CanvasLayer/UI/GameOverOverlay
+@onready var game_over_backdrop: ColorRect = $CanvasLayer/UI/GameOverOverlay/Backdrop
+@onready var game_over_panel: PanelContainer = $CanvasLayer/UI/GameOverOverlay/CenterContainer/GameOverPanel
+@onready var game_over_title_label: Label = $CanvasLayer/UI/GameOverOverlay/CenterContainer/GameOverPanel/VBox/TitleLabel
+@onready var game_over_summary_label: Label = $CanvasLayer/UI/GameOverOverlay/CenterContainer/GameOverPanel/VBox/SummaryLabel
+@onready var game_over_score_label: Label = $CanvasLayer/UI/GameOverOverlay/CenterContainer/GameOverPanel/VBox/FinalScoreLabel
+@onready var restart_button: Button = $CanvasLayer/UI/GameOverOverlay/CenterContainer/GameOverPanel/VBox/ButtonsRow/RestartButton
+@onready var main_menu_button: Button = $CanvasLayer/UI/GameOverOverlay/CenterContainer/GameOverPanel/VBox/ButtonsRow/MainMenuButton
 
 var is_processing_move: bool = false
 var chain_animation_tween: Tween
@@ -25,16 +29,23 @@ var revealed_puzzle_tiles: int = 0
 var puzzle_tile_order: Array[int] = []
 var message_queue: Array[String] = []
 var is_message_queue_running: bool = false
+var message_tween: Tween
+var base_message_position: Vector2 = Vector2.ZERO
 
 const TOP_BAR_HEIGHT: float = 238.0
 const TOP_BAR_SHADOW_HEIGHT: float = 5.0
 const PUZZLE_COLUMNS: int = 5
 const PUZZLE_ROWS: int = 5
 const PUZZLE_TILE_MARGIN: float = 1.5
+const MESSAGE_SLIDE_DISTANCE: float = 120.0
+const MESSAGE_SLIDE_IN_DURATION: float = 0.42
+const MESSAGE_HOLD_DURATION: float = 3.0
+const MESSAGE_SLIDE_OUT_DURATION: float = 0.38
 
 func _ready():
 	GameManager.reset_game()
 	_lock_mobile_orientation()
+	base_message_position = message_label.position
 	apply_theme(_get_theme())
 	_setup_signals()
 	_initialize_game()
@@ -63,6 +74,8 @@ func apply_theme(theme):
 	puzzle_panel.color = theme.puzzle_board_background_color
 	message_label.add_theme_color_override("font_color", theme.puzzle_message_text_color)
 	message_label.add_theme_color_override("font_outline_color", theme.puzzle_message_outline_color)
+	message_label.add_theme_font_override("font", _build_dialog_font(theme.dialog_font_names, theme.puzzle_message_font_weight))
+	message_label.add_theme_font_size_override("font_size", theme.puzzle_message_font_size)
 
 	score_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
 	score_label.add_theme_color_override("font_outline_color", theme.hud_outline_color)
@@ -76,10 +89,126 @@ func apply_theme(theme):
 	board_manager.apply_theme(theme)
 	color_lines_badge.apply_theme(theme)
 	type_lines_badge.apply_theme(theme)
+	_apply_dialog_theme(theme)
 	if _has_puzzle_levels():
 		puzzle_image.texture = _get_puzzle_level_texture(current_puzzle_level)
 		if puzzle_tile_order.size() == _get_total_puzzle_tiles():
 			_refresh_puzzle_tiles()
+
+func _apply_dialog_theme(theme):
+	game_over_backdrop.color = theme.dialog_overlay_color
+	game_over_panel.add_theme_stylebox_override(
+		"panel",
+		_build_dialog_panel_style(theme.dialog_panel_background_color, theme.dialog_panel_border_color)
+	)
+
+	var title_font: SystemFont = _build_dialog_font(theme.dialog_font_names, theme.dialog_title_font_weight)
+	var body_font: SystemFont = _build_dialog_font(theme.dialog_font_names, theme.dialog_body_font_weight)
+	var button_font: SystemFont = _build_dialog_font(theme.dialog_font_names, theme.dialog_button_font_weight)
+
+	_apply_dialog_label_style(
+		game_over_title_label,
+		title_font,
+		theme.dialog_title_font_size,
+		theme.dialog_title_color
+	)
+	_apply_dialog_label_style(
+		game_over_summary_label,
+		body_font,
+		theme.dialog_body_font_size,
+		theme.dialog_body_color
+	)
+	_apply_dialog_label_style(
+		game_over_score_label,
+		body_font,
+		theme.dialog_score_font_size,
+		theme.dialog_title_color
+	)
+
+	_apply_dialog_button_style(
+		restart_button,
+		button_font,
+		theme.dialog_button_font_size,
+		theme.dialog_button_primary_color,
+		theme.dialog_button_primary_hover_color,
+		theme.dialog_button_text_color
+	)
+	_apply_dialog_button_style(
+		main_menu_button,
+		button_font,
+		theme.dialog_button_font_size,
+		theme.dialog_button_secondary_color,
+		theme.dialog_button_secondary_hover_color,
+		theme.dialog_button_text_color,
+		theme.dialog_button_secondary_border_color,
+		theme.dialog_button_secondary_border_hover_color
+	)
+
+func _build_dialog_font(font_names: PackedStringArray, font_weight: int) -> SystemFont:
+	var font := SystemFont.new()
+	font.font_names = font_names
+	font.font_weight = font_weight
+	return font
+
+func _apply_dialog_label_style(label: Label, font: Font, font_size: int, font_color: Color):
+	label.add_theme_font_override("font", font)
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", font_color)
+
+func _apply_dialog_button_style(
+	button: Button,
+	font: Font,
+	font_size: int,
+	normal_color: Color,
+	hover_color: Color,
+	text_color: Color,
+	normal_border_color: Color = Color.TRANSPARENT,
+	hover_border_color: Color = Color.TRANSPARENT
+):
+	button.add_theme_font_override("font", font)
+	button.add_theme_font_size_override("font_size", font_size)
+	button.add_theme_color_override("font_color", text_color)
+	button.add_theme_stylebox_override("normal", _build_dialog_button_style(normal_color, normal_border_color))
+	button.add_theme_stylebox_override("hover", _build_dialog_button_style(hover_color, hover_border_color))
+
+func _build_dialog_panel_style(background_color: Color, border_color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = background_color
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = border_color
+	style.corner_radius_top_left = 18
+	style.corner_radius_top_right = 18
+	style.corner_radius_bottom_left = 18
+	style.corner_radius_bottom_right = 18
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
+	style.shadow_size = 16
+	style.shadow_offset = Vector2(0.0, 10.0)
+	style.content_margin_left = 34.0
+	style.content_margin_top = 34.0
+	style.content_margin_right = 34.0
+	style.content_margin_bottom = 34.0
+	return style
+
+func _build_dialog_button_style(background_color: Color, border_color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = background_color
+	style.border_width_left = 2 if border_color.a > 0.0 else 0
+	style.border_width_top = 2 if border_color.a > 0.0 else 0
+	style.border_width_right = 2 if border_color.a > 0.0 else 0
+	style.border_width_bottom = 2 if border_color.a > 0.0 else 0
+	style.border_color = border_color
+	style.corner_radius_top_left = 12
+	style.corner_radius_top_right = 12
+	style.corner_radius_bottom_left = 12
+	style.corner_radius_bottom_right = 12
+	style.content_margin_left = 18.0
+	style.content_margin_top = 14.0
+	style.content_margin_right = 18.0
+	style.content_margin_bottom = 14.0
+	return style
 
 func _setup_signals():
 	board_manager.capture_made.connect(_on_capture_made)
@@ -149,8 +278,12 @@ func _initialize_puzzle_progress():
 	puzzle_tile_order.clear()
 	message_queue.clear()
 	is_message_queue_running = false
+	if message_tween:
+		message_tween.kill()
+		message_tween = null
 	message_label.text = ""
 	message_label.modulate.a = 0.0
+	message_label.position = base_message_position + Vector2(-MESSAGE_SLIDE_DISTANCE, 0.0)
 	_load_puzzle_level(current_puzzle_level)
 
 func _has_puzzle_levels() -> bool:
@@ -257,13 +390,26 @@ func _run_message_queue():
 	while not message_queue.is_empty():
 		var next_message: String = str(message_queue.pop_front())
 		message_label.text = next_message
-		message_label.modulate.a = 1.0
-		await get_tree().create_timer(1.35).timeout
-		var fade_tween := create_tween()
-		fade_tween.tween_property(message_label, "modulate:a", 0.0, 0.25)
-		await fade_tween.finished
+		message_label.position = base_message_position + Vector2(-MESSAGE_SLIDE_DISTANCE, 0.0)
+		message_label.modulate.a = 0.0
+		if message_tween:
+			message_tween.kill()
+		message_tween = create_tween()
+		message_tween.set_trans(Tween.TRANS_QUAD)
+		message_tween.set_ease(Tween.EASE_OUT)
+		message_tween.parallel().tween_property(message_label, "position:x", base_message_position.x, MESSAGE_SLIDE_IN_DURATION)
+		message_tween.parallel().tween_property(message_label, "modulate:a", 1.0, MESSAGE_SLIDE_IN_DURATION)
+		await message_tween.finished
+		await get_tree().create_timer(MESSAGE_HOLD_DURATION).timeout
+		message_tween = create_tween()
+		message_tween.set_trans(Tween.TRANS_QUAD)
+		message_tween.set_ease(Tween.EASE_IN)
+		message_tween.parallel().tween_property(message_label, "position:x", base_message_position.x - MESSAGE_SLIDE_DISTANCE, MESSAGE_SLIDE_OUT_DURATION)
+		message_tween.parallel().tween_property(message_label, "modulate:a", 0.0, MESSAGE_SLIDE_OUT_DURATION)
+		await message_tween.finished
 
 	is_message_queue_running = false
+	message_tween = null
 
 func _queue_chain_messages(chain: Dictionary):
 	var pieces_removed: int = chain["pieces"].size()
@@ -346,12 +492,12 @@ func _update_line_metrics_ui():
 
 func _on_game_over(final_score: int):
 	board_manager.set_input_enabled(false)
-	game_over_panel.visible = true
+	game_over_overlay.visible = true
 	game_over_score_label.text = "Final Score: " + str(final_score)
 	AudioManager.play_sound("game_over")
 
 func _on_restart_pressed():
-	game_over_panel.visible = false
+	game_over_overlay.visible = false
 	GameManager.reset_game()
 	_initialize_game()
 
@@ -379,7 +525,7 @@ func _resolve_turn():
 	_check_game_over()
 
 	is_processing_move = false
-	if not game_over_panel.visible:
+	if not game_over_overlay.visible:
 		board_manager.set_input_enabled(true)
 
 func _resolve_chain_waves() -> bool:

@@ -154,7 +154,7 @@ layout_mode = 2
 custom_minimum_size = Vector2(320, 68)
 theme_override_styles/normal = SubResource("StyleBoxFlat_green")
 theme_override_styles/hover = SubResource("StyleBoxFlat_green_hover")
-theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_color = Color(0.1, 0.1, 0.1, 1)
 theme_override_font_sizes/font_size = 36
 text = "Play"
 
@@ -163,9 +163,18 @@ layout_mode = 2
 custom_minimum_size = Vector2(320, 68)
 theme_override_styles/normal = SubResource("StyleBoxFlat_orange")
 theme_override_styles/hover = SubResource("StyleBoxFlat_orange_hover")
-theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_color = Color(0.1, 0.1, 0.1, 1)
 theme_override_font_sizes/font_size = 36
 text = "How to Play"
+
+[node name="ButtonSettings" type="Button" parent="CenterContainer/MenuPanel/MenuContent"]
+layout_mode = 2
+custom_minimum_size = Vector2(320, 68)
+theme_override_styles/normal = SubResource("StyleBoxFlat_outline")
+theme_override_styles/hover = SubResource("StyleBoxFlat_outline_hover")
+theme_override_colors/font_color = Color(1, 1, 1, 0.9)
+theme_override_font_sizes/font_size = 36
+text = "Settings"
 
 [node name="ButtonQuit" type="Button" parent="CenterContainer/MenuPanel/MenuContent"]
 layout_mode = 2
@@ -252,3 +261,117 @@ theme_override_styles/hover = SubResource("StyleBoxFlat_outline_hover")
 theme_override_colors/font_color = Color(1, 1, 1, 0.9)
 theme_override_font_sizes/font_size = 33
 text = "Back"
+
+[node name="SettingsPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_menu_panel")
+
+[node name="SettingsCenter" type="CenterContainer" parent="SettingsPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="SettingsCard" type="PanelContainer" parent="SettingsPanel/SettingsCenter"]
+custom_minimum_size = Vector2(760, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_menu_panel")
+
+[node name="SettingsContent" type="VBoxContainer" parent="SettingsPanel/SettingsCenter/SettingsCard"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="SettingsTitle" type="Label" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.98)
+theme_override_font_sizes/font_size = 63
+text = "Settings"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent"]
+layout_mode = 2
+
+[node name="SoundRow" type="HBoxContainer" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="SoundLabel" type="Label" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/SoundRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 0.84)
+theme_override_font_sizes/font_size = 30
+text = "Sound"
+
+[node name="SoundButton" type="Button" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/SoundRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(240, 62)
+theme_override_styles/normal = SubResource("StyleBoxFlat_outline")
+theme_override_styles/hover = SubResource("StyleBoxFlat_outline_hover")
+theme_override_colors/font_color = Color(1, 1, 1, 0.9)
+theme_override_font_sizes/font_size = 30
+text = "On"
+
+[node name="VibrationRow" type="HBoxContainer" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="VibrationLabel" type="Label" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/VibrationRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 0.84)
+theme_override_font_sizes/font_size = 30
+text = "Vibration"
+
+[node name="VibrationButton" type="Button" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/VibrationRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(240, 62)
+theme_override_styles/normal = SubResource("StyleBoxFlat_outline")
+theme_override_styles/hover = SubResource("StyleBoxFlat_outline_hover")
+theme_override_colors/font_color = Color(1, 1, 1, 0.9)
+theme_override_font_sizes/font_size = 30
+text = "On"
+
+[node name="ThemeRow" type="HBoxContainer" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="ThemeLabel" type="Label" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/ThemeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 0.84)
+theme_override_font_sizes/font_size = 30
+text = "Theme"
+
+[node name="ThemeOption" type="OptionButton" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/ThemeRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(240, 62)
+theme_override_styles/normal = SubResource("StyleBoxFlat_outline")
+theme_override_styles/hover = SubResource("StyleBoxFlat_outline_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_outline_hover")
+theme_override_colors/font_color = Color(1, 1, 1, 0.9)
+theme_override_font_sizes/font_size = 30
+
+[node name="HSeparator2" type="HSeparator" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent"]
+layout_mode = 2
+
+[node name="ButtonRow" type="HBoxContainer" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 18
+
+[node name="ButtonCloseSettings" type="Button" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/ButtonRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(220, 64)
+theme_override_styles/normal = SubResource("StyleBoxFlat_outline")
+theme_override_styles/hover = SubResource("StyleBoxFlat_outline_hover")
+theme_override_colors/font_color = Color(1, 1, 1, 0.9)
+theme_override_font_sizes/font_size = 33
+text = "Close"

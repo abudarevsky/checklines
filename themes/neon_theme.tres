@@ -1,0 +1,72 @@
+[gd_resource type="Resource" script_class="ThemeData" format=3 uid="uid://bbmtfq1e6120c"]
+
+[ext_resource type="Script" uid="uid://bxlqs2rfe1bed" path="res://scripts/theme/ThemeData.gd" id="1_theme"]
+[ext_resource type="Texture2D" uid="uid://d2224g11ji1yn" path="res://assets/sprites/png/white_pawn.png" id="2_pawn"]
+[ext_resource type="Texture2D" uid="uid://capcf05nworeo" path="res://assets/sprites/png/white_knight.png" id="3_knight"]
+[ext_resource type="Texture2D" uid="uid://b25c8pwlqb6gb" path="res://assets/sprites/png/white_bishop.png" id="4_bishop"]
+[ext_resource type="Texture2D" uid="uid://cts54nauj7k38" path="res://assets/sprites/png/white_rook.png" id="5_rook"]
+[ext_resource type="Texture2D" uid="uid://bfi33f17grhm0" path="res://assets/sprites/png/white_queen.png" id="6_queen"]
+[ext_resource type="Texture2D" uid="uid://b2rrcwouele0e" path="res://assets/sprites/png/white_king.png" id="7_king"]
+[ext_resource type="Texture2D" uid="uid://c4s811qyr1v68" path="res://assets/icons/checklines_app_icon_padded.png" id="8_puzzle_1"]
+
+[resource]
+script = ExtResource("1_theme")
+pawn_texture = ExtResource("2_pawn")
+knight_texture = ExtResource("3_knight")
+bishop_texture = ExtResource("4_bishop")
+rook_texture = ExtResource("5_rook")
+queen_texture = ExtResource("6_queen")
+king_texture = ExtResource("7_king")
+red_piece_color = Color(1, 1, 0, 1)
+blue_piece_color = Color(1, 0, 1, 1)
+green_piece_color = Color(0.14901961, 0.8901961, 0.5372549, 1)
+orange_piece_color = Color(0, 1, 1, 1)
+left_border_color = Color(1, 1, 0, 1)
+top_border_color = Color(1, 0, 1, 1)
+right_border_color = Color(0.14901961, 0.8901961, 0.5372549, 1)
+bottom_border_color = Color(0, 1, 1, 1)
+move_highlight_color = Color(0, 1, 1, 0.4)
+hud_panel_color = Color(0.12, 0.12, 0.18, 0.9)
+hud_shadow_color = Color(0.01, 0.01, 0.01, 0.5)
+hud_primary_text_color = Color(1, 1, 1, 1)
+hud_secondary_text_color = Color(0.9, 0.9, 1, 0.92)
+hud_outline_color = Color(0.2, 0.2, 0.3, 0.35)
+hud_secondary_outline_color = Color(0.2, 0.2, 0.3, 0.3)
+metric_tile_background_color = Color(0.08, 0.08, 0.14, 1)
+metric_outline_color = Color(0.6, 0.6, 1, 0.6)
+puzzle_level_images = [ExtResource("8_puzzle_1")]
+puzzle_board_background_color = Color(0.06, 0.06, 0.12, 1)
+puzzle_message_text_color = Color(1, 1, 1, 1)
+puzzle_message_outline_color = Color(0, 1, 1, 0.35)
+dialog_font_names = PackedStringArray("Avenir Next Condensed", "Helvetica Neue", "Arial Narrow", "Arial")
+dialog_overlay_color = Color(0.02, 0.02, 0.04, 0.62)
+dialog_panel_background_color = Color(0.05, 0.05, 0.1, 0.96)
+dialog_panel_border_color = Color(0, 1, 1, 0.25)
+dialog_body_color = Color(0.9, 0.9, 1, 0.78)
+dialog_button_primary_color = Color(0, 0.8, 0.8, 1)
+dialog_button_primary_hover_color = Color(0, 0.9, 0.9, 1)
+dialog_button_secondary_color = Color(0.1, 0.1, 0.18, 0.98)
+dialog_button_secondary_hover_color = Color(0.14, 0.14, 0.24, 1)
+dialog_button_secondary_border_color = Color(0, 1, 1, 0.28)
+dialog_button_secondary_border_hover_color = Color(0, 1, 1, 0.48)
+dialog_button_text_color = Color(1, 1, 1, 0.98)
+menu_checker_light_color = Color(0.14, 0.14, 0.2, 1)
+menu_checker_dark_color = Color(0.04, 0.04, 0.06, 1)
+menu_panel_background_color = Color(0.04, 0.04, 0.08, 0.88)
+menu_panel_border_color = Color(0, 1, 1, 0.2)
+menu_subtitle_color = Color(0.9, 0.9, 1, 0.72)
+menu_button_text_color = Color(0.1, 0.1, 0.1, 1)
+
+menu_button_text_color_hover = Color(0.1, 0.1, 0.1, 1)
+
+menu_outline_button_text_color = Color(1, 1, 1, 0.9)
+
+menu_outline_button_text_color_hover = Color(1, 1, 1, 0.9)
+menu_button_green_color = Color(0, 0.9, 0.9, 1)
+menu_button_green_hover_color = Color(0, 1, 1, 1)
+menu_button_orange_color = Color(1, 1, 0, 1)
+menu_button_orange_hover_color = Color(1, 1, 0.1, 1)
+menu_button_outline_color = Color(0.2, 0.2, 0.4, 0.92)
+menu_button_outline_hover_color = Color(0.24, 0.24, 0.48, 0.96)
+menu_button_outline_border_color = Color(0, 1, 1, 0.35)
+menu_button_outline_border_hover_color = Color(0, 1, 1, 0.55)

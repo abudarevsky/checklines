@@ -260,6 +260,7 @@ Theme scope includes:
 - message display colors
 - dialog colors and typography
 - menu colors and button styles
+- settings dialog colors and theme selector popup styling
 - other purely visual presentation values
 
 Theme scope does not include:
@@ -271,9 +272,10 @@ Theme scope does not include:
 - piece inventory limits
 - king gameplay rules
 
-The active theme is currently fixed to `default_theme.tres`.
+The active theme is selected through persisted settings and loaded by `ThemeManager`.
+Current available theme ids are `default` and `neon`.
 
-Do not add theme selection UI, persistence, or runtime switching unless explicitly requested.
+Theme selection now lives in the main menu settings dialog. Keep it persisted and theme-driven, but do not add extra theme management UI unless explicitly requested.
 
 When adding new visual elements, route their colors/resources through `ThemeData` instead of hardcoding them locally.
 
@@ -298,6 +300,7 @@ The intended presentation is:
 - full-screen dark checkerboard background
 - centered dark menu panel
 - primary actions in the center
+- settings dialog with sound, vibration, and theme controls
 - full-screen HowToPlay overlay panel
 
 Use `MainMenuBoard.gd` for the checkerboard background layer.
@@ -314,6 +317,7 @@ If you change the HowToPlay layout, update script node paths at the same time.
 
 Main menu visuals should remain theme-driven through `ThemeManager` and `ThemeData`, even though only the default theme exists for now.
 Main menu typography should use the same brisk dialog font family as the game-over screen and other modal dialogs.
+The settings theme selector dropdown should use the dialog body font scale, not the smaller button scale.
 
 ### Resize / Layout Principles
 
@@ -370,6 +374,7 @@ If HUD layout changes, preserve:
 Current modal/dialog presentation includes:
 
 - a large centered game-over card
+- a settings dialog in the main menu
 - dark overlay backdrop
 - brisk modern dialog typography
 - shared font family for menu, HUD messages, and game-over text
@@ -380,6 +385,7 @@ When adding or refactoring dialogs:
 - keep dialog buttons large and easy to hit
 - route dialog colors and font settings through `ThemeData`
 - preserve the current centered card style for game over unless explicitly redesigned
+- keep settings dialog popup/dropdown text readable in the neon theme
 
 ## Input Handling
 
@@ -563,6 +569,7 @@ Owns:
 - loading the active theme resource
 - exposing the current `ThemeData`
 - central access point for theme-driven visuals
+- reloading the active theme when persisted settings change
 
 ## Scoring Rules
 
@@ -719,15 +726,17 @@ Attack highlighting:
 
 UI:
 19. Main menu centered with dark panel and board visible beneath
-20. HowToPlay panel fully opaque
-21. Main menu buttons remain centered after window resize
-22. Gameplay board fills the viewport width and remains fully visible after window resize
-23. Desktop window height expands when needed so the HUD and full-width board are not cut off
-24. Score bar stretches to the current window width
-25. Puzzle board reveals tiles as pieces are removed
-26. Message display shows line-clear and level-complete messages with the expected wording
-27. HUD messages animate in from the left and dismiss in reverse order
-28. Game-over dialog uses a large centered card with brisk modern typography
+20. Settings dialog opens with sound, vibration, and theme controls
+21. Theme selector dropdown text matches the dialog body font scale
+22. HowToPlay panel fully opaque
+23. Main menu buttons remain centered after window resize
+24. Gameplay board fills the viewport width and remains fully visible after window resize
+25. Desktop window height expands when needed so the HUD and full-width board are not cut off
+26. Score bar stretches to the current window width
+27. Puzzle board reveals tiles as pieces are removed
+28. Message display shows line-clear and level-complete messages with the expected wording
+29. HUD messages animate in from the left and dismiss in reverse order
+30. Game-over dialog uses a large centered card with brisk modern typography
 
 ## Current Working Definition
 
