@@ -7,7 +7,7 @@
 [ext_resource type="Texture2D" uid="uid://cts54nauj7k38" path="res://assets/sprites/png/white_rook.png" id="5_rook"]
 [ext_resource type="Texture2D" uid="uid://bfi33f17grhm0" path="res://assets/sprites/png/white_queen.png" id="6_queen"]
 [ext_resource type="Texture2D" uid="uid://b2rrcwouele0e" path="res://assets/sprites/png/white_king.png" id="7_king"]
-[ext_resource type="Texture2D" uid="uid://c4s811qyr1v68" path="res://assets/icons/checklines_app_icon_padded.png" id="8_puzzle_1"]
+[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level0.png" id="8_puzzle_1"]
 
 [resource]
 script = ExtResource("1_theme")

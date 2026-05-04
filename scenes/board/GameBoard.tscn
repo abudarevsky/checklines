@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=3 uid="uid://game_board"]
+[gd_scene load_steps=6 format=3 uid="uid://game_board"]
 
 [ext_resource type="Script" path="res://scripts/board/GameBoard.gd" id="1_game"]
 [ext_resource type="PackedScene" uid="uid://board_manager" path="res://scenes/board/BoardManager.tscn" id="2_board"]
 [ext_resource type="Script" path="res://scripts/ui/LineMetricBadge.gd" id="3_metric_badge"]
+[ext_resource type="Texture2D" path="res://assets/ui/checklines-screen-badge.png" id="4_badge"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_score_bg"]
 bg_color = Color(0.3, 0.3, 0.3, 0.95)
@@ -10,10 +11,42 @@ bg_color = Color(0.3, 0.3, 0.3, 0.95)
 [node name="GameBoard" type="Node2D"]
 script = ExtResource("1_game")
 
+[node name="ScreenBackground" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.02, 0.02, 0.02, 1)
+
 [node name="BoardManager" parent="." instance=ExtResource("2_board")]
 position = Vector2(0, 65)
 
+[node name="BoardTintOverlay" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.02, 0.02, 0.02, 0.24)
+
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="ScoreFrame" type="PanelContainer" parent="CanvasLayer"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = 238.0
+grow_horizontal = 2
+mouse_filter = 2
 
 [node name="ScorePanel" type="ColorRect" parent="CanvasLayer"]
 layout_mode = 1
@@ -51,6 +84,15 @@ offset_bottom = 146
 grow_horizontal = 2
 color = Color(0.16, 0.16, 0.16, 1)
 
+[node name="PuzzleFrame" type="PanelContainer" parent="CanvasLayer/PuzzlePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
 [node name="PuzzleImage" type="TextureRect" parent="CanvasLayer/PuzzlePanel"]
 layout_mode = 1
 anchors_preset = 15
@@ -69,6 +111,21 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+
+[node name="PuzzleBadge" type="TextureRect" parent="CanvasLayer"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1003.0
+offset_bottom = 278.0
+grow_horizontal = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 4
+texture = ExtResource("4_badge")
 
 [node name="MessageLabel" type="Label" parent="CanvasLayer"]
 layout_mode = 1
@@ -174,6 +231,29 @@ theme_override_font_sizes/font_size = 26
 text = "0"
 vertical_alignment = 1
 
+[node name="ActionButtons" type="HBoxContainer" parent="CanvasLayer"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 0.0
+offset_top = 1040.0
+offset_right = 836.0
+offset_bottom = 1112.0
+theme_override_constants/separation = 14
+
+[node name="ResetButton" type="Button" parent="CanvasLayer/ActionButtons"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Reset"
+
+[node name="MainMenuButton" type="Button" parent="CanvasLayer/ActionButtons"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Main Menu"
+
 [node name="UI" type="Control" parent="CanvasLayer"]
 layout_mode = 3
 anchors_preset = 15
@@ -181,6 +261,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
 [node name="GameOverOverlay" type="Control" parent="CanvasLayer/UI"]
 visible = false
@@ -190,6 +271,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 0
 
 [node name="Backdrop" type="ColorRect" parent="CanvasLayer/UI/GameOverOverlay"]
 layout_mode = 1

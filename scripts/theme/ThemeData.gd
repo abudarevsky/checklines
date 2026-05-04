@@ -61,6 +61,8 @@ class_name ThemeData
 @export var dialog_button_text_color: Color = Color(1.0, 1.0, 1.0, 0.98)
 @export var dialog_button_secondary_border_color: Color = Color(1.0, 1.0, 1.0, 0.28)
 @export var dialog_button_secondary_border_hover_color: Color = Color(1.0, 1.0, 1.0, 0.48)
+@export var dialog_button_link_color: Color = Color(1.0, 1.0, 1.0, 0.45)
+@export var dialog_button_link_hover_color: Color = Color(1.0, 1.0, 1.0, 0.95)
 
 @export var menu_checker_light_color: Color = Color(0.34, 0.34, 0.34)
 @export var menu_checker_dark_color: Color = Color(0.22, 0.22, 0.22)

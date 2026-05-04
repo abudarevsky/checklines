@@ -7,7 +7,7 @@
 [ext_resource type="Texture2D" path="res://assets/sprites/png/white_rook.png" id="5_rook"]
 [ext_resource type="Texture2D" path="res://assets/sprites/png/white_queen.png" id="6_queen"]
 [ext_resource type="Texture2D" path="res://assets/sprites/png/white_king.png" id="7_king"]
-[ext_resource type="Texture2D" path="res://assets/icons/checklines_app_icon_padded.png" id="8_puzzle_1"]
+[ext_resource type="Texture2D" path="res://assets/ui/themes/default/level0.png" id="8_puzzle_1"]
 
 [resource]
 script = ExtResource("1_theme")
@@ -32,17 +32,17 @@ attack_overlay_background_color = Color(0, 0, 0, 0.5)
 dim_target_alpha = 0.35
 hud_panel_color = Color(0.8, 0.8, 0.8, 0.9)
 hud_shadow_color = Color(0.1, 0.1, 0.1, 0.5)
-hud_primary_text_color = Color(0.05, 0.05, 0.05, 1)
-hud_secondary_text_color = Color(0.05, 0.05, 0.05, 0.92)
-hud_outline_color = Color(0.25, 0.25, 0.25, 0.35)
-hud_secondary_outline_color = Color(0.25, 0.25, 0.25, 0.3)
+hud_primary_text_color = Color(1, 1, 1, 1)
+hud_secondary_text_color = Color(1, 1, 1, 0.9)
+hud_outline_color = Color(0, 0, 0, 0.6)
+hud_secondary_outline_color = Color(0, 0, 0, 0.5)
 metric_tile_background_color = Color(0.92, 0.92, 0.92, 1)
 metric_outline_color = Color(0.08, 0.08, 0.08, 0.6)
 puzzle_level_images = [ExtResource("8_puzzle_1")]
 puzzle_board_background_color = Color(0.16, 0.16, 0.16, 1)
 puzzle_tile_cover_color = Color(0.06, 0.06, 0.06, 0.92)
-puzzle_message_text_color = Color(0.12, 0.12, 0.12, 1)
-puzzle_message_outline_color = Color(1, 1, 1, 0.28)
+puzzle_message_text_color = Color(1, 1, 1, 1)
+puzzle_message_outline_color = Color(0, 0, 0, 0.58)
 puzzle_message_font_weight = 700
 puzzle_message_font_size = 30
 dialog_font_names = PackedStringArray("Avenir Next Condensed", "Helvetica Neue", "Arial Narrow", "Arial")

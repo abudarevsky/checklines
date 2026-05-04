@@ -327,18 +327,20 @@ Current approach:
 
 - UI overlays use `Control` anchors
 - gameplay board remains a fixed logical 8x8 board
-- `GameBoard.gd` scales `BoardManager` to fill the viewport width
+- `GameBoard.gd` scales `BoardManager` visually from fixed logical board dimensions
+- mobile gameplay should make the board nearly full viewport width when height allows
+- desktop gameplay should prefer a board-width window footprint and may squeeze the board to keep HUD, board, and bottom actions visible
 - gameplay board is positioned directly below the HUD instead of vertically centered in leftover space
-- desktop windowed mode may increase window height so the full-width board and HUD remain fully visible
+- desktop windowed mode may increase window height so the HUD, board, and bottom action row remain fully visible
 - top HUD stretches horizontally with anchors instead of fixed pixel widths
 
 Prefer viewport-aware scaling at the scene container level.
 
 Do not rewrite board logic to use dynamic per-cell coordinates just to support window resizing.
 
-Use `GameManager.BOARD_PIXEL_SIZE` and `GameManager.CELL_SIZE` as the logical board dimensions, then scale the board scene visually.
+Use `GameManager.BOARD_PIXEL_SIZE`, `GameManager.CELL_SIZE`, and `BoardManager.get_rendered_pixel_size()` as logical board dimensions, then scale the board scene visually.
 
-The current default desktop viewport height in `project.godot` should stay aligned with the HUD plus full-width board footprint.
+The current default desktop viewport in `project.godot` should stay close to the rendered board width and tall enough for the HUD, board, and bottom actions.
 
 ### HUD / Puzzle Board
 
@@ -347,13 +349,19 @@ Current gameplay HUD includes:
 - a top puzzle board image panel
 - a message display beneath the puzzle board
 - score and session line counters beneath the message display
+- a bottom action row under the board with Reset and Main Menu buttons
+- the Main Menu button in the action row uses a borderless link-style appearance (no background, no border, dim text that brightens on hover)
 
 Puzzle board rules:
 
 - one removed piece reveals one puzzle tile
 - fully revealing one picture completes one level
 - level images come from the active `ThemeData`
+- the default puzzle image comes from `assets/ui/themes/default/level0.png`
 - puzzle tile cover and puzzle board colors should remain theme-driven
+- `assets/ui/checklines-screen-badge.png` is the top badge art
+- the badge should sit above the puzzle frame with only its bottom edge slightly overlapping the puzzle border
+- the puzzle image and score row use separate frames; do not wrap the puzzle and score row in one shared frame
 
 Message display rules:
 
@@ -365,9 +373,11 @@ Message display rules:
 
 If HUD layout changes, preserve:
 
-- full-width board presentation below the HUD
+- near full-width board presentation on mobile and board-footprint desktop presentation
 - anchored top HUD controls
+- separate puzzle frame, score frame, and bottom action button row
 - theme-driven puzzle visuals and message styling
+- dark backdrop-colored screen background behind both HUD and board
 
 ### Dialogs
 
@@ -414,6 +424,13 @@ world_to_grid()
 ```
 
 for grid conversion.
+
+Gameplay scene UI caveat:
+
+- Persistent bottom buttons live under `CanvasLayer/ActionButtons`
+- Game-over UI lives under `CanvasLayer/UI/GameOverOverlay`
+- Keep the full-screen `CanvasLayer/UI` control on `mouse_filter = ignore` so it does not block Reset or Main Menu button clicks
+- Only visible modal/dialog controls should consume pointer input
 
 ## Move Validation
 
@@ -730,13 +747,15 @@ UI:
 21. Theme selector dropdown text matches the dialog body font scale
 22. HowToPlay panel fully opaque
 23. Main menu buttons remain centered after window resize
-24. Gameplay board fills the viewport width and remains fully visible after window resize
-25. Desktop window height expands when needed so the HUD and full-width board are not cut off
-26. Score bar stretches to the current window width
-27. Puzzle board reveals tiles as pieces are removed
-28. Message display shows line-clear and level-complete messages with the expected wording
-29. HUD messages animate in from the left and dismiss in reverse order
-30. Game-over dialog uses a large centered card with brisk modern typography
+24. Gameplay board is nearly full-width on mobile and remains fully visible after window resize
+25. Desktop gameplay window stays close to board width and fits HUD, board, and bottom actions
+26. Score row is wrapped in its own frame, separate from the puzzle frame
+27. Reset and Main Menu buttons under the board are clickable and perform their actions
+28. The full-screen UI overlay does not block normal gameplay or bottom button input
+29. Puzzle board reveals tiles as pieces are removed
+30. Message display shows line-clear and level-complete messages with the expected wording
+31. HUD messages animate in from the left and dismiss in reverse order
+32. Game-over dialog uses a large centered card with brisk modern typography
 
 ## Current Working Definition
 
