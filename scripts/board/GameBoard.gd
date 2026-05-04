@@ -1,7 +1,10 @@
 extends Node2D
 
+const PuzzleTileCover = preload("res://scripts/ui/PuzzleTileCover.gd")
+
 @onready var board_manager = $BoardManager
 @onready var screen_background: ColorRect = $ScreenBackground
+@onready var screen_gradient: TextureRect = $ScreenGradient
 @onready var score_frame: PanelContainer = $CanvasLayer/ScoreFrame
 @onready var board_tint_overlay: ColorRect = $BoardTintOverlay
 @onready var score_panel: ColorRect = $CanvasLayer/ScorePanel
@@ -43,22 +46,25 @@ var base_message_position: Vector2 = Vector2.ZERO
 var default_theme_cache: ThemeData = null
 
 const TOP_BAR_SHADOW_HEIGHT: float = 5.0
+const BOARD_TOP_GAP: float = 2.0
+const SCREEN_CONTENT_MARGIN: float = 6.0
 const HUD_MARGIN_LEFT: float = 3.0
 const HUD_MARGIN_TOP: float = 3.0
-const HUD_MARGIN_GAP: float = 3.0
-const HUD_MESSAGE_HEIGHT_PADDING: float = 14.0
-const PUZZLE_FRAME_INSET: float = 5.0
+const HUD_MARGIN_GAP: float = 0.0
+const HUD_MESSAGE_HEIGHT_PADDING: float = 2.0
+const PUZZLE_FRAME_INSET: float = 3.0
 const PUZZLE_BADGE_WIDTH_RATIO: float = 0.66
 const PUZZLE_BADGE_BORDER_OVERLAP: float = 8.0
 const SCORE_FRAME_INSET_X: float = 5.0
-const SCORE_FRAME_INSET_Y: float = 10.0
+const SCORE_FRAME_INSET_Y: float = 4.0
 const SCORE_ROW_HEIGHT: float = 66.0
+const SCORE_FRAME_EXTRA_SPACE: float = 0.0
 const ACTION_BUTTON_HEIGHT: float = 72.0
 const ACTION_BUTTON_GAP: float = 8.0
 const ACTION_BUTTON_PANEL_MARGIN: float = 8.0
 const PUZZLE_COLUMNS: int = 5
 const PUZZLE_ROWS: int = 5
-const PUZZLE_TILE_MARGIN: float = 1.5
+const PUZZLE_TILE_MARGIN: float = -1.0
 const MESSAGE_SLIDE_DISTANCE: float = 120.0
 const MESSAGE_SLIDE_IN_DURATION: float = 0.42
 const MESSAGE_HOLD_DURATION: float = 3.0
@@ -68,7 +74,6 @@ const DEBUG_HUD_LAYOUT: bool = false
 func _ready():
 	GameManager.reset_game()
 	_lock_mobile_orientation()
-	base_message_position = message_label.position
 	apply_theme(_get_theme())
 	_setup_signals()
 	_initialize_game()
@@ -93,7 +98,8 @@ func apply_theme(theme: ThemeData):
 		return
 
 	screen_background.color = Color(0.02, 0.02, 0.02, 1.0)
-	board_tint_overlay.color = Color(0.02, 0.02, 0.02, 0.24)
+	board_tint_overlay.color = Color.TRANSPARENT
+	screen_gradient.texture = _build_screen_gradient_texture()
 	score_panel.color = Color(0.03, 0.07, 0.12, 0.0)
 	score_shadow.color = theme.hud_shadow_color
 	puzzle_panel.color = Color(0.06, 0.09, 0.13, 1.0)
@@ -290,19 +296,21 @@ func _update_layout():
 	var top_bar_height: float = _update_top_hud_layout(viewport_size)
 	var board_render_size: float = board_manager.get_rendered_pixel_size()
 	var bottom_actions_height: float = ACTION_BUTTON_GAP + ACTION_BUTTON_HEIGHT + HUD_MARGIN_TOP
-	var available_height: float = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - bottom_actions_height, 120.0)
-	var width_scale: float = viewport_size.x / board_render_size
+	var available_height: float = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - BOARD_TOP_GAP - bottom_actions_height, 120.0)
+	var content_width: float = maxf(viewport_size.x - SCREEN_CONTENT_MARGIN * 2.0, 1.0)
+	var width_scale: float = content_width / board_render_size
 	var height_scale: float = available_height / board_render_size
 	var scale_factor: float = maxf(minf(width_scale, height_scale), 0.1)
 	var scaled_board_height: float = board_render_size * scale_factor
-	var required_height: float = top_bar_height + TOP_BAR_SHADOW_HEIGHT + scaled_board_height + bottom_actions_height
+	var required_height: float = top_bar_height + TOP_BAR_SHADOW_HEIGHT + BOARD_TOP_GAP + scaled_board_height + bottom_actions_height
 
 	_ensure_window_height(required_height, viewport_size)
 
 	viewport_size = get_viewport_rect().size
 	board_render_size = board_manager.get_rendered_pixel_size()
-	available_height = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - bottom_actions_height, 120.0)
-	width_scale = viewport_size.x / board_render_size
+	available_height = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - BOARD_TOP_GAP - bottom_actions_height, 120.0)
+	content_width = maxf(viewport_size.x - SCREEN_CONTENT_MARGIN * 2.0, 1.0)
+	width_scale = content_width / board_render_size
 	height_scale = available_height / board_render_size
 	scale_factor = maxf(minf(width_scale, height_scale), 0.1)
 
@@ -311,7 +319,7 @@ func _update_layout():
 	var scaled_board_width: float = board_render_size * scale_factor
 	scaled_board_height = board_render_size * scale_factor
 	var board_x: float = (viewport_size.x - scaled_board_width) * 0.5
-	var board_y: float = top_bar_height + TOP_BAR_SHADOW_HEIGHT
+	var board_y: float = top_bar_height + TOP_BAR_SHADOW_HEIGHT + BOARD_TOP_GAP
 	board_manager.position = Vector2(board_x, board_y)
 	_update_action_buttons_layout(board_x, board_y + scaled_board_height + ACTION_BUTTON_GAP, scaled_board_width)
 
@@ -326,12 +334,17 @@ func _update_screen_backdrop(viewport_size: Vector2):
 	screen_background.size = viewport_size
 	screen_background.z_index = -100
 
+	screen_gradient.position = Vector2.ZERO
+	screen_gradient.size = viewport_size
+	screen_gradient.z_index = -95
+
 	board_tint_overlay.position = Vector2.ZERO
 	board_tint_overlay.size = viewport_size
-	board_tint_overlay.z_index = 100
+	board_tint_overlay.z_index = -90
 
 func _update_top_hud_layout(viewport_size: Vector2) -> float:
-	var panel_width: float = maxf(viewport_size.x - HUD_MARGIN_LEFT * 2.0, 0.0)
+	var panel_margin: float = SCREEN_CONTENT_MARGIN + HUD_MARGIN_LEFT
+	var panel_width: float = maxf(viewport_size.x - panel_margin * 2.0, 0.0)
 	var puzzle_texture: Texture2D = _get_puzzle_level_texture(current_puzzle_level)
 	var puzzle_height: float = 160.0
 	if puzzle_texture != null and puzzle_texture.get_width() > 0:
@@ -343,9 +356,9 @@ func _update_top_hud_layout(viewport_size: Vector2) -> float:
 		badge_height = badge_width * float(puzzle_badge.texture.get_height()) / float(puzzle_badge.texture.get_width())
 	var panel_top: float = HUD_MARGIN_TOP + maxf(badge_height - PUZZLE_BADGE_BORDER_OVERLAP, 0.0)
 
-	puzzle_panel.offset_left = HUD_MARGIN_LEFT
+	puzzle_panel.offset_left = panel_margin
 	puzzle_panel.offset_top = panel_top
-	puzzle_panel.offset_right = -HUD_MARGIN_LEFT
+	puzzle_panel.offset_right = -panel_margin
 	puzzle_panel.offset_bottom = panel_top + puzzle_height
 
 	var badge_x: float = (viewport_size.x - badge_width) * 0.5
@@ -367,36 +380,43 @@ func _update_top_hud_layout(viewport_size: Vector2) -> float:
 	puzzle_tiles.offset_right = -PUZZLE_FRAME_INSET
 	puzzle_tiles.offset_bottom = -PUZZLE_FRAME_INSET
 
-	var message_height: float = maxf(float(_get_puzzle_theme().puzzle_message_font_size) + HUD_MESSAGE_HEIGHT_PADDING, 42.0)
-	var message_top: float = puzzle_panel.offset_bottom + HUD_MARGIN_GAP
-	message_label.offset_left = HUD_MARGIN_LEFT
-	message_label.offset_top = message_top
-	message_label.offset_right = -HUD_MARGIN_LEFT
-	message_label.offset_bottom = message_label.offset_top + message_height
+	var score_frame_top: float = puzzle_panel.offset_bottom + HUD_MARGIN_GAP
+	var score_panel_height: float = SCORE_ROW_HEIGHT + SCORE_FRAME_INSET_Y * 2.0
+	var score_frame_height: float = score_panel_height + SCORE_FRAME_EXTRA_SPACE
+	var score_panel_top: float = score_frame_top
 
-	var score_frame_top: float = message_label.offset_bottom + HUD_MARGIN_GAP
-	score_hbox.offset_left = HUD_MARGIN_LEFT + SCORE_FRAME_INSET_X
-	score_hbox.offset_top = score_frame_top + SCORE_FRAME_INSET_Y
-	score_hbox.offset_right = -(HUD_MARGIN_LEFT + SCORE_FRAME_INSET_X)
+	score_hbox.offset_left = panel_margin + SCORE_FRAME_INSET_X
+	score_hbox.offset_top = score_panel_top + SCORE_FRAME_INSET_Y
+	score_hbox.offset_right = -(panel_margin + SCORE_FRAME_INSET_X)
 	score_hbox.offset_bottom = score_hbox.offset_top + SCORE_ROW_HEIGHT
 
-	score_panel.offset_left = HUD_MARGIN_LEFT
-	score_panel.offset_top = score_frame_top
-	score_panel.offset_right = -HUD_MARGIN_LEFT
-	score_panel.offset_bottom = score_hbox.offset_bottom + SCORE_FRAME_INSET_Y
+	score_panel.offset_left = panel_margin
+	score_panel.offset_top = score_panel_top
+	score_panel.offset_right = -panel_margin
+	score_panel.offset_bottom = score_panel_top + score_panel_height
 
-	score_frame.offset_left = HUD_MARGIN_LEFT
+	score_frame.offset_left = panel_margin
 	score_frame.offset_top = score_frame_top
-	score_frame.offset_right = -HUD_MARGIN_LEFT
-	score_frame.offset_bottom = score_panel.offset_bottom
+	score_frame.offset_right = -panel_margin
+	score_frame.offset_bottom = score_frame_top + score_frame_height
 
 	score_shadow.offset_left = 0.0
 	score_shadow.offset_right = 0.0
-	score_shadow.offset_top = score_panel.offset_bottom
-	score_shadow.offset_bottom = score_panel.offset_bottom + TOP_BAR_SHADOW_HEIGHT
+	score_shadow.offset_top = score_frame.offset_bottom
+	score_shadow.offset_bottom = score_frame.offset_bottom + TOP_BAR_SHADOW_HEIGHT
 
+	_update_message_layout(viewport_size, score_frame.offset_bottom)
 	_debug_hud_layout(viewport_size, panel_width, puzzle_height, puzzle_texture)
-	return score_panel.offset_bottom
+	return score_frame.offset_bottom
+
+func _update_message_layout(viewport_size: Vector2, hud_bottom: float):
+	var panel_margin: float = SCREEN_CONTENT_MARGIN + HUD_MARGIN_LEFT
+	var message_height: float = maxf(float(_get_puzzle_theme().puzzle_message_font_size) + HUD_MESSAGE_HEIGHT_PADDING, 34.0)
+	message_label.offset_left = panel_margin
+	message_label.offset_top = hud_bottom - message_height
+	message_label.offset_right = -panel_margin
+	message_label.offset_bottom = hud_bottom
+	base_message_position = message_label.position
 
 func _debug_hud_layout(
 	viewport_size: Vector2,
@@ -515,7 +535,28 @@ func _build_puzzle_frame_style() -> StyleBoxFlat:
 	style.corner_radius_top_right = 12
 	style.corner_radius_bottom_left = 12
 	style.corner_radius_bottom_right = 12
+	style.corner_detail = 1
+	style.anti_aliasing = false
 	return style
+
+func _build_screen_gradient_texture() -> GradientTexture2D:
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.28, 0.58, 0.82, 1.0])
+	gradient.colors = PackedColorArray([
+		Color(0.18, 0.42, 0.60, 1.0),
+		Color(0.08, 0.30, 0.48, 1.0),
+		Color(0.03, 0.17, 0.31, 1.0),
+		Color(0.01, 0.08, 0.16, 1.0),
+		Color(0.004, 0.012, 0.018, 1.0)
+	])
+	var texture := GradientTexture2D.new()
+	texture.gradient = gradient
+	texture.fill = GradientTexture2D.FILL_LINEAR
+	texture.fill_from = Vector2(0.0, 0.0)
+	texture.fill_to = Vector2(0.0, 1.0)
+	texture.width = 64
+	texture.height = 64
+	return texture
 
 func _load_puzzle_level(level_index: int):
 	if not _has_puzzle_levels():
@@ -553,7 +594,7 @@ func _refresh_puzzle_tiles():
 	var theme: ThemeData = _get_puzzle_theme()
 	for order_index in range(revealed_puzzle_tiles, total_tiles):
 		var tile_index: int = puzzle_tile_order[order_index]
-		var tile := ColorRect.new()
+		var tile := PuzzleTileCover.new()
 		var column: int = tile_index % PUZZLE_COLUMNS
 		var row: int = int(floor(float(tile_index) / float(PUZZLE_COLUMNS)))
 		tile.anchor_left = float(column) / float(PUZZLE_COLUMNS)
@@ -564,7 +605,7 @@ func _refresh_puzzle_tiles():
 		tile.offset_top = PUZZLE_TILE_MARGIN
 		tile.offset_right = -PUZZLE_TILE_MARGIN
 		tile.offset_bottom = -PUZZLE_TILE_MARGIN
-		tile.color = theme.puzzle_tile_cover_color
+		tile.setup(column, row, PUZZLE_COLUMNS, PUZZLE_ROWS, theme.puzzle_tile_cover_color)
 		puzzle_tiles.add_child(tile)
 
 func _apply_puzzle_progress(removed_pieces: int):

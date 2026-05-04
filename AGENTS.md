@@ -378,6 +378,8 @@ If HUD layout changes, preserve:
 - separate puzzle frame, score frame, and bottom action button row
 - theme-driven puzzle visuals and message styling
 - dark backdrop-colored screen background behind both HUD and board
+- full-window gradient background that stays visible around the content edge
+- puzzle cover tiles drawn as puzzle-piece silhouettes with tabs and sockets
 
 ### Dialogs
 
@@ -587,6 +589,15 @@ Owns:
 - exposing the current `ThemeData`
 - central access point for theme-driven visuals
 - reloading the active theme when persisted settings change
+
+### `PuzzleTileCover.gd`
+
+Owns:
+
+- the drawn puzzle-piece cover shape used by revealed and unrevealed puzzle tiles
+- the paper-like fill, outline, and simple lighting of puzzle cover tiles
+
+Keep puzzle tile cover work here instead of reverting to flat `ColorRect` tiles.
 
 ## Scoring Rules
 
