@@ -14,18 +14,24 @@ const PuzzleTileCover = preload("res://scripts/ui/PuzzleTileCover.gd")
 @onready var puzzle_image: TextureRect = $CanvasLayer/PuzzlePanel/PuzzleImage
 @onready var puzzle_tiles: Control = $CanvasLayer/PuzzlePanel/PuzzleTiles
 @onready var puzzle_badge: TextureRect = $CanvasLayer/PuzzleBadge
-@onready var message_panel: ColorRect = $CanvasLayer/MessagePanel
-@onready var message_label: Label = $CanvasLayer/MessageLabel
-@onready var score_label: Label = $CanvasLayer/ScoreHBox/ScoreLabel
-@onready var high_score_label: Label = $CanvasLayer/ScoreHBox/HighScoreLabel
-@onready var score_hbox: HBoxContainer = $CanvasLayer/ScoreHBox
-@onready var color_lines_badge: LineMetricBadge = $CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat/Badge
-@onready var color_lines_value_label: Label = $CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat/ValueLabel
-@onready var type_lines_badge: LineMetricBadge = $CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat/Badge
-@onready var type_lines_value_label: Label = $CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat/ValueLabel
-@onready var action_buttons: HBoxContainer = $CanvasLayer/ActionButtons
-@onready var reset_button: Button = $CanvasLayer/ActionButtons/ResetButton
-@onready var action_main_menu_button: Button = $CanvasLayer/ActionButtons/MainMenuButton
+@onready var gear_button: Button = $CanvasLayer/GearButton
+@onready var score_clip: Control = $CanvasLayer/ScoreClip
+@onready var message_panel: ColorRect = $CanvasLayer/ScoreClip/MessagePanel
+@onready var message_label: Label = $CanvasLayer/ScoreClip/MessageLabel
+@onready var score_label: Label = $CanvasLayer/ScoreClip/ScoreHBox/ScoreLabel
+@onready var high_score_label: Label = $CanvasLayer/ScoreClip/ScoreHBox/HighScoreLabel
+@onready var score_hbox: HBoxContainer = $CanvasLayer/ScoreClip/ScoreHBox
+@onready var color_lines_badge: LineMetricBadge = $CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat/Badge
+@onready var color_lines_value_label: Label = $CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat/ValueLabel
+@onready var type_lines_badge: LineMetricBadge = $CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat/Badge
+@onready var type_lines_value_label: Label = $CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat/ValueLabel
+@onready var pause_overlay: Control = $CanvasLayer/UI/PauseOverlay
+@onready var pause_backdrop: ColorRect = $CanvasLayer/UI/PauseOverlay/Backdrop
+@onready var pause_panel: PanelContainer = $CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel
+@onready var pause_title_label: Label = $CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox/TitleLabel
+@onready var resume_button: Button = $CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox/ButtonColumn/ResumeButton
+@onready var pause_reset_button: Button = $CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox/ButtonColumn/ResetButton
+@onready var pause_main_menu_button: Button = $CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox/ButtonColumn/MainMenuButton
 @onready var game_over_overlay: Control = $CanvasLayer/UI/GameOverOverlay
 @onready var game_over_backdrop: ColorRect = $CanvasLayer/UI/GameOverOverlay/Backdrop
 @onready var game_over_panel: PanelContainer = $CanvasLayer/UI/GameOverOverlay/CenterContainer/GameOverPanel
@@ -53,17 +59,15 @@ const SCREEN_CONTENT_MARGIN: float = 6.0
 const HUD_MARGIN_LEFT: float = 3.0
 const HUD_MARGIN_TOP: float = 3.0
 const HUD_MARGIN_GAP: float = 8.0
-const HUD_MESSAGE_HEIGHT_PADDING: float = 2.0
 const PUZZLE_FRAME_INSET: float = 3.0
 const PUZZLE_BADGE_WIDTH_RATIO: float = 0.66
 const PUZZLE_BADGE_BORDER_OVERLAP: float = 8.0
+const HUD_FRAME_COLOR: Color = Color(0.79, 0.62, 0.29, 0.95)
+const HUD_FRAME_HOVER_COLOR: Color = Color(0.96, 0.78, 0.38, 1.0)
 const SCORE_FRAME_INSET_X: float = 5.0
 const SCORE_FRAME_INSET_Y: float = 4.0
 const SCORE_ROW_HEIGHT: float = 66.0
 const SCORE_FRAME_EXTRA_SPACE: float = 0.0
-const ACTION_BUTTON_HEIGHT: float = 72.0
-const ACTION_BUTTON_GAP: float = 8.0
-const ACTION_BUTTON_PANEL_MARGIN: float = 8.0
 const PUZZLE_COLUMNS: int = 5
 const PUZZLE_ROWS: int = 5
 const PUZZLE_TILE_MARGIN: float = -1.0
@@ -133,6 +137,11 @@ func apply_theme(theme: ThemeData):
 	_update_layout()
 
 func _apply_dialog_theme(theme):
+	pause_backdrop.color = theme.dialog_overlay_color
+	pause_panel.add_theme_stylebox_override(
+		"panel",
+		_build_dialog_panel_style(theme.dialog_panel_background_color, theme.dialog_panel_border_color)
+	)
 	game_over_backdrop.color = theme.dialog_overlay_color
 	game_over_panel.add_theme_stylebox_override(
 		"panel",
@@ -143,6 +152,12 @@ func _apply_dialog_theme(theme):
 	var body_font: SystemFont = _build_dialog_font(theme.dialog_font_names, theme.dialog_body_font_weight)
 	var button_font: SystemFont = _build_dialog_font(theme.dialog_font_names, theme.dialog_button_font_weight)
 
+	_apply_dialog_label_style(
+		pause_title_label,
+		title_font,
+		theme.dialog_title_font_size,
+		theme.dialog_title_color
+	)
 	_apply_dialog_label_style(
 		game_over_title_label,
 		title_font,
@@ -163,6 +178,41 @@ func _apply_dialog_theme(theme):
 	)
 
 	_apply_dialog_button_style(
+		resume_button,
+		button_font,
+		theme.dialog_button_font_size,
+		theme.dialog_button_primary_color,
+		theme.dialog_button_primary_hover_color,
+		theme.dialog_button_text_color
+	)
+	_apply_icon_button_style(
+		gear_button,
+		button_font,
+		theme.dialog_button_font_size,
+		HUD_FRAME_COLOR,
+		HUD_FRAME_HOVER_COLOR
+	)
+	_apply_dialog_button_style(
+		pause_reset_button,
+		button_font,
+		theme.dialog_button_font_size,
+		theme.dialog_button_secondary_color,
+		theme.dialog_button_secondary_hover_color,
+		theme.dialog_button_text_color,
+		theme.dialog_button_secondary_border_color,
+		theme.dialog_button_secondary_border_hover_color
+	)
+	_apply_dialog_button_style(
+		pause_main_menu_button,
+		button_font,
+		theme.dialog_button_font_size,
+		theme.dialog_button_secondary_color,
+		theme.dialog_button_secondary_hover_color,
+		theme.dialog_button_text_color,
+		theme.dialog_button_secondary_border_color,
+		theme.dialog_button_secondary_border_hover_color
+	)
+	_apply_dialog_button_style(
 		restart_button,
 		button_font,
 		theme.dialog_button_font_size,
@@ -180,24 +230,6 @@ func _apply_dialog_theme(theme):
 		theme.dialog_button_secondary_border_color,
 		theme.dialog_button_secondary_border_hover_color
 	)
-	_apply_dialog_button_style(
-		reset_button,
-		button_font,
-		theme.dialog_button_font_size,
-		theme.dialog_button_secondary_color,
-		theme.dialog_button_secondary_hover_color,
-		theme.dialog_button_text_color,
-		theme.dialog_button_secondary_border_color,
-		theme.dialog_button_secondary_border_hover_color
-	)
-	_apply_link_button_style(
-		action_main_menu_button,
-		button_font,
-		theme.dialog_button_font_size,
-		theme.dialog_button_link_color,
-		theme.dialog_button_link_hover_color
-	)
-
 func _build_dialog_font(font_names: PackedStringArray, font_weight: int) -> SystemFont:
 	var font := SystemFont.new()
 	font.font_names = font_names
@@ -224,20 +256,6 @@ func _apply_dialog_button_style(
 	button.add_theme_color_override("font_color", text_color)
 	button.add_theme_stylebox_override("normal", _build_dialog_button_style(normal_color, normal_border_color))
 	button.add_theme_stylebox_override("hover", _build_dialog_button_style(hover_color, hover_border_color))
-
-func _apply_link_button_style(
-	button: Button,
-	font: Font,
-	font_size: int,
-	normal_color: Color,
-	hover_color: Color
-):
-	button.add_theme_font_override("font", font)
-	button.add_theme_font_size_override("font_size", font_size)
-	button.add_theme_color_override("font_color", normal_color)
-	button.add_theme_color_override("font_hover_color", hover_color)
-	button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
-	button.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
 
 func _build_dialog_panel_style(background_color: Color, border_color: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -278,16 +296,36 @@ func _build_dialog_button_style(background_color: Color, border_color: Color) ->
 	style.content_margin_bottom = 14.0
 	return style
 
+func _apply_icon_button_style(
+	button: Button,
+	font: Font,
+	font_size: int,
+	normal_color: Color,
+	hover_color: Color
+):
+	button.add_theme_font_override("font", font)
+	button.add_theme_font_size_override("font_size", font_size)
+	button.add_theme_color_override("icon_normal_color", normal_color)
+	button.add_theme_color_override("icon_hover_color", hover_color)
+	button.add_theme_color_override("icon_pressed_color", hover_color)
+	button.add_theme_color_override("icon_focus_color", hover_color)
+	button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	button.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
+	button.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
+	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
 func _setup_signals():
 	board_manager.capture_made.connect(_on_capture_made)
 	board_manager.piece_moved.connect(_on_piece_moved)
 	GameManager.score_updated.connect(_on_score_updated)
 	GameManager.line_metrics_updated.connect(_on_line_metrics_updated)
 	GameManager.game_over.connect(_on_game_over)
+	gear_button.pressed.connect(_on_gear_pressed)
+	resume_button.pressed.connect(_on_resume_pressed)
+	pause_reset_button.pressed.connect(_on_restart_pressed)
+	pause_main_menu_button.pressed.connect(_on_main_menu_pressed)
 	restart_button.pressed.connect(_on_restart_pressed)
 	main_menu_button.pressed.connect(_on_main_menu_pressed)
-	reset_button.pressed.connect(_on_restart_pressed)
-	action_main_menu_button.pressed.connect(_on_main_menu_pressed)
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 
 func _on_viewport_size_changed():
@@ -298,20 +336,20 @@ func _update_layout():
 	_update_screen_backdrop(viewport_size)
 	var top_bar_height: float = _update_top_hud_layout(viewport_size)
 	var board_render_size: float = board_manager.get_rendered_pixel_size()
-	var bottom_actions_height: float = ACTION_BUTTON_GAP + ACTION_BUTTON_HEIGHT + HUD_MARGIN_TOP
-	var available_height: float = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - BOARD_TOP_GAP - bottom_actions_height, 120.0)
+	var bottom_margin: float = HUD_MARGIN_TOP
+	var available_height: float = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - BOARD_TOP_GAP - bottom_margin, 120.0)
 	var content_width: float = maxf(viewport_size.x - SCREEN_CONTENT_MARGIN * 2.0, 1.0)
 	var width_scale: float = content_width / board_render_size
 	var height_scale: float = available_height / board_render_size
 	var scale_factor: float = maxf(minf(width_scale, height_scale), 0.1)
 	var scaled_board_height: float = board_render_size * scale_factor
-	var required_height: float = top_bar_height + TOP_BAR_SHADOW_HEIGHT + BOARD_TOP_GAP + scaled_board_height + bottom_actions_height
+	var required_height: float = top_bar_height + TOP_BAR_SHADOW_HEIGHT + BOARD_TOP_GAP + scaled_board_height + bottom_margin
 
 	_ensure_window_height(required_height, viewport_size)
 
 	viewport_size = get_viewport_rect().size
 	board_render_size = board_manager.get_rendered_pixel_size()
-	available_height = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - BOARD_TOP_GAP - bottom_actions_height, 120.0)
+	available_height = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - BOARD_TOP_GAP - bottom_margin, 120.0)
 	content_width = maxf(viewport_size.x - SCREEN_CONTENT_MARGIN * 2.0, 1.0)
 	width_scale = content_width / board_render_size
 	height_scale = available_height / board_render_size
@@ -324,13 +362,6 @@ func _update_layout():
 	var board_x: float = (viewport_size.x - scaled_board_width) * 0.5
 	var board_y: float = top_bar_height + TOP_BAR_SHADOW_HEIGHT + BOARD_TOP_GAP
 	board_manager.position = Vector2(board_x, board_y)
-	_update_action_buttons_layout(board_x, board_y + scaled_board_height + ACTION_BUTTON_GAP, scaled_board_width)
-
-func _update_action_buttons_layout(board_x: float, buttons_y: float, board_width: float):
-	action_buttons.offset_left = board_x + ACTION_BUTTON_PANEL_MARGIN
-	action_buttons.offset_top = buttons_y
-	action_buttons.offset_right = board_x + board_width - ACTION_BUTTON_PANEL_MARGIN
-	action_buttons.offset_bottom = buttons_y + ACTION_BUTTON_HEIGHT
 
 func _update_screen_backdrop(viewport_size: Vector2):
 	screen_background.position = Vector2.ZERO
@@ -357,7 +388,9 @@ func _update_top_hud_layout(viewport_size: Vector2) -> float:
 	var badge_width: float = panel_width * PUZZLE_BADGE_WIDTH_RATIO
 	if puzzle_badge.texture != null and puzzle_badge.texture.get_width() > 0:
 		badge_height = badge_width * float(puzzle_badge.texture.get_height()) / float(puzzle_badge.texture.get_width())
-	var panel_top: float = HUD_MARGIN_TOP + maxf(badge_height - PUZZLE_BADGE_BORDER_OVERLAP, 0.0)
+	var gear_size: float = clampf(badge_height * 0.39, 28.0, 48.0)
+	var header_height: float = maxf(badge_height, gear_size)
+	var panel_top: float = HUD_MARGIN_TOP + maxf(header_height - PUZZLE_BADGE_BORDER_OVERLAP, 0.0)
 
 	puzzle_panel.offset_left = panel_margin
 	puzzle_panel.offset_top = panel_top
@@ -369,6 +402,14 @@ func _update_top_hud_layout(viewport_size: Vector2) -> float:
 	puzzle_badge.offset_top = HUD_MARGIN_TOP
 	puzzle_badge.offset_right = badge_x + badge_width
 	puzzle_badge.offset_bottom = HUD_MARGIN_TOP + badge_height
+
+	var gear_center_x: float = panel_margin + maxf((badge_x - panel_margin) * 0.5, gear_size * 0.5)
+	var gear_x: float = gear_center_x - gear_size * 0.5
+	var gear_y: float = HUD_MARGIN_TOP + maxf((badge_height - gear_size) * 0.5, 0.0)
+	gear_button.offset_left = gear_x
+	gear_button.offset_top = gear_y
+	gear_button.offset_right = gear_x + gear_size
+	gear_button.offset_bottom = gear_y + gear_size
 
 	puzzle_frame.offset_left = 0.0
 	puzzle_frame.offset_top = 0.0
@@ -388,10 +429,18 @@ func _update_top_hud_layout(viewport_size: Vector2) -> float:
 	var score_frame_height: float = score_panel_height + SCORE_FRAME_EXTRA_SPACE
 	var score_panel_top: float = score_frame_top
 
-	score_hbox.offset_left = panel_margin + SCORE_FRAME_INSET_X
-	score_hbox.offset_top = score_panel_top + SCORE_FRAME_INSET_Y
-	score_hbox.offset_right = -(panel_margin + SCORE_FRAME_INSET_X)
-	score_hbox.offset_bottom = score_hbox.offset_top + SCORE_ROW_HEIGHT
+	var score_clip_left: float = panel_margin + SCORE_FRAME_INSET_X
+	var score_clip_top: float = score_panel_top + SCORE_FRAME_INSET_Y
+	var score_clip_width: float = maxf(viewport_size.x - score_clip_left * 2.0, 1.0)
+	score_clip.offset_left = score_clip_left
+	score_clip.offset_top = score_clip_top
+	score_clip.offset_right = -score_clip_left
+	score_clip.offset_bottom = score_clip_top + SCORE_ROW_HEIGHT
+
+	score_hbox.offset_left = 0.0
+	score_hbox.offset_top = 0.0
+	score_hbox.offset_right = 0.0
+	score_hbox.offset_bottom = SCORE_ROW_HEIGHT
 	base_score_position = score_hbox.position
 
 	score_panel.offset_left = panel_margin
@@ -409,34 +458,33 @@ func _update_top_hud_layout(viewport_size: Vector2) -> float:
 	score_shadow.offset_top = score_frame.offset_bottom
 	score_shadow.offset_bottom = score_frame.offset_bottom + TOP_BAR_SHADOW_HEIGHT
 
-	_update_message_layout(
-		score_hbox.offset_left,
-		score_hbox.offset_top,
-		score_hbox.offset_right,
-		score_hbox.offset_bottom
-	)
+	_update_message_layout(score_clip_width)
 	_debug_hud_layout(viewport_size, panel_width, puzzle_height, puzzle_texture)
 	return score_frame.offset_bottom
 
-func _update_message_layout(score_row_left: float, score_row_top: float, score_row_right: float, score_row_bottom: float):
-	message_panel.offset_left = score_row_left
-	message_panel.offset_top = score_row_top
-	message_panel.offset_right = score_row_right
-	message_panel.offset_bottom = score_row_bottom
+func _update_message_layout(score_clip_width: float):
+	message_panel.offset_left = 0.0
+	message_panel.offset_top = 0.0
+	message_panel.offset_right = 0.0
+	message_panel.offset_bottom = SCORE_ROW_HEIGHT
 	message_panel.z_index = 19
-	message_label.offset_left = score_row_left
-	message_label.offset_top = score_row_top
-	message_label.offset_right = score_row_right
-	message_label.offset_bottom = score_row_bottom
+	message_label.offset_left = 0.0
+	message_label.offset_top = 0.0
+	message_label.offset_right = 0.0
+	message_label.offset_bottom = SCORE_ROW_HEIGHT
 	message_label.z_index = 20
 	base_message_position = message_label.position
 	if not is_message_queue_running:
-		message_panel.position = base_message_position + Vector2(-_get_message_slide_distance(), 0.0)
-		message_label.position = base_message_position + Vector2(-_get_message_slide_distance(), 0.0)
+		var slide_distance := _get_message_slide_distance(score_clip_width)
+		message_panel.position = base_message_position + Vector2(-slide_distance, 0.0)
+		message_label.position = base_message_position + Vector2(-slide_distance, 0.0)
 		score_hbox.position = base_score_position
 
-func _get_message_slide_distance() -> float:
-	return maxf(message_panel.size.x + SCREEN_CONTENT_MARGIN + HUD_MARGIN_LEFT, MESSAGE_SLIDE_DISTANCE)
+func _get_message_slide_distance(score_clip_width: float = 0.0) -> float:
+	var measured_width := score_clip_width
+	if measured_width <= 0.0:
+		measured_width = score_clip.size.x
+	return maxf(measured_width, MESSAGE_SLIDE_DISTANCE)
 
 func _debug_hud_layout(
 	viewport_size: Vector2,
@@ -552,7 +600,7 @@ func _build_puzzle_frame_style() -> StyleBoxFlat:
 	style.border_width_top = 3
 	style.border_width_right = 3
 	style.border_width_bottom = 3
-	style.border_color = Color(0.79, 0.62, 0.29, 0.95)
+	style.border_color = HUD_FRAME_COLOR
 	style.corner_radius_top_left = 12
 	style.corner_radius_top_right = 12
 	style.corner_radius_bottom_left = 12
@@ -608,6 +656,16 @@ func _load_puzzle_level(level_index: int):
 	_build_puzzle_tile_order()
 	_refresh_puzzle_tiles()
 	_update_layout()
+	_queue_level_start_message(current_puzzle_level + 1)
+
+func _queue_level_start_message(level_number: int):
+	_queue_message(_get_level_start_message(level_number))
+
+func _get_level_start_message(level_number: int) -> String:
+	var template: String = _get_puzzle_theme().level_start_message_template.strip_edges()
+	if template.is_empty():
+		return "Starting level #%d" % level_number
+	return template.replace("{number}", str(level_number))
 
 func _build_puzzle_tile_order():
 	puzzle_tile_order.clear()
@@ -797,11 +855,25 @@ func _update_line_metrics_ui():
 
 func _on_game_over(final_score: int):
 	board_manager.set_input_enabled(false)
+	pause_overlay.visible = false
 	game_over_overlay.visible = true
 	game_over_score_label.text = "Final Score: " + str(final_score)
 	AudioManager.play_sound("game_over")
 
+func _on_gear_pressed():
+	if game_over_overlay.visible:
+		return
+
+	pause_overlay.visible = true
+	board_manager.set_input_enabled(false)
+
+func _on_resume_pressed():
+	pause_overlay.visible = false
+	if not is_processing_move and not game_over_overlay.visible:
+		board_manager.set_input_enabled(true)
+
 func _on_restart_pressed():
+	pause_overlay.visible = false
 	game_over_overlay.visible = false
 	is_processing_move = false
 	GameManager.reset_game()
@@ -833,7 +905,7 @@ func _resolve_turn():
 	_check_game_over()
 
 	is_processing_move = false
-	if not game_over_overlay.visible:
+	if not game_over_overlay.visible and not pause_overlay.visible:
 		board_manager.set_input_enabled(true)
 
 func _resolve_chain_waves() -> bool:

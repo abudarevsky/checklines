@@ -7,7 +7,7 @@
 [ext_resource type="Texture2D" uid="uid://cts54nauj7k38" path="res://assets/sprites/png/white_rook.png" id="5_rook"]
 [ext_resource type="Texture2D" uid="uid://bfi33f17grhm0" path="res://assets/sprites/png/white_queen.png" id="6_queen"]
 [ext_resource type="Texture2D" uid="uid://b2rrcwouele0e" path="res://assets/sprites/png/white_king.png" id="7_king"]
-[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level0.png" id="8_puzzle_1"]
+[ext_resource type="Texture2D" uid="uid://b4jt2ecbip7o7" path="res://assets/ui/themes/neon/level0.png" id="8_puzzle_1"]
 
 [resource]
 script = ExtResource("1_theme")
@@ -38,6 +38,7 @@ puzzle_level_images = [ExtResource("8_puzzle_1")]
 puzzle_board_background_color = Color(0.06, 0.06, 0.12, 1)
 puzzle_message_text_color = Color(1, 1, 1, 1)
 puzzle_message_outline_color = Color(0, 1, 1, 0.35)
+level_start_message_template = "Shed light on the battle!"
 dialog_font_names = PackedStringArray("Avenir Next Condensed", "Helvetica Neue", "Arial Narrow", "Arial")
 dialog_overlay_color = Color(0.02, 0.02, 0.04, 0.62)
 dialog_panel_background_color = Color(0.05, 0.05, 0.1, 0.96)
@@ -49,19 +50,13 @@ dialog_button_secondary_color = Color(0.1, 0.1, 0.18, 0.98)
 dialog_button_secondary_hover_color = Color(0.14, 0.14, 0.24, 1)
 dialog_button_secondary_border_color = Color(0, 1, 1, 0.28)
 dialog_button_secondary_border_hover_color = Color(0, 1, 1, 0.48)
-dialog_button_text_color = Color(1, 1, 1, 0.98)
 menu_checker_light_color = Color(0.14, 0.14, 0.2, 1)
 menu_checker_dark_color = Color(0.04, 0.04, 0.06, 1)
 menu_panel_background_color = Color(0.04, 0.04, 0.08, 0.88)
 menu_panel_border_color = Color(0, 1, 1, 0.2)
 menu_subtitle_color = Color(0.9, 0.9, 1, 0.72)
 menu_button_text_color = Color(0.1, 0.1, 0.1, 1)
-
 menu_button_text_color_hover = Color(0.1, 0.1, 0.1, 1)
-
-menu_outline_button_text_color = Color(1, 1, 1, 0.9)
-
-menu_outline_button_text_color_hover = Color(1, 1, 1, 0.9)
 menu_button_green_color = Color(0, 0.9, 0.9, 1)
 menu_button_green_hover_color = Color(0, 1, 1, 1)
 menu_button_orange_color = Color(1, 1, 0, 1)

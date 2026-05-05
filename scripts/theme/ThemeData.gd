@@ -40,6 +40,7 @@ class_name ThemeData
 @export var puzzle_message_outline_color: Color = Color(1.0, 1.0, 1.0, 0.28)
 @export var puzzle_message_font_weight: int = 700
 @export var puzzle_message_font_size: int = 30
+@export var level_start_message_template: String = ""
 
 @export var gameplay_backdrop_base_color: Color = Color(0.0, 0.004, 0.007, 1.0)
 @export var gameplay_backdrop_edge_glow_color: Color = Color(0.0, 0.28, 0.43, 1.0)

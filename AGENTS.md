@@ -329,9 +329,9 @@ Current approach:
 - gameplay board remains a fixed logical 8x8 board
 - `GameBoard.gd` scales `BoardManager` visually from fixed logical board dimensions
 - mobile gameplay should make the board nearly full viewport width when height allows
-- desktop gameplay should prefer a board-width window footprint and may squeeze the board to keep HUD, board, and bottom actions visible
+- desktop gameplay should prefer a board-width window footprint and may squeeze the board to keep HUD and board visible
 - gameplay board is positioned directly below the HUD instead of vertically centered in leftover space
-- desktop windowed mode may increase window height so the HUD, board, and bottom action row remain fully visible
+- desktop windowed mode may increase window height so the HUD and board remain fully visible
 - top HUD stretches horizontally with anchors instead of fixed pixel widths
 
 Prefer viewport-aware scaling at the scene container level.
@@ -340,7 +340,7 @@ Do not rewrite board logic to use dynamic per-cell coordinates just to support w
 
 Use `GameManager.BOARD_PIXEL_SIZE`, `GameManager.CELL_SIZE`, and `BoardManager.get_rendered_pixel_size()` as logical board dimensions, then scale the board scene visually.
 
-The current default desktop viewport in `project.godot` should stay close to the rendered board width and tall enough for the HUD, board, and bottom actions.
+The current default desktop viewport in `project.godot` should stay close to the rendered board width and tall enough for the HUD and board.
 
 ### HUD / Puzzle Board
 
@@ -349,8 +349,8 @@ Current gameplay HUD includes:
 - a top puzzle board image panel
 - a message display beneath the puzzle board
 - score and session line counters beneath the message display
-- a bottom action row under the board with Reset and Main Menu buttons
-- the Main Menu button in the action row uses a borderless link-style appearance (no background, no border, dim text that brightens on hover)
+- a gear button that opens a pause dialog
+- no persistent bottom action row
 
 Puzzle board rules:
 
@@ -360,27 +360,47 @@ Puzzle board rules:
 - the default puzzle image comes from `assets/ui/themes/default/level0.png`
 - puzzle tile cover and puzzle board colors should remain theme-driven
 - `assets/ui/checklines-screen-badge.png` is the top badge art
-- the badge should sit above the puzzle frame with only its bottom edge slightly overlapping the puzzle border
+- the badge should sit centered above the puzzle frame and share its top row with the gear button
+- the gear button should sit centered between the left HUD edge and the centered badge
+- the gear button should use a borderless icon button style
+- render the gear icon using the same gold color as the puzzle and score frame border
+- the badge bottom edge should slightly overlap the puzzle border
 - the puzzle image and score row use separate frames; do not wrap the puzzle and score row in one shared frame
 - keep a small visible gap between the puzzle frame and the score row frame
+
+Pause dialog rules:
+
+- the gear button opens `CanvasLayer/UI/PauseOverlay`
+- the pause dialog title is `"Game paused."`
+- the pause dialog uses the same centered card style, colors, fonts, and button treatment as the game-over dialog
+- pause dialog actions are vertically aligned
+- pause dialog actions should include Resume, Reset, and Main Menu
+- opening the pause dialog disables board input; Resume re-enables board input unless the game is over or a move is processing
 
 Message display rules:
 
 - color line message: `"$number in a row"`
 - type line message: `"$number $piece_name on the march"`
 - level complete message: `"Completed the $ordinal level!"`
+- level start messages are theme-defined through `ThemeData.level_start_message_template`
+- if a theme does not define a level start message, use `"Starting level #$number"`
+- level start message templates may include `{number}` as the level number placeholder
+- current default theme level start message: `"Let the fight begin!"`
+- current neon theme level start message: `"Shed light on the battle!"`
 - HUD messages should use the dialog font family at a larger, more prominent size
 - HUD messages live inside the score row while displayed
 - HUD messages should use an opaque score-row-colored backing panel, not transparent text over the scores
 - HUD messages wipe in from the left and wipe out to the right
 - while the message wipes in, the score and best text slide out as if pushed away, then slide back when the message exits
+- message and score animations should be clipped within the score row frame
 - the score row frame and side borders must remain fixed; only the inner score content and message wipe panel should slide
 
 If HUD layout changes, preserve:
 
 - near full-width board presentation on mobile and board-footprint desktop presentation
 - anchored top HUD controls
-- separate puzzle frame, score frame, and bottom action button row
+- separate puzzle frame and score frame
+- centered badge and left-side gear button sharing the same header row
 - theme-driven puzzle visuals and message styling
 - dark backdrop-colored screen background behind both HUD and board
 - full-window dark vignette/gradient background that stays visible around the content edge
@@ -435,9 +455,9 @@ for grid conversion.
 
 Gameplay scene UI caveat:
 
-- Persistent bottom buttons live under `CanvasLayer/ActionButtons`
+- Pause UI lives under `CanvasLayer/UI/PauseOverlay`
 - Game-over UI lives under `CanvasLayer/UI/GameOverOverlay`
-- Keep the full-screen `CanvasLayer/UI` control on `mouse_filter = ignore` so it does not block Reset or Main Menu button clicks
+- Keep the full-screen `CanvasLayer/UI` control on `mouse_filter = ignore` so it does not block normal gameplay or the gear button
 - Only visible modal/dialog controls should consume pointer input
 
 ## Move Validation
@@ -765,14 +785,15 @@ UI:
 22. HowToPlay panel fully opaque
 23. Main menu buttons remain centered after window resize
 24. Gameplay board is nearly full-width on mobile and remains fully visible after window resize
-25. Desktop gameplay window stays close to board width and fits HUD, board, and bottom actions
+25. Desktop gameplay window stays close to board width and fits HUD and board
 26. Score row is wrapped in its own frame, separate from the puzzle frame
-27. Reset and Main Menu buttons under the board are clickable and perform their actions
-28. The full-screen UI overlay does not block normal gameplay or bottom button input
-29. Puzzle board reveals tiles as pieces are removed
-30. Message display shows line-clear and level-complete messages with the expected wording
-31. HUD messages use an opaque backing panel inside the score row, wipe in from the left, wipe out to the right, and temporarily push score/best text away
-32. Game-over dialog uses a large centered card with brisk modern typography
+27. Gear button sits centered between the left HUD edge and the centered badge, and opens the pause dialog
+28. Pause dialog shows `"Game paused."` and vertically stacked Resume, Reset, and Main Menu actions
+29. The full-screen UI overlay does not block normal gameplay or gear button input
+30. Puzzle board reveals tiles as pieces are removed
+31. Message display shows line-clear and level-complete messages with the expected wording
+32. HUD messages use an opaque backing panel inside the score row, wipe in from the left, wipe out to the right, and temporarily push score/best text away
+33. Game-over dialog uses a large centered card with brisk modern typography
 
 ## Current Working Definition
 

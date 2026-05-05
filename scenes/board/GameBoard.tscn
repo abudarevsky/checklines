@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3 uid="uid://game_board"]
+[gd_scene load_steps=7 format=3 uid="uid://game_board"]
 
 [ext_resource type="Script" path="res://scripts/board/GameBoard.gd" id="1_game"]
 [ext_resource type="PackedScene" uid="uid://board_manager" path="res://scenes/board/BoardManager.tscn" id="2_board"]
 [ext_resource type="Script" path="res://scripts/ui/LineMetricBadge.gd" id="3_metric_badge"]
 [ext_resource type="Texture2D" path="res://assets/ui/checklines-screen-badge.png" id="4_badge"]
+[ext_resource type="Texture2D" path="res://assets/ui/gear.svg" id="5_gear"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_score_bg"]
 bg_color = Color(0.3, 0.3, 0.3, 0.95)
@@ -138,28 +139,55 @@ expand_mode = 1
 stretch_mode = 4
 texture = ExtResource("4_badge")
 
-[node name="MessagePanel" type="ColorRect" parent="CanvasLayer"]
+[node name="GearButton" type="Button" parent="CanvasLayer"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 720.0
+offset_top = 12.0
+offset_right = 792.0
+offset_bottom = 84.0
+grow_horizontal = 2
+icon = ExtResource("5_gear")
+flat = true
+expand_icon = true
+
+[node name="ScoreClip" type="Control" parent="CanvasLayer"]
+clip_contents = true
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 anchor_bottom = 0.0
 offset_left = 16
-offset_top = 146
+offset_top = 182
 offset_right = -16
-offset_bottom = 188
+offset_bottom = 238
+grow_horizontal = 2
+mouse_filter = 2
+
+[node name="MessagePanel" type="ColorRect" parent="CanvasLayer/ScoreClip"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = 0
+offset_top = 0
+offset_right = 0
+offset_bottom = 56
 grow_horizontal = 2
 mouse_filter = 2
 color = Color(0.03, 0.07, 0.12, 1)
 
-[node name="MessageLabel" type="Label" parent="CanvasLayer"]
+[node name="MessageLabel" type="Label" parent="CanvasLayer/ScoreClip"]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 anchor_bottom = 0.0
-offset_left = 16
-offset_top = 146
-offset_right = -16
-offset_bottom = 188
+offset_left = 0
+offset_top = 0
+offset_right = 0
+offset_bottom = 56
 grow_horizontal = 2
 theme_override_colors/font_color = Color(0.12, 0.12, 0.12, 1)
 theme_override_constants/outline_size = 2
@@ -169,19 +197,19 @@ text = ""
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ScoreHBox" type="HBoxContainer" parent="CanvasLayer"]
+[node name="ScoreHBox" type="HBoxContainer" parent="CanvasLayer/ScoreClip"]
 layout_mode = 3
 anchors_preset = 10
 anchor_right = 1.0
 anchor_bottom = 0.0
 offset_left = 0
-offset_top = 182
+offset_top = 0
 offset_right = 0
-offset_bottom = 238
+offset_bottom = 56
 grow_horizontal = 2
 theme_override_constants/separation = 24
 
-[node name="ScoreLabel" type="Label" parent="CanvasLayer/ScoreHBox"]
+[node name="ScoreLabel" type="Label" parent="CanvasLayer/ScoreClip/ScoreHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 1.0
@@ -192,7 +220,7 @@ theme_override_font_sizes/font_size = 36
 text = "Score: 0"
 horizontal_alignment = 1
 
-[node name="HighScoreLabel" type="Label" parent="CanvasLayer/ScoreHBox"]
+[node name="HighScoreLabel" type="Label" parent="CanvasLayer/ScoreClip/ScoreHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 1.0
@@ -203,7 +231,7 @@ theme_override_font_sizes/font_size = 30
 text = "Best: 0"
 horizontal_alignment = 1
 
-[node name="StatsPanel" type="MarginContainer" parent="CanvasLayer/ScoreHBox"]
+[node name="StatsPanel" type="MarginContainer" parent="CanvasLayer/ScoreClip/ScoreHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/margin_left = 12
@@ -211,21 +239,21 @@ theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 8
 
-[node name="StatsHBox" type="HBoxContainer" parent="CanvasLayer/ScoreHBox/StatsPanel"]
+[node name="StatsHBox" type="HBoxContainer" parent="CanvasLayer/ScoreClip/ScoreHBox/StatsPanel"]
 layout_mode = 2
 theme_override_constants/separation = 18
 
-[node name="ColorLinesStat" type="HBoxContainer" parent="CanvasLayer/ScoreHBox/StatsPanel/StatsHBox"]
+[node name="ColorLinesStat" type="HBoxContainer" parent="CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Badge" type="Control" parent="CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat"]
+[node name="Badge" type="Control" parent="CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat"]
 custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
 script = ExtResource("3_metric_badge")
 badge_mode = "color"
 
-[node name="ValueLabel" type="Label" parent="CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat"]
+[node name="ValueLabel" type="Label" parent="CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat"]
 layout_mode = 2
 custom_minimum_size = Vector2(32, 0)
 theme_override_colors/font_color = Color(0.05, 0.05, 0.05, 1)
@@ -235,17 +263,17 @@ theme_override_font_sizes/font_size = 26
 text = "0"
 vertical_alignment = 1
 
-[node name="TypeLinesStat" type="HBoxContainer" parent="CanvasLayer/ScoreHBox/StatsPanel/StatsHBox"]
+[node name="TypeLinesStat" type="HBoxContainer" parent="CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Badge" type="Control" parent="CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat"]
+[node name="Badge" type="Control" parent="CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat"]
 custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
 script = ExtResource("3_metric_badge")
 badge_mode = "type"
 
-[node name="ValueLabel" type="Label" parent="CanvasLayer/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat"]
+[node name="ValueLabel" type="Label" parent="CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat"]
 layout_mode = 2
 custom_minimum_size = Vector2(32, 0)
 theme_override_colors/font_color = Color(0.05, 0.05, 0.05, 1)
@@ -254,29 +282,6 @@ theme_override_colors/font_outline_color = Color(0.25, 0.25, 0.25, 0.3)
 theme_override_font_sizes/font_size = 26
 text = "0"
 vertical_alignment = 1
-
-[node name="ActionButtons" type="HBoxContainer" parent="CanvasLayer"]
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 0.0
-anchor_bottom = 0.0
-offset_left = 0.0
-offset_top = 1040.0
-offset_right = 836.0
-offset_bottom = 1112.0
-theme_override_constants/separation = 14
-
-[node name="ResetButton" type="Button" parent="CanvasLayer/ActionButtons"]
-custom_minimum_size = Vector2(0, 72)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Reset"
-
-[node name="MainMenuButton" type="Button" parent="CanvasLayer/ActionButtons"]
-custom_minimum_size = Vector2(0, 72)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Main Menu"
 
 [node name="UI" type="Control" parent="CanvasLayer"]
 layout_mode = 3
@@ -286,6 +291,70 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+
+[node name="PauseOverlay" type="Control" parent="CanvasLayer/UI"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="Backdrop" type="ColorRect" parent="CanvasLayer/UI/PauseOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.55)
+
+[node name="CenterContainer" type="CenterContainer" parent="CanvasLayer/UI/PauseOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PausePanel" type="PanelContainer" parent="CanvasLayer/UI/PauseOverlay/CenterContainer"]
+custom_minimum_size = Vector2(520, 460)
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="TitleLabel" type="Label" parent="CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 58
+text = "Game paused."
+horizontal_alignment = 1
+
+[node name="ButtonColumn" type="VBoxContainer" parent="CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="ResumeButton" type="Button" parent="CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox/ButtonColumn"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Resume"
+
+[node name="ResetButton" type="Button" parent="CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox/ButtonColumn"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Reset"
+
+[node name="MainMenuButton" type="Button" parent="CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox/ButtonColumn"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Main Menu"
 
 [node name="GameOverOverlay" type="Control" parent="CanvasLayer/UI"]
 visible = false
