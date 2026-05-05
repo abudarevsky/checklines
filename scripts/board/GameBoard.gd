@@ -14,6 +14,7 @@ const PuzzleTileCover = preload("res://scripts/ui/PuzzleTileCover.gd")
 @onready var puzzle_image: TextureRect = $CanvasLayer/PuzzlePanel/PuzzleImage
 @onready var puzzle_tiles: Control = $CanvasLayer/PuzzlePanel/PuzzleTiles
 @onready var puzzle_badge: TextureRect = $CanvasLayer/PuzzleBadge
+@onready var message_panel: ColorRect = $CanvasLayer/MessagePanel
 @onready var message_label: Label = $CanvasLayer/MessageLabel
 @onready var score_label: Label = $CanvasLayer/ScoreHBox/ScoreLabel
 @onready var high_score_label: Label = $CanvasLayer/ScoreHBox/HighScoreLabel
@@ -42,6 +43,7 @@ var puzzle_tile_order: Array[int] = []
 var message_queue: Array[String] = []
 var is_message_queue_running: bool = false
 var message_tween: Tween
+var base_score_position: Vector2 = Vector2.ZERO
 var base_message_position: Vector2 = Vector2.ZERO
 var default_theme_cache: ThemeData = null
 
@@ -50,7 +52,7 @@ const BOARD_TOP_GAP: float = 2.0
 const SCREEN_CONTENT_MARGIN: float = 6.0
 const HUD_MARGIN_LEFT: float = 3.0
 const HUD_MARGIN_TOP: float = 3.0
-const HUD_MARGIN_GAP: float = 0.0
+const HUD_MARGIN_GAP: float = 8.0
 const HUD_MESSAGE_HEIGHT_PADDING: float = 2.0
 const PUZZLE_FRAME_INSET: float = 3.0
 const PUZZLE_BADGE_WIDTH_RATIO: float = 0.66
@@ -97,12 +99,13 @@ func apply_theme(theme: ThemeData):
 	if theme == null:
 		return
 
-	screen_background.color = Color(0.02, 0.02, 0.02, 1.0)
+	screen_background.color = theme.gameplay_backdrop_base_color
 	board_tint_overlay.color = Color.TRANSPARENT
-	screen_gradient.texture = _build_screen_gradient_texture()
+	screen_gradient.texture = _build_screen_gradient_texture(theme)
 	score_panel.color = Color(0.03, 0.07, 0.12, 0.0)
 	score_shadow.color = theme.hud_shadow_color
 	puzzle_panel.color = Color(0.06, 0.09, 0.13, 1.0)
+	message_panel.color = Color(0.03, 0.07, 0.12, 1.0)
 	message_label.add_theme_color_override("font_color", theme.puzzle_message_text_color)
 	message_label.add_theme_color_override("font_outline_color", theme.puzzle_message_outline_color)
 	message_label.add_theme_font_override("font", _build_dialog_font(theme.dialog_font_names, theme.puzzle_message_font_weight))
@@ -389,6 +392,7 @@ func _update_top_hud_layout(viewport_size: Vector2) -> float:
 	score_hbox.offset_top = score_panel_top + SCORE_FRAME_INSET_Y
 	score_hbox.offset_right = -(panel_margin + SCORE_FRAME_INSET_X)
 	score_hbox.offset_bottom = score_hbox.offset_top + SCORE_ROW_HEIGHT
+	base_score_position = score_hbox.position
 
 	score_panel.offset_left = panel_margin
 	score_panel.offset_top = score_panel_top
@@ -405,18 +409,34 @@ func _update_top_hud_layout(viewport_size: Vector2) -> float:
 	score_shadow.offset_top = score_frame.offset_bottom
 	score_shadow.offset_bottom = score_frame.offset_bottom + TOP_BAR_SHADOW_HEIGHT
 
-	_update_message_layout(viewport_size, score_frame.offset_bottom)
+	_update_message_layout(
+		score_hbox.offset_left,
+		score_hbox.offset_top,
+		score_hbox.offset_right,
+		score_hbox.offset_bottom
+	)
 	_debug_hud_layout(viewport_size, panel_width, puzzle_height, puzzle_texture)
 	return score_frame.offset_bottom
 
-func _update_message_layout(viewport_size: Vector2, hud_bottom: float):
-	var panel_margin: float = SCREEN_CONTENT_MARGIN + HUD_MARGIN_LEFT
-	var message_height: float = maxf(float(_get_puzzle_theme().puzzle_message_font_size) + HUD_MESSAGE_HEIGHT_PADDING, 34.0)
-	message_label.offset_left = panel_margin
-	message_label.offset_top = hud_bottom - message_height
-	message_label.offset_right = -panel_margin
-	message_label.offset_bottom = hud_bottom
+func _update_message_layout(score_row_left: float, score_row_top: float, score_row_right: float, score_row_bottom: float):
+	message_panel.offset_left = score_row_left
+	message_panel.offset_top = score_row_top
+	message_panel.offset_right = score_row_right
+	message_panel.offset_bottom = score_row_bottom
+	message_panel.z_index = 19
+	message_label.offset_left = score_row_left
+	message_label.offset_top = score_row_top
+	message_label.offset_right = score_row_right
+	message_label.offset_bottom = score_row_bottom
+	message_label.z_index = 20
 	base_message_position = message_label.position
+	if not is_message_queue_running:
+		message_panel.position = base_message_position + Vector2(-_get_message_slide_distance(), 0.0)
+		message_label.position = base_message_position + Vector2(-_get_message_slide_distance(), 0.0)
+		score_hbox.position = base_score_position
+
+func _get_message_slide_distance() -> float:
+	return maxf(message_panel.size.x + SCREEN_CONTENT_MARGIN + HUD_MARGIN_LEFT, MESSAGE_SLIDE_DISTANCE)
 
 func _debug_hud_layout(
 	viewport_size: Vector2,
@@ -493,8 +513,10 @@ func _initialize_puzzle_progress():
 		message_tween.kill()
 		message_tween = null
 	message_label.text = ""
-	message_label.modulate.a = 0.0
-	message_label.position = base_message_position + Vector2(-MESSAGE_SLIDE_DISTANCE, 0.0)
+	message_label.modulate.a = 1.0
+	message_panel.position = base_message_position + Vector2(-_get_message_slide_distance(), 0.0)
+	message_label.position = base_message_position + Vector2(-_get_message_slide_distance(), 0.0)
+	score_hbox.position = base_score_position
 	_load_puzzle_level(current_puzzle_level)
 
 func _has_puzzle_levels() -> bool:
@@ -539,24 +561,40 @@ func _build_puzzle_frame_style() -> StyleBoxFlat:
 	style.anti_aliasing = false
 	return style
 
-func _build_screen_gradient_texture() -> GradientTexture2D:
-	var gradient := Gradient.new()
-	gradient.offsets = PackedFloat32Array([0.0, 0.28, 0.58, 0.82, 1.0])
-	gradient.colors = PackedColorArray([
-		Color(0.18, 0.42, 0.60, 1.0),
-		Color(0.08, 0.30, 0.48, 1.0),
-		Color(0.03, 0.17, 0.31, 1.0),
-		Color(0.01, 0.08, 0.16, 1.0),
-		Color(0.004, 0.012, 0.018, 1.0)
-	])
-	var texture := GradientTexture2D.new()
-	texture.gradient = gradient
-	texture.fill = GradientTexture2D.FILL_LINEAR
-	texture.fill_from = Vector2(0.0, 0.0)
-	texture.fill_to = Vector2(0.0, 1.0)
-	texture.width = 64
-	texture.height = 64
-	return texture
+func _build_screen_gradient_texture(theme: ThemeData) -> ImageTexture:
+	var width := 96
+	var height := 160
+	var image := Image.create(width, height, false, Image.FORMAT_RGBA8)
+	var base_color := theme.gameplay_backdrop_base_color
+	var edge_glow_color := theme.gameplay_backdrop_edge_glow_color
+	var center_glow_color := theme.gameplay_backdrop_center_glow_color
+
+	for y in range(height):
+		var v := float(y) / float(height - 1)
+		var lower_focus := _smooth_peak(v, 0.68, 0.55)
+		var top_focus := _smooth_peak(v, 0.08, 0.22)
+		var vertical_fade := clampf(0.18 + lower_focus * 0.82 + top_focus * 0.26, 0.0, 1.0)
+
+		for x in range(width):
+			var u := float(x) / float(width - 1)
+			var nearest_edge := minf(u, 1.0 - u)
+			var edge_glow := pow(1.0 - smoothstep(0.0, 0.34, nearest_edge), 1.35) * vertical_fade
+			var center_distance := absf(u - 0.5) * 2.0
+			var center_glow := (1.0 - smoothstep(0.0, 0.95, center_distance)) * lower_focus * 0.42
+			var bottom_shadow := smoothstep(0.72, 1.0, v) * 0.36
+			var top_shadow := (1.0 - smoothstep(0.0, 0.18, v)) * 0.20
+
+			var color := base_color
+			color = color.lerp(edge_glow_color, clampf(edge_glow * 0.92, 0.0, 0.92))
+			color = color.lerp(center_glow_color, clampf(center_glow, 0.0, 0.36))
+			color = color.darkened(clampf(bottom_shadow + top_shadow, 0.0, 0.46))
+			color.a = 1.0
+			image.set_pixel(x, y, color)
+
+	return ImageTexture.create_from_image(image)
+
+func _smooth_peak(value: float, center: float, radius: float) -> float:
+	return 1.0 - smoothstep(0.0, radius, absf(value - center))
 
 func _load_puzzle_level(level_index: int):
 	if not _has_puzzle_levels():
@@ -646,24 +684,34 @@ func _run_message_queue():
 	is_message_queue_running = true
 	while not message_queue.is_empty():
 		var next_message: String = str(message_queue.pop_front())
+		var slide_distance := _get_message_slide_distance()
 		message_label.text = next_message
-		message_label.position = base_message_position + Vector2(-MESSAGE_SLIDE_DISTANCE, 0.0)
-		message_label.modulate.a = 0.0
+		message_panel.position = base_message_position + Vector2(-slide_distance, 0.0)
+		message_label.position = base_message_position + Vector2(-slide_distance, 0.0)
+		score_hbox.position = base_score_position
+		message_label.modulate.a = 1.0
 		if message_tween:
 			message_tween.kill()
 		message_tween = create_tween()
+		message_tween.set_parallel(true)
 		message_tween.set_trans(Tween.TRANS_QUAD)
 		message_tween.set_ease(Tween.EASE_OUT)
-		message_tween.parallel().tween_property(message_label, "position:x", base_message_position.x, MESSAGE_SLIDE_IN_DURATION)
-		message_tween.parallel().tween_property(message_label, "modulate:a", 1.0, MESSAGE_SLIDE_IN_DURATION)
+		message_tween.tween_property(message_label, "position:x", base_message_position.x, MESSAGE_SLIDE_IN_DURATION)
+		message_tween.tween_property(message_panel, "position:x", base_message_position.x, MESSAGE_SLIDE_IN_DURATION)
+		message_tween.tween_property(score_hbox, "position:x", base_score_position.x + slide_distance, MESSAGE_SLIDE_IN_DURATION)
 		await message_tween.finished
 		await get_tree().create_timer(MESSAGE_HOLD_DURATION).timeout
 		message_tween = create_tween()
+		message_tween.set_parallel(true)
 		message_tween.set_trans(Tween.TRANS_QUAD)
 		message_tween.set_ease(Tween.EASE_IN)
-		message_tween.parallel().tween_property(message_label, "position:x", base_message_position.x - MESSAGE_SLIDE_DISTANCE, MESSAGE_SLIDE_OUT_DURATION)
-		message_tween.parallel().tween_property(message_label, "modulate:a", 0.0, MESSAGE_SLIDE_OUT_DURATION)
+		message_tween.tween_property(message_label, "position:x", base_message_position.x + slide_distance, MESSAGE_SLIDE_OUT_DURATION)
+		message_tween.tween_property(message_panel, "position:x", base_message_position.x + slide_distance, MESSAGE_SLIDE_OUT_DURATION)
+		message_tween.tween_property(score_hbox, "position:x", base_score_position.x, MESSAGE_SLIDE_OUT_DURATION)
 		await message_tween.finished
+		message_label.text = ""
+		message_panel.position = base_message_position + Vector2(-slide_distance, 0.0)
+		message_label.position = base_message_position + Vector2(-slide_distance, 0.0)
 
 	is_message_queue_running = false
 	message_tween = null

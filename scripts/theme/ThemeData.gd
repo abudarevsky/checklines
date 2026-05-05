@@ -41,6 +41,10 @@ class_name ThemeData
 @export var puzzle_message_font_weight: int = 700
 @export var puzzle_message_font_size: int = 30
 
+@export var gameplay_backdrop_base_color: Color = Color(0.0, 0.004, 0.007, 1.0)
+@export var gameplay_backdrop_edge_glow_color: Color = Color(0.0, 0.28, 0.43, 1.0)
+@export var gameplay_backdrop_center_glow_color: Color = Color(0.0, 0.09, 0.14, 1.0)
+
 @export var dialog_font_names: PackedStringArray = PackedStringArray(["Avenir Next Condensed", "Helvetica Neue", "Arial Narrow", "Arial"])
 @export var dialog_title_font_weight: int = 800
 @export var dialog_body_font_weight: int = 600

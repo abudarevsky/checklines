@@ -362,6 +362,7 @@ Puzzle board rules:
 - `assets/ui/checklines-screen-badge.png` is the top badge art
 - the badge should sit above the puzzle frame with only its bottom edge slightly overlapping the puzzle border
 - the puzzle image and score row use separate frames; do not wrap the puzzle and score row in one shared frame
+- keep a small visible gap between the puzzle frame and the score row frame
 
 Message display rules:
 
@@ -369,7 +370,11 @@ Message display rules:
 - type line message: `"$number $piece_name on the march"`
 - level complete message: `"Completed the $ordinal level!"`
 - HUD messages should use the dialog font family at a larger, more prominent size
-- HUD messages currently animate from left to right and dismiss in reverse order
+- HUD messages live inside the score row while displayed
+- HUD messages should use an opaque score-row-colored backing panel, not transparent text over the scores
+- HUD messages wipe in from the left and wipe out to the right
+- while the message wipes in, the score and best text slide out as if pushed away, then slide back when the message exits
+- the score row frame and side borders must remain fixed; only the inner score content and message wipe panel should slide
 
 If HUD layout changes, preserve:
 
@@ -378,7 +383,8 @@ If HUD layout changes, preserve:
 - separate puzzle frame, score frame, and bottom action button row
 - theme-driven puzzle visuals and message styling
 - dark backdrop-colored screen background behind both HUD and board
-- full-window gradient background that stays visible around the content edge
+- full-window dark vignette/gradient background that stays visible around the content edge
+- default gameplay backdrop should stay close to the reference: near-black center with restrained teal-blue side glow, not a bright vertical gradient
 - puzzle cover tiles drawn as puzzle-piece silhouettes with tabs and sockets
 
 ### Dialogs
@@ -765,7 +771,7 @@ UI:
 28. The full-screen UI overlay does not block normal gameplay or bottom button input
 29. Puzzle board reveals tiles as pieces are removed
 30. Message display shows line-clear and level-complete messages with the expected wording
-31. HUD messages animate in from the left and dismiss in reverse order
+31. HUD messages use an opaque backing panel inside the score row, wipe in from the left, wipe out to the right, and temporarily push score/best text away
 32. Game-over dialog uses a large centered card with brisk modern typography
 
 ## Current Working Definition

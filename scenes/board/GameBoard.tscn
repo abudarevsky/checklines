@@ -138,6 +138,19 @@ expand_mode = 1
 stretch_mode = 4
 texture = ExtResource("4_badge")
 
+[node name="MessagePanel" type="ColorRect" parent="CanvasLayer"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = 16
+offset_top = 146
+offset_right = -16
+offset_bottom = 188
+grow_horizontal = 2
+mouse_filter = 2
+color = Color(0.03, 0.07, 0.12, 1)
+
 [node name="MessageLabel" type="Label" parent="CanvasLayer"]
 layout_mode = 1
 anchors_preset = 10
