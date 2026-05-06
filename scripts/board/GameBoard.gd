@@ -13,6 +13,7 @@ const PuzzleTileCover = preload("res://scripts/ui/PuzzleTileCover.gd")
 @onready var puzzle_frame: PanelContainer = $CanvasLayer/PuzzlePanel/PuzzleFrame
 @onready var puzzle_image: TextureRect = $CanvasLayer/PuzzlePanel/PuzzleImage
 @onready var puzzle_tiles: Control = $CanvasLayer/PuzzlePanel/PuzzleTiles
+@onready var puzzle_overlay_label: Label = $CanvasLayer/PuzzlePanel/PuzzleOverlayLabel
 @onready var puzzle_badge: TextureRect = $CanvasLayer/PuzzleBadge
 @onready var gear_button: Button = $CanvasLayer/GearButton
 @onready var score_clip: Control = $CanvasLayer/ScoreClip
@@ -49,6 +50,7 @@ var puzzle_tile_order: Array[int] = []
 var message_queue: Array[String] = []
 var is_message_queue_running: bool = false
 var message_tween: Tween
+var puzzle_effect_tween: Tween
 var base_score_position: Vector2 = Vector2.ZERO
 var base_message_position: Vector2 = Vector2.ZERO
 var default_theme_cache: ThemeData = null
@@ -62,7 +64,6 @@ const HUD_MARGIN_GAP: float = 8.0
 const PUZZLE_FRAME_INSET: float = 3.0
 const PUZZLE_BADGE_WIDTH_RATIO: float = 0.66
 const PUZZLE_BADGE_BORDER_OVERLAP: float = 8.0
-const HUD_FRAME_COLOR: Color = Color(0.79, 0.62, 0.29, 0.95)
 const HUD_FRAME_HOVER_COLOR: Color = Color(0.96, 0.78, 0.38, 1.0)
 const SCORE_FRAME_INSET_X: float = 5.0
 const SCORE_FRAME_INSET_Y: float = 4.0
@@ -70,11 +71,17 @@ const SCORE_ROW_HEIGHT: float = 66.0
 const SCORE_FRAME_EXTRA_SPACE: float = 0.0
 const PUZZLE_COLUMNS: int = 5
 const PUZZLE_ROWS: int = 5
+const PUZZLE_LEVEL_TILE_COUNTS: Array[int] = [25, 50, 75]
 const PUZZLE_TILE_MARGIN: float = -1.0
 const MESSAGE_SLIDE_DISTANCE: float = 120.0
 const MESSAGE_SLIDE_IN_DURATION: float = 0.42
 const MESSAGE_HOLD_DURATION: float = 3.0
 const MESSAGE_SLIDE_OUT_DURATION: float = 0.38
+const PUZZLE_IMAGE_PREVIEW_DURATION: float = 2.0
+const PUZZLE_LEVEL_COMPLETE_HOLD: float = 3.0
+const PUZZLE_IMAGE_FADE_DURATION: float = 0.5
+const PUZZLE_TILE_UNROLL_DURATION: float = 0.45
+const PUZZLE_TILE_UNROLL_STAGGER: float = 0.018
 const DEBUG_HUD_LAYOUT: bool = false
 
 func _ready():
@@ -110,12 +117,18 @@ func apply_theme(theme: ThemeData):
 	score_shadow.color = theme.hud_shadow_color
 	puzzle_panel.color = Color(0.06, 0.09, 0.13, 1.0)
 	message_panel.color = Color(0.03, 0.07, 0.12, 1.0)
-	message_label.add_theme_color_override("font_color", theme.puzzle_message_text_color)
-	message_label.add_theme_color_override("font_outline_color", theme.puzzle_message_outline_color)
+	message_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
+	message_label.add_theme_color_override("font_outline_color", theme.hud_outline_color)
 	message_label.add_theme_font_override("font", _build_dialog_font(theme.dialog_font_names, theme.puzzle_message_font_weight))
 	message_label.add_theme_font_size_override("font_size", theme.puzzle_message_font_size)
-	score_frame.add_theme_stylebox_override("panel", _build_puzzle_frame_style())
-	puzzle_frame.add_theme_stylebox_override("panel", _build_puzzle_frame_style())
+	puzzle_overlay_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
+	puzzle_overlay_label.add_theme_color_override("font_outline_color", theme.hud_outline_color)
+	puzzle_overlay_label.add_theme_font_override("font", _build_dialog_font(theme.dialog_font_names, theme.dialog_title_font_weight))
+	puzzle_overlay_label.add_theme_font_size_override("font_size", maxi(theme.dialog_title_font_size, 58))
+	score_frame.add_theme_stylebox_override("panel", _build_gameplay_frame_style(theme))
+	puzzle_frame.add_theme_stylebox_override("panel", _build_gameplay_frame_style(theme))
+	if theme.checklines_badge_texture != null:
+		puzzle_badge.texture = theme.checklines_badge_texture
 
 	score_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
 	score_label.add_theme_color_override("font_outline_color", theme.hud_outline_color)
@@ -189,7 +202,7 @@ func _apply_dialog_theme(theme):
 		gear_button,
 		button_font,
 		theme.dialog_button_font_size,
-		HUD_FRAME_COLOR,
+		theme.gameplay_frame_color,
 		HUD_FRAME_HOVER_COLOR
 	)
 	_apply_dialog_button_style(
@@ -423,6 +436,10 @@ func _update_top_hud_layout(viewport_size: Vector2) -> float:
 	puzzle_tiles.offset_top = PUZZLE_FRAME_INSET
 	puzzle_tiles.offset_right = -PUZZLE_FRAME_INSET
 	puzzle_tiles.offset_bottom = -PUZZLE_FRAME_INSET
+	puzzle_overlay_label.offset_left = PUZZLE_FRAME_INSET
+	puzzle_overlay_label.offset_top = PUZZLE_FRAME_INSET
+	puzzle_overlay_label.offset_right = -PUZZLE_FRAME_INSET
+	puzzle_overlay_label.offset_bottom = -PUZZLE_FRAME_INSET
 
 	var score_frame_top: float = puzzle_panel.offset_bottom + HUD_MARGIN_GAP
 	var score_panel_height: float = SCORE_ROW_HEIGHT + SCORE_FRAME_INSET_Y * 2.0
@@ -546,10 +563,11 @@ func _input(event):
 func _initialize_game():
 	board_manager.board_size = GameManager.board_size
 	board_manager.clear_board()
-	board_manager.set_input_enabled(true)
-	_initialize_puzzle_progress()
-	
+	board_manager.set_input_enabled(false)
+	await _initialize_puzzle_progress()
 	_spawn_initial_pieces()
+	if not game_over_overlay.visible and not pause_overlay.visible and not is_processing_move:
+		board_manager.set_input_enabled(true)
 
 func _initialize_puzzle_progress():
 	current_puzzle_level = 0
@@ -560,18 +578,26 @@ func _initialize_puzzle_progress():
 	if message_tween:
 		message_tween.kill()
 		message_tween = null
+	if puzzle_effect_tween:
+		puzzle_effect_tween.kill()
+		puzzle_effect_tween = null
 	message_label.text = ""
 	message_label.modulate.a = 1.0
+	puzzle_overlay_label.visible = false
+	puzzle_overlay_label.text = ""
+	puzzle_overlay_label.modulate.a = 1.0
+	puzzle_overlay_label.scale = Vector2.ONE
+	puzzle_image.modulate.a = 1.0
 	message_panel.position = base_message_position + Vector2(-_get_message_slide_distance(), 0.0)
 	message_label.position = base_message_position + Vector2(-_get_message_slide_distance(), 0.0)
 	score_hbox.position = base_score_position
-	_load_puzzle_level(current_puzzle_level)
+	await _load_puzzle_level(current_puzzle_level)
 
 func _has_puzzle_levels() -> bool:
 	return _get_puzzle_theme().puzzle_level_images.size() > 0
 
 func _get_puzzle_level_count() -> int:
-	return _get_puzzle_theme().puzzle_level_images.size()
+	return PUZZLE_LEVEL_TILE_COUNTS.size()
 
 func _get_puzzle_level_texture(level_index: int) -> Texture2D:
 	var theme: ThemeData = _get_puzzle_theme()
@@ -593,20 +619,24 @@ func _get_default_theme() -> ThemeData:
 		default_theme_cache = load("res://themes/default_theme.tres") as ThemeData
 	return default_theme_cache
 
-func _build_puzzle_frame_style() -> StyleBoxFlat:
+func _build_gameplay_frame_style(theme: ThemeData) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.05, 0.07, 0.1, 1.0)
 	style.border_width_left = 3
 	style.border_width_top = 3
 	style.border_width_right = 3
 	style.border_width_bottom = 3
-	style.border_color = HUD_FRAME_COLOR
+	style.border_color = theme.gameplay_frame_color
 	style.corner_radius_top_left = 12
 	style.corner_radius_top_right = 12
 	style.corner_radius_bottom_left = 12
 	style.corner_radius_bottom_right = 12
 	style.corner_detail = 1
 	style.anti_aliasing = false
+	if theme.gameplay_frame_glow_color.a > 0.0 and theme.gameplay_frame_glow_size > 0.0:
+		style.shadow_color = theme.gameplay_frame_glow_color
+		style.shadow_size = int(theme.gameplay_frame_glow_size)
+		style.shadow_offset = Vector2.ZERO
 	return style
 
 func _build_screen_gradient_texture(theme: ThemeData) -> ImageTexture:
@@ -653,13 +683,12 @@ func _load_puzzle_level(level_index: int):
 	current_puzzle_level = clampi(level_index, 0, _get_puzzle_level_count() - 1)
 	revealed_puzzle_tiles = 0
 	puzzle_image.texture = _get_puzzle_level_texture(current_puzzle_level)
+	puzzle_image.modulate.a = 1.0
 	_build_puzzle_tile_order()
-	_refresh_puzzle_tiles()
+	_clear_puzzle_tiles()
 	_update_layout()
-	_queue_level_start_message(current_puzzle_level + 1)
-
-func _queue_level_start_message(level_number: int):
-	_queue_message(_get_level_start_message(level_number))
+	await _show_puzzle_overlay_message(_get_level_start_message(current_puzzle_level + 1), PUZZLE_IMAGE_PREVIEW_DURATION)
+	await _refresh_puzzle_tiles(true)
 
 func _get_level_start_message(level_number: int) -> String:
 	var template: String = _get_puzzle_theme().level_start_message_template.strip_edges()
@@ -674,11 +703,20 @@ func _build_puzzle_tile_order():
 	puzzle_tile_order.shuffle()
 
 func _get_total_puzzle_tiles() -> int:
-	return PUZZLE_COLUMNS * PUZZLE_ROWS
+	return PUZZLE_LEVEL_TILE_COUNTS[clampi(current_puzzle_level, 0, PUZZLE_LEVEL_TILE_COUNTS.size() - 1)]
 
-func _refresh_puzzle_tiles():
+func _get_puzzle_columns() -> int:
+	return ceili(float(_get_total_puzzle_tiles()) / float(PUZZLE_ROWS))
+
+func _get_puzzle_rows() -> int:
+	return PUZZLE_ROWS
+
+func _clear_puzzle_tiles():
 	for child in puzzle_tiles.get_children():
 		child.queue_free()
+
+func _refresh_puzzle_tiles(animate_unroll: bool = false):
+	_clear_puzzle_tiles()
 
 	if not _has_puzzle_levels():
 		return
@@ -688,21 +726,85 @@ func _refresh_puzzle_tiles():
 		_build_puzzle_tile_order()
 
 	var theme: ThemeData = _get_puzzle_theme()
+	var puzzle_columns := _get_puzzle_columns()
+	var puzzle_rows := _get_puzzle_rows()
 	for order_index in range(revealed_puzzle_tiles, total_tiles):
 		var tile_index: int = puzzle_tile_order[order_index]
 		var tile := PuzzleTileCover.new()
-		var column: int = tile_index % PUZZLE_COLUMNS
-		var row: int = int(floor(float(tile_index) / float(PUZZLE_COLUMNS)))
-		tile.anchor_left = float(column) / float(PUZZLE_COLUMNS)
-		tile.anchor_top = float(row) / float(PUZZLE_ROWS)
-		tile.anchor_right = float(column + 1) / float(PUZZLE_COLUMNS)
-		tile.anchor_bottom = float(row + 1) / float(PUZZLE_ROWS)
+		var column: int = tile_index % puzzle_columns
+		var row: int = int(floor(float(tile_index) / float(puzzle_columns)))
+		tile.anchor_left = float(column) / float(puzzle_columns)
+		tile.anchor_top = float(row) / float(puzzle_rows)
+		tile.anchor_right = float(column + 1) / float(puzzle_columns)
+		tile.anchor_bottom = float(row + 1) / float(puzzle_rows)
 		tile.offset_left = PUZZLE_TILE_MARGIN
 		tile.offset_top = PUZZLE_TILE_MARGIN
 		tile.offset_right = -PUZZLE_TILE_MARGIN
 		tile.offset_bottom = -PUZZLE_TILE_MARGIN
-		tile.setup(column, row, PUZZLE_COLUMNS, PUZZLE_ROWS, theme.puzzle_tile_cover_color)
+		tile.setup(column, row, puzzle_columns, puzzle_rows, theme.puzzle_tile_cover_color)
+		if animate_unroll:
+			tile.scale = Vector2(1.0, 0.0)
+			tile.pivot_offset = Vector2.ZERO
+			tile.modulate.a = 0.0
 		puzzle_tiles.add_child(tile)
+
+	if animate_unroll:
+		await _animate_puzzle_tiles_unroll()
+
+func _show_puzzle_overlay_message(text: String, hold_duration: float):
+	if text.is_empty():
+		return
+
+	if puzzle_effect_tween:
+		puzzle_effect_tween.kill()
+		puzzle_effect_tween = null
+
+	puzzle_overlay_label.text = text
+	puzzle_overlay_label.visible = true
+	puzzle_overlay_label.modulate.a = 0.0
+	puzzle_overlay_label.scale = Vector2(0.92, 0.92)
+	puzzle_overlay_label.pivot_offset = puzzle_overlay_label.size * 0.5
+
+	puzzle_effect_tween = create_tween()
+	puzzle_effect_tween.set_parallel(true)
+	puzzle_effect_tween.tween_property(puzzle_overlay_label, "modulate:a", 1.0, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	puzzle_effect_tween.tween_property(puzzle_overlay_label, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	await puzzle_effect_tween.finished
+	await get_tree().create_timer(hold_duration).timeout
+
+	puzzle_effect_tween = create_tween()
+	puzzle_effect_tween.tween_property(puzzle_overlay_label, "modulate:a", 0.0, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await puzzle_effect_tween.finished
+	puzzle_overlay_label.visible = false
+	puzzle_overlay_label.text = ""
+	puzzle_overlay_label.scale = Vector2.ONE
+	puzzle_effect_tween = null
+
+func _animate_puzzle_tiles_unroll():
+	var covers: Array = puzzle_tiles.get_children()
+	if covers.is_empty():
+		return
+
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.set_trans(Tween.TRANS_QUAD)
+	tween.set_ease(Tween.EASE_OUT)
+	for i in range(covers.size()):
+		var cover: Control = covers[i]
+		var delay := float(i) * PUZZLE_TILE_UNROLL_STAGGER
+		tween.tween_property(cover, "scale:y", 1.0, PUZZLE_TILE_UNROLL_DURATION).set_delay(delay)
+		tween.tween_property(cover, "modulate:a", 1.0, PUZZLE_TILE_UNROLL_DURATION * 0.7).set_delay(delay)
+	await tween.finished
+
+func _fade_puzzle_image_out():
+	if puzzle_effect_tween:
+		puzzle_effect_tween.kill()
+		puzzle_effect_tween = null
+
+	puzzle_effect_tween = create_tween()
+	puzzle_effect_tween.tween_property(puzzle_image, "modulate:a", 0.0, PUZZLE_IMAGE_FADE_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	await puzzle_effect_tween.finished
+	puzzle_effect_tween = null
 
 func _apply_puzzle_progress(removed_pieces: int):
 	if removed_pieces <= 0 or not _has_puzzle_levels():
@@ -720,12 +822,14 @@ func _apply_puzzle_progress(removed_pieces: int):
 		revealed_puzzle_tiles = _get_total_puzzle_tiles()
 		remaining -= tiles_left
 		_refresh_puzzle_tiles()
-		_queue_message("Completed the %s level!" % _get_ordinal(current_puzzle_level + 1))
+		_queue_scoring_event(GameManager.build_level_complete_event())
+		await _show_puzzle_overlay_message("Level Complete", PUZZLE_LEVEL_COMPLETE_HOLD)
+		await _fade_puzzle_image_out()
 
 		if current_puzzle_level + 1 >= _get_puzzle_level_count():
 			return
 
-		_load_puzzle_level(current_puzzle_level + 1)
+		await _load_puzzle_level(current_puzzle_level + 1)
 
 func _queue_message(text: String):
 	if text.is_empty():
@@ -734,6 +838,13 @@ func _queue_message(text: String):
 	message_queue.append(text)
 	if not is_message_queue_running:
 		_run_message_queue()
+
+func _queue_scoring_event(event: Dictionary):
+	if event.is_empty() or int(event.get("value", 0)) == 0:
+		return
+
+	GameManager.add_scoring_event(event)
+	_queue_message(GameManager.format_scoring_event(event))
 
 func _run_message_queue():
 	if is_message_queue_running:
@@ -774,47 +885,6 @@ func _run_message_queue():
 	is_message_queue_running = false
 	message_tween = null
 
-func _queue_chain_messages(chain: Dictionary):
-	var pieces_removed: int = chain["pieces"].size()
-	if chain.get("is_color_line", false):
-		_queue_message("%d in a row" % pieces_removed)
-	if chain.get("is_type_line", false):
-		var piece_name := _get_piece_display_name(chain.get("matched_type", -1), pieces_removed)
-		_queue_message("%d %s on the march" % [pieces_removed, piece_name])
-
-func _get_piece_display_name(piece_type: int, count: int) -> String:
-	var singular := "pieces"
-	match piece_type:
-		GameManager.PieceType.PAWN:
-			singular = "pawn"
-		GameManager.PieceType.KNIGHT:
-			singular = "knight"
-		GameManager.PieceType.BISHOP:
-			singular = "bishop"
-		GameManager.PieceType.ROOK:
-			singular = "rook"
-		GameManager.PieceType.QUEEN:
-			singular = "queen"
-		GameManager.PieceType.KING:
-			singular = "king"
-	if count == 1:
-		return singular
-	return singular + "s"
-
-func _get_ordinal(number: int) -> String:
-	var remainder_hundred := number % 100
-	if remainder_hundred >= 11 and remainder_hundred <= 13:
-		return str(number) + "th"
-
-	match number % 10:
-		1:
-			return str(number) + "st"
-		2:
-			return str(number) + "nd"
-		3:
-			return str(number) + "rd"
-	return str(number) + "th"
-
 func _check_game_over():
 	if not board_manager.has_legal_moves() or not board_manager.can_spawn_any_piece():
 		GameManager.end_game()
@@ -829,9 +899,10 @@ func _spawn_initial_pieces():
 		if not board_manager.spawn_piece_with_preferred_placement(spawn_data):
 			break
 
-func _on_capture_made(_piece, _target):
+func _on_capture_made(_piece, _target, captured_piece_type: int):
 	AudioManager.play_sound("capture")
 	AudioManager.vibrate()
+	_queue_scoring_event(GameManager.build_sacrifice_event(captured_piece_type))
 
 func _on_piece_moved(_from, _to):
 	if is_processing_move:
@@ -926,20 +997,13 @@ func _clear_chain_wave(chains: Array):
 	await _animate_chain_removal(pieces_to_remove)
 
 	for chain in chains:
-		var pieces_removed: int = chain["pieces"].size()
-		var score_multiplier := 1.0
-		if chain.get("is_type_line", false):
-			score_multiplier *= 2.0
-		if chain.get("is_combo", false):
-			score_multiplier *= 1.5
-		GameManager.add_score(pieces_removed, pieces_removed, score_multiplier)
+		_queue_scoring_event(GameManager.build_line_scoring_event(chain))
 		GameManager.register_cleared_line(
 			chain.get("is_color_line", false),
 			chain.get("is_type_line", false)
 		)
-		_queue_chain_messages(chain)
 
-	_apply_puzzle_progress(pieces_to_remove.size())
+	await _apply_puzzle_progress(pieces_to_remove.size())
 
 	chain_animation_tween = null
 

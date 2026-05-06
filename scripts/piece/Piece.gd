@@ -6,8 +6,6 @@ class_name Piece
 @export var grid_position: Vector2i = Vector2i(-1, -1)
 
 var is_selected: bool = false
-var is_highlighted: bool = false
-var capture_targets = []
 var selection_tween: Tween
 var base_sprite_position: Vector2 = Vector2.ZERO
 var base_selection_indicator_position: Vector2 = Vector2.ZERO
@@ -20,7 +18,6 @@ const SELECTED_JUMP_DURATION: float = 0.35
 
 @onready var sprite: Sprite2D = $Sprite
 @onready var selection_indicator: Node2D = $SelectionIndicator
-@onready var highlight_overlay: ColorRect = $HighlightOverlay
 
 func _ready():
 	base_sprite_position = sprite.position
@@ -55,16 +52,6 @@ func setup(type, color, pos: Vector2i):
 	grid_position = pos
 	apply_theme(_get_theme())
 
-func update_visual():
-	if sprite:
-		sprite.visible = true
-	
-	if selection_indicator:
-		selection_indicator.visible = is_selected
-	
-	if highlight_overlay:
-		highlight_overlay.visible = is_highlighted
-
 func set_selected(selected: bool):
 	is_selected = selected
 	if selection_indicator:
@@ -73,11 +60,6 @@ func set_selected(selected: bool):
 		_start_selection_animation()
 	else:
 		_stop_selection_animation()
-
-func set_highlighted(highlighted: bool):
-	is_highlighted = highlighted
-	if highlight_overlay:
-		highlight_overlay.visible = highlighted
 
 func _start_selection_animation():
 	_stop_selection_animation()

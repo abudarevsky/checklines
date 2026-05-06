@@ -33,23 +33,12 @@ static func find_chains(board: Dictionary) -> Array:
 
 	return lines
 
-static func select_random_chain(chains: Array) -> Dictionary:
-	if chains.is_empty():
-		return {}
-
-	chains.shuffle()
-	return chains[0]
-
 static func get_chain_positions(chain) -> Array:
 	var positions: Array = []
 	var pieces: Array = chain.get("pieces", []) if chain is Dictionary else chain
 	for piece in pieces:
 		positions.append(piece.grid_position)
 	return positions
-
-static func is_valid_chain(chain) -> bool:
-	var pieces: Array = chain.get("pieces", []) if chain is Dictionary else chain
-	return not _build_line_result(pieces).is_empty()
 
 static func _collect_segment_lines(lines: Array, seen_keys: Dictionary, segment: Array):
 	if segment.size() < MIN_LINE_LENGTH:
@@ -141,6 +130,7 @@ static func _build_line_result(segment: Array) -> Dictionary:
 	var is_color_line := _is_color_line(segment)
 	var type_match: int = _get_type_line_match(segment)
 	var is_type_line := type_match != -1
+	var has_king := _has_king(segment)
 
 	if not is_color_line and not is_type_line:
 		return {}
@@ -150,6 +140,8 @@ static func _build_line_result(segment: Array) -> Dictionary:
 		"is_color_line": is_color_line,
 		"is_type_line": is_type_line,
 		"is_combo": is_color_line and is_type_line,
+		"has_king": has_king,
+		"is_king_led_type_line": is_type_line and has_king,
 		"matched_type": type_match
 	}
 
@@ -173,6 +165,12 @@ static func _get_type_line_match(segment: Array) -> int:
 			return -1
 
 	return matched_type
+
+static func _has_king(segment: Array) -> bool:
+	for piece in segment:
+		if piece.piece_type == GameManager.PieceType.KING:
+			return true
+	return false
 
 static func _line_key(pieces: Array) -> String:
 	var positions: Array[String] = []

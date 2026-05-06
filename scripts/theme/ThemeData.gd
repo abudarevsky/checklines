@@ -31,9 +31,13 @@ class_name ThemeData
 @export var hud_secondary_text_color: Color = Color(0.05, 0.05, 0.05, 0.92)
 @export var hud_outline_color: Color = Color(0.25, 0.25, 0.25, 0.35)
 @export var hud_secondary_outline_color: Color = Color(0.25, 0.25, 0.25, 0.3)
+@export var gameplay_frame_color: Color = Color(0.79, 0.62, 0.29, 0.95)
+@export var gameplay_frame_glow_color: Color = Color.TRANSPARENT
+@export var gameplay_frame_glow_size: float = 0.0
 @export var metric_tile_background_color: Color = Color(0.92, 0.92, 0.92, 1.0)
 @export var metric_outline_color: Color = Color(0.08, 0.08, 0.08, 0.6)
 @export var puzzle_level_images: Array = []
+@export var checklines_badge_texture: Texture2D
 @export var puzzle_board_background_color: Color = Color(0.16, 0.16, 0.16, 1.0)
 @export var puzzle_tile_cover_color: Color = Color(0.06, 0.06, 0.06, 0.92)
 @export var puzzle_message_text_color: Color = Color(0.12, 0.12, 0.12, 1.0)

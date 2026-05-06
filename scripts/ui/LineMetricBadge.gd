@@ -8,11 +8,11 @@ class_name LineMetricBadge
 
 var knight_texture: Texture2D
 var quadrant_colors: Array[Color] = []
-var tile_outline_color: Color = Color(0.08, 0.08, 0.08, 0.6)
 var tile_background_color: Color = Color(0.92, 0.92, 0.92, 1.0)
+var icon_color: Color = Color(0.05, 0.05, 0.05, 1.0)
 
 func _ready():
-	custom_minimum_size = Vector2(36.0, 36.0)
+	custom_minimum_size = Vector2(46.0, 36.0)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	apply_theme(_get_theme())
 
@@ -34,8 +34,8 @@ func apply_theme(theme_data):
 		theme_data.blue_piece_color,
 		theme_data.green_piece_color,
 	]
-	tile_outline_color = theme_data.metric_outline_color
 	tile_background_color = theme_data.metric_tile_background_color
+	icon_color = theme_data.hud_primary_text_color
 	knight_texture = theme_data.knight_texture
 	queue_redraw()
 
@@ -44,24 +44,30 @@ func _draw():
 	if size_px.x <= 0.0 or size_px.y <= 0.0:
 		return
 
-	var tile_size := size_px * 0.5
-	for index in range(4):
-		var row: int = index >> 1
-		var column: int = index % 2
-		var tile_rect := Rect2(Vector2(column, row) * tile_size, tile_size)
-		draw_rect(tile_rect, tile_background_color)
+	if badge_mode == "type":
+		_draw_type_badge(Rect2(Vector2.ZERO, size_px))
+		return
 
-		if badge_mode == "color":
-			draw_rect(tile_rect.grow(-2.0), quadrant_colors[index])
-		else:
-			_draw_knight_quadrant(tile_rect.grow(-2.0), quadrant_colors[index])
+	_draw_color_badge(Rect2(Vector2.ZERO, size_px))
 
-	draw_line(Vector2(size_px.x * 0.5, 0.0), Vector2(size_px.x * 0.5, size_px.y), tile_outline_color, 1.5)
-	draw_line(Vector2(0.0, size_px.y * 0.5), Vector2(size_px.x, size_px.y * 0.5), tile_outline_color, 1.5)
-	draw_rect(Rect2(Vector2.ZERO, size_px), tile_outline_color, false, 2.0)
+func _draw_color_badge(rect: Rect2):
+	var icon_rect := rect.grow(-4.0)
+	var square_size := minf(icon_rect.size.y, icon_rect.size.x * 0.5)
+	var total_width := square_size * 2.0
+	var start := icon_rect.position + Vector2(
+		(icon_rect.size.x - total_width) * 0.5,
+		(icon_rect.size.y - square_size) * 0.5
+	)
 
-func _draw_knight_quadrant(rect: Rect2, tint: Color):
-	draw_rect(rect, tint.darkened(0.78))
+	for index in range(2):
+		var square_rect := Rect2(start + Vector2(square_size * float(index), 0.0), Vector2(square_size, square_size))
+		draw_rect(square_rect, tile_background_color)
+		draw_rect(square_rect.grow(-2.0), quadrant_colors[index % quadrant_colors.size()])
+
+func _draw_type_badge(rect: Rect2):
+	_draw_knight_icon(rect.grow(-4.0), icon_color)
+
+func _draw_knight_icon(rect: Rect2, tint: Color):
 	if knight_texture == null:
 		return
 
@@ -69,7 +75,7 @@ func _draw_knight_quadrant(rect: Rect2, tint: Color):
 	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
 		return
 
-	var scale_factor := minf(rect.size.x / texture_size.x, rect.size.y / texture_size.y) * 0.82
+	var scale_factor := minf(rect.size.x / texture_size.x, rect.size.y / texture_size.y) * 0.9
 	var draw_size := texture_size * scale_factor
 	var draw_position := rect.position + (rect.size - draw_size) * 0.5
 	draw_set_transform(draw_position, 0.0, Vector2(scale_factor, scale_factor))

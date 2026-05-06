@@ -25,6 +25,8 @@ func _initialize():
 	_run_test("fills all three remaining empty cells", _test_fills_last_three_empty_cells, failures)
 	_run_test("prefers non-clearing spawn cells when available", _test_prefers_non_clearing_spawn_cells, failures)
 	_run_test("uses line-making cell when every empty cell would clear", _test_uses_line_cell_when_no_safe_cell_exists, failures)
+	_run_test("keeps duplicate pieces on opposite board colors", _test_duplicate_piece_board_color_preference, failures)
+	_run_test("blocks duplicate spawn when only exhausted board color remains", _test_duplicate_piece_board_color_capacity, failures)
 	_run_test("detects lines after filling the last three cells", _test_detects_lines_after_last_three_spawns, failures)
 	_run_test("reports no spawn capacity when one-king rule exhausts inventory", _test_detects_spawn_inventory_exhaustion, failures)
 
@@ -52,16 +54,21 @@ func _test_fills_last_three_empty_cells() -> String:
 				continue
 			board[pos] = _piece(GameManager.PieceType.PAWN, GameManager.PieceColor.BLUE, pos)
 
-	for cell in open_cells:
+	var spawn_types: Array = [
+		GameManager.PieceType.ROOK,
+		GameManager.PieceType.BISHOP,
+		GameManager.PieceType.KNIGHT
+	]
+	for piece_type in spawn_types:
 		var chosen_cell: Vector2i = SpawnPlannerScript.get_preferred_spawn_cell(
 			board,
 			_get_empty_cells(board),
-			GameManager.PieceType.ROOK,
+			piece_type,
 			GameManager.PieceColor.RED
 		)
 		if chosen_cell == Vector2i(-1, -1):
 			return "spawn planner failed to choose one of the last three cells"
-		board[chosen_cell] = _piece(GameManager.PieceType.ROOK, GameManager.PieceColor.RED, chosen_cell)
+		board[chosen_cell] = _piece(piece_type, GameManager.PieceColor.RED, chosen_cell)
 
 	if _get_empty_cells(board).size() != 0:
 		return "expected all three empty cells to be consumed"
@@ -105,6 +112,49 @@ func _test_uses_line_cell_when_no_safe_cell_exists() -> String:
 	)
 	if chosen_cell != Vector2i(4, 0):
 		return "expected the only available cell to be used even though it clears a line"
+
+	return ""
+
+func _test_duplicate_piece_board_color_preference() -> String:
+	var board: Dictionary = _make_board([
+		_piece(GameManager.PieceType.KNIGHT, GameManager.PieceColor.RED, Vector2i(1, 0))
+	])
+	var empty_cells: Array = [Vector2i(3, 0), Vector2i(0, 0)]
+
+	var chosen_cell: Vector2i = SpawnPlannerScript.get_preferred_spawn_cell(
+		board,
+		empty_cells,
+		GameManager.PieceType.KNIGHT,
+		GameManager.PieceColor.RED
+	)
+	if chosen_cell != Vector2i(0, 0):
+		return "expected second red knight to spawn on the opposite board color"
+
+	return ""
+
+func _test_duplicate_piece_board_color_capacity() -> String:
+	var board: Dictionary = _make_board([
+		_piece(GameManager.PieceType.PAWN, GameManager.PieceColor.BLUE, Vector2i(1, 0)),
+		_piece(GameManager.PieceType.PAWN, GameManager.PieceColor.BLUE, Vector2i(3, 0)),
+		_piece(GameManager.PieceType.PAWN, GameManager.PieceColor.BLUE, Vector2i(5, 0)),
+		_piece(GameManager.PieceType.PAWN, GameManager.PieceColor.BLUE, Vector2i(7, 0))
+	])
+
+	if SpawnPlannerScript.can_spawn_identity(
+		board,
+		GameManager.PieceType.PAWN,
+		GameManager.PieceColor.BLUE,
+		[Vector2i(1, 2)]
+	):
+		return "expected fifth blue pawn on a dark cell to be blocked"
+
+	if not SpawnPlannerScript.can_spawn_identity(
+		board,
+		GameManager.PieceType.PAWN,
+		GameManager.PieceColor.BLUE,
+		[Vector2i(0, 0)]
+	):
+		return "expected fifth blue pawn on a light cell to remain legal"
 
 	return ""
 

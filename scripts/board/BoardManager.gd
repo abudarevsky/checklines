@@ -5,7 +5,7 @@ const SpawnPlannerScript = preload("res://scripts/board/SpawnPlanner.gd")
 
 signal piece_selected(piece)
 signal piece_moved(from, to)
-signal capture_made(piece, target)
+signal capture_made(piece, target, captured_piece_type)
 
 var board: Dictionary = {}
 var board_size: int = GameManager.BOARD_SIZE
@@ -17,7 +17,6 @@ var dimmed_pieces = []
 var highlight_nodes = []
 var dim_border_nodes = []
 var input_enabled: bool = true
-var pending_click_grid_pos: Vector2i = Vector2i(-1, -1)
 var show_borders: bool = true
 var left_border_width: float = GameManager.BORDER_WIDTH
 var top_border_width: float = GameManager.BORDER_WIDTH
@@ -60,7 +59,6 @@ func clear_board():
 	highlight_nodes.clear()
 	dim_border_nodes.clear()
 	dimmed_pieces.clear()
-	pending_click_grid_pos = Vector2i(-1, -1)
 	if border_tween:
 		border_tween.kill()
 		border_tween = null
@@ -207,12 +205,6 @@ func remove_piece(grid_pos: Vector2i) -> bool:
 	board.erase(grid_pos)
 	return true
 
-func get_piece_at(grid_pos: Vector2i):
-	return board.get(grid_pos)
-
-func get_all_pieces():
-	return board.values()
-
 func _input(event):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos = get_local_mouse_position()
@@ -220,7 +212,6 @@ func _input(event):
 		if not _is_grid_in_bounds(grid_pos):
 			return
 		if not input_enabled:
-			pending_click_grid_pos = grid_pos
 			return
 		_handle_grid_click(grid_pos)
 
@@ -289,11 +280,6 @@ func set_input_enabled(enabled: bool):
 	input_enabled = enabled
 	if not enabled:
 		deselect_piece()
-		return
-	if pending_click_grid_pos != Vector2i(-1, -1):
-		var queued_click := pending_click_grid_pos
-		pending_click_grid_pos = Vector2i(-1, -1)
-		call_deferred("_handle_grid_click", queued_click)
 
 func _draw_highlight(cell: Vector2i) -> Node:
 	var theme = _get_theme()
@@ -392,8 +378,10 @@ func move_piece(piece, target: Vector2i):
 	board.erase(from_pos)
 	
 	var captured_piece = null
+	var captured_piece_type := -1
 	if board.has(target):
 		captured_piece = board[target]
+		captured_piece_type = captured_piece.piece_type
 		remove_piece(target)
 	
 	piece.grid_position = target
@@ -405,14 +393,7 @@ func move_piece(piece, target: Vector2i):
 	
 	piece_moved.emit(from_pos, target)
 	if captured_piece:
-		capture_made.emit(piece, target)
-
-func has_legal_captures() -> bool:
-	for piece in board.values():
-		var captures = piece.get_legal_captures(board)
-		if captures.size() > 0:
-			return true
-	return false
+		capture_made.emit(piece, target, captured_piece_type)
 
 func has_legal_moves() -> bool:
 	for piece in board.values():
@@ -420,21 +401,6 @@ func has_legal_moves() -> bool:
 		if moves.size() > 0:
 			return true
 	return false
-
-func get_all_legal_captures():
-	var moves = []
-	for piece in board.values():
-		var captures = piece.get_legal_captures(board)
-		for target in captures:
-			moves.append({"piece": piece, "from": piece.grid_position, "to": target})
-	return moves
-
-func get_pieces_by_color(color):
-	var pieces = []
-	for piece in board.values():
-		if piece.piece_color == color:
-			pieces.append(piece)
-	return pieces
 
 func get_piece_count() -> int:
 	return board.size()
@@ -448,25 +414,8 @@ func get_empty_cells():
 				empty.append(pos)
 	return empty
 
-func has_king_on_board() -> bool:
-	for piece in board.values():
-		if piece.piece_type == GameManager.PieceType.KING:
-			return true
-	return false
-
-func get_piece_count_for_color_and_type(color: GameManager.PieceColor, piece_type: GameManager.PieceType) -> int:
-	var count := 0
-	for piece in board.values():
-		if piece.piece_color == color and piece.piece_type == piece_type:
-			count += 1
-	return count
-
 func can_spawn_piece_type_for_color(piece_type: GameManager.PieceType, color: GameManager.PieceColor) -> bool:
-	if piece_type == GameManager.PieceType.KING and has_king_on_board():
-		return false
-
-	var limit := GameManager.get_piece_type_limit(piece_type)
-	return get_piece_count_for_color_and_type(color, piece_type) < limit
+	return SpawnPlannerScript.can_spawn_identity(board, piece_type, color, get_empty_cells())
 
 func get_available_piece_types_for_color(color: GameManager.PieceColor) -> Array:
 	var available_types: Array = []

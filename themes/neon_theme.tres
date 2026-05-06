@@ -8,6 +8,7 @@
 [ext_resource type="Texture2D" uid="uid://bfi33f17grhm0" path="res://assets/sprites/png/white_queen.png" id="6_queen"]
 [ext_resource type="Texture2D" uid="uid://b2rrcwouele0e" path="res://assets/sprites/png/white_king.png" id="7_king"]
 [ext_resource type="Texture2D" uid="uid://b4jt2ecbip7o7" path="res://assets/ui/themes/neon/level0.png" id="8_puzzle_1"]
+[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/neon-checklines-screen-badge.png" id="9_badge"]
 
 [resource]
 script = ExtResource("1_theme")
@@ -32,9 +33,13 @@ hud_primary_text_color = Color(1, 1, 1, 1)
 hud_secondary_text_color = Color(0.9, 0.9, 1, 0.92)
 hud_outline_color = Color(0.2, 0.2, 0.3, 0.35)
 hud_secondary_outline_color = Color(0.2, 0.2, 0.3, 0.3)
+gameplay_frame_color = Color(1, 1, 1, 0.95)
+gameplay_frame_glow_color = Color(1, 1, 1, 0.86)
+gameplay_frame_glow_size = 5.0
 metric_tile_background_color = Color(0.08, 0.08, 0.14, 1)
 metric_outline_color = Color(0.6, 0.6, 1, 0.6)
 puzzle_level_images = [ExtResource("8_puzzle_1")]
+checklines_badge_texture = ExtResource("9_badge")
 puzzle_board_background_color = Color(0.06, 0.06, 0.12, 1)
 puzzle_message_text_color = Color(1, 1, 1, 1)
 puzzle_message_outline_color = Color(0, 1, 1, 0.35)

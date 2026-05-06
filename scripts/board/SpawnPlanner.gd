@@ -12,6 +12,8 @@ const PIECE_LIMITS: Dictionary = {
 	4: 1,
 	5: 1
 }
+const BOARD_CELL_LIGHT: int = 0
+const BOARD_CELL_DARK: int = 1
 
 class PreviewPiece:
 	extends RefCounted
@@ -36,36 +38,101 @@ static func get_preferred_spawn_cell(board: Dictionary, empty_cells: Array, piec
 
 	var shuffled_cells: Array = empty_cells.duplicate()
 	shuffled_cells.shuffle()
-	var safe_cells: Array = []
+	var legal_cells: Array = []
+
 	for cell in shuffled_cells:
+		if can_place_piece_on_cell(board, piece_type, color, cell):
+			legal_cells.append(cell)
+
+	if legal_cells.is_empty():
+		return Vector2i(-1, -1)
+
+	var safe_cells: Array = []
+	for cell in legal_cells:
 		if not would_spawn_create_chain(board, piece_type, color, cell):
 			safe_cells.append(cell)
 
 	if not safe_cells.is_empty():
 		return safe_cells[0]
 
-	return shuffled_cells[0]
+	return legal_cells[0]
+
+static func can_spawn_identity(board: Dictionary, piece_type: int, color: int, empty_cells: Array = []) -> bool:
+	if piece_type == KING_TYPE and _has_king(board):
+		return false
+
+	var current_count := _get_piece_count_for_color_and_type(board, color, piece_type)
+	if current_count >= int(PIECE_LIMITS.get(piece_type, 0)):
+		return false
+
+	var cells: Array = empty_cells
+	if cells.is_empty():
+		cells = _get_empty_cells(board)
+
+	for cell in cells:
+		if can_place_piece_on_cell(board, piece_type, color, cell):
+			return true
+
+	return false
+
+static func can_place_piece_on_cell(board: Dictionary, piece_type: int, color: int, grid_pos: Vector2i) -> bool:
+	if board.has(grid_pos):
+		return false
+	if piece_type == KING_TYPE and _has_king(board):
+		return false
+
+	var limit: int = int(PIECE_LIMITS.get(piece_type, 0))
+	if _get_piece_count_for_color_and_type(board, color, piece_type) >= limit:
+		return false
+
+	var board_color := get_board_cell_color(grid_pos)
+	var same_board_color_count := _get_piece_count_for_color_type_and_board_color(board, color, piece_type, board_color)
+	return same_board_color_count < _get_board_color_limit(piece_type)
 
 static func has_spawn_capacity(board: Dictionary) -> bool:
-	var has_king := false
-	var counts_by_key: Dictionary = {}
-
-	for piece in board.values():
-		if piece.piece_type == KING_TYPE:
-			has_king = true
-
-		var key: String = "%d:%d" % [piece.piece_color, piece.piece_type]
-		counts_by_key[key] = int(counts_by_key.get(key, 0)) + 1
+	var empty_cells := _get_empty_cells(board)
+	if empty_cells.is_empty():
+		return false
 
 	for color in range(PIECE_COLOR_COUNT):
 		for piece_type in range(PIECE_TYPE_COUNT):
-			if piece_type == KING_TYPE and has_king:
-				continue
-
-			var key: String = "%d:%d" % [color, piece_type]
-			var limit: int = int(PIECE_LIMITS.get(piece_type, 0))
-			var current_count: int = int(counts_by_key.get(key, 0))
-			if current_count < limit:
+			if can_spawn_identity(board, piece_type, color, empty_cells):
 				return true
 
 	return false
+
+static func get_board_cell_color(grid_pos: Vector2i) -> int:
+	return BOARD_CELL_LIGHT if (grid_pos.x + grid_pos.y) % 2 == 0 else BOARD_CELL_DARK
+
+static func _get_board_color_limit(piece_type: int) -> int:
+	var limit: int = int(PIECE_LIMITS.get(piece_type, 0))
+	return int(ceil(float(limit) / 2.0))
+
+static func _get_piece_count_for_color_and_type(board: Dictionary, color: int, piece_type: int) -> int:
+	var count := 0
+	for piece in board.values():
+		if piece.piece_color == color and piece.piece_type == piece_type:
+			count += 1
+	return count
+
+static func _get_piece_count_for_color_type_and_board_color(board: Dictionary, color: int, piece_type: int, board_color: int) -> int:
+	var count := 0
+	for piece in board.values():
+		if piece.piece_color == color and piece.piece_type == piece_type and get_board_cell_color(piece.grid_position) == board_color:
+			count += 1
+	return count
+
+static func _has_king(board: Dictionary) -> bool:
+	for piece in board.values():
+		if piece.piece_type == KING_TYPE:
+			return true
+	return false
+
+static func _get_empty_cells(board: Dictionary) -> Array:
+	var empty_cells: Array = []
+	for y in range(GameManager.BOARD_SIZE):
+		for x in range(GameManager.BOARD_SIZE):
+			var pos := Vector2i(x, y)
+			if not board.has(pos):
+				empty_cells.append(pos)
+	return empty_cells

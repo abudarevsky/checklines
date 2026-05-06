@@ -90,6 +90,8 @@ func _test_diagonal_king_joker_type_line() -> String:
 		return "king joker line was not marked as type line"
 	if line["matched_type"] != GameManager.PieceType.BISHOP:
 		return "wrong matched type for king joker line"
+	if not line["is_king_led_type_line"]:
+		return "king joker line was not marked as king-led"
 	return ""
 
 func _test_combo_line() -> String:
