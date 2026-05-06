@@ -8,6 +8,9 @@
 [ext_resource type="Texture2D" uid="uid://bfi33f17grhm0" path="res://assets/sprites/png/white_queen.png" id="6_queen"]
 [ext_resource type="Texture2D" uid="uid://b2rrcwouele0e" path="res://assets/sprites/png/white_king.png" id="7_king"]
 [ext_resource type="Texture2D" uid="uid://bx0kdart3jkt8" path="res://assets/ui/themes/default/level0.png" id="8_puzzle_1"]
+[ext_resource type="Texture2D" path="res://assets/ui/checklines-screen-badge.png" id="9_badge"]
+[ext_resource type="Texture2D" uid="uid://cfa5tj4lm8wlg" path="res://assets/ui/themes/default/level1.png" id="10_puzzle_2"]
+[ext_resource type="Texture2D" uid="uid://36iq1iyxa5f5" path="res://assets/ui/themes/default/level2.png" id="11_puzzle_3"]
 
 [resource]
 script = ExtResource("1_theme")
@@ -23,7 +26,9 @@ hud_primary_text_color = Color(0.96, 0.91, 0.78, 1)
 hud_secondary_text_color = Color(0.91, 0.87, 0.78, 0.95)
 hud_outline_color = Color(0.05, 0.035, 0.015, 0.88)
 hud_secondary_outline_color = Color(0.05, 0.035, 0.015, 0.72)
-puzzle_level_images = [ExtResource("8_puzzle_1")]
+gameplay_frame_color = Color(0.79, 0.62, 0.29, 0.95)
+puzzle_level_images = [ExtResource("8_puzzle_1"), ExtResource("10_puzzle_2"), ExtResource("11_puzzle_3")]
+checklines_badge_texture = ExtResource("9_badge")
 puzzle_message_text_color = Color(1, 0.78, 0.32, 1)
 puzzle_message_outline_color = Color(0.08, 0.045, 0.01, 0.86)
 level_start_message_template = "Let the fight begin!"

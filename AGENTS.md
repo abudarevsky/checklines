@@ -188,6 +188,14 @@ Do not build current features around attacking or defending kings.
   - theme resources
   - `default_theme.tres`
 
+- `assets/ui/themes/default/`
+  - default puzzle images (`level0.png`, `level1.png`, `level2.png`)
+  - theme should keep later levels pinned to the last available image when a theme ships fewer than three
+
+- `export_presets.cfg`
+  - platform export presets, including Android, Web, and iOS
+  - iOS export uses the configured Xcode project path under `exports/ios/`
+
 ## Global Constants
 
 Use `GameManager.gd` constants.
@@ -256,8 +264,10 @@ Theme scope includes:
 - side border colors
 - move and attack overlay colors
 - HUD colors
+- top badge texture
 - puzzle board images and reveal-cover colors
 - message display colors
+- game board screen frame colors and glow
 - dialog colors and typography
 - menu colors and button styles
 - settings dialog colors and theme selector popup styling
@@ -357,9 +367,13 @@ Puzzle board rules:
 - one removed piece reveals one puzzle tile
 - fully revealing one picture completes one level
 - level images come from the active `ThemeData`
-- the default puzzle image comes from `assets/ui/themes/default/level0.png`
+- the default puzzle image sequence comes from `assets/ui/themes/default/level0.png`, `level1.png`, and `level2.png`
+- when a theme has fewer puzzle images than level count, reuse its last available image for later levels
 - puzzle tile cover and puzzle board colors should remain theme-driven
-- `assets/ui/checklines-screen-badge.png` is the top badge art
+- top badge art is theme-driven through `ThemeData.checklines_badge_texture`
+- the default top badge art is `assets/ui/checklines-screen-badge.png`
+- the neon top badge art is `assets/ui/themes/neon/checklines-screen-badge.svg`
+- badge assets should keep the default badge canvas size, currently 963x238
 - the badge should sit centered above the puzzle frame and share its top row with the gear button
 - the gear button should sit centered between the left HUD edge and the centered badge
 - the gear button should use a borderless icon button style
@@ -387,6 +401,7 @@ Message display rules:
 - level start message templates may include `{number}` as the level number placeholder
 - current default theme level start message: `"Let the fight begin!"`
 - current neon theme level start message: `"Shed light on the battle!"`
+- game board screen frames use `ThemeData.gameplay_frame_color`; neon should use cyan frames with cyan glow
 - HUD messages should use the dialog font family at a larger, more prominent size
 - HUD messages live inside the score row while displayed
 - HUD messages should use an opaque score-row-colored backing panel, not transparent text over the scores
