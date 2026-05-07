@@ -602,11 +602,18 @@ func _get_puzzle_level_count() -> int:
 func _get_puzzle_level_texture(level_index: int) -> Texture2D:
 	var theme: ThemeData = _get_puzzle_theme()
 	if theme != null and not theme.puzzle_level_images.is_empty():
-		var clamped_index := clampi(level_index, 0, theme.puzzle_level_images.size() - 1)
-		var level_texture: Texture2D = theme.puzzle_level_images[clamped_index]
+		var image_index := _get_puzzle_level_image_index(theme.puzzle_level_images, level_index)
+		var level_texture: Texture2D = theme.puzzle_level_images[image_index]
 		if level_texture != null:
 			return level_texture
 	return load("res://assets/ui/themes/default/level0.png") as Texture2D
+
+static func _get_puzzle_level_image_index(puzzle_images: Array, level_index: int) -> int:
+	if puzzle_images.is_empty():
+		return 0
+	if level_index >= 0 and level_index < puzzle_images.size() and puzzle_images[level_index] != null:
+		return level_index
+	return 0
 
 func _get_puzzle_theme() -> ThemeData:
 	var theme: ThemeData = _get_theme()

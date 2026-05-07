@@ -4,6 +4,7 @@ func _initialize():
 	var failures: Array[String] = []
 
 	_run_test("default theme registers three puzzle images", _test_default_theme_puzzle_images, failures)
+	_run_test("missing level image falls back to image zero", _test_missing_level_image_uses_zero_index, failures)
 
 	if failures.is_empty():
 		print("All puzzle theme tests passed")
@@ -38,5 +39,25 @@ func _test_default_theme_puzzle_images() -> String:
 			return "puzzle image %d is null" % i
 		if texture.resource_path != expected_paths[i]:
 			return "expected image %d to be %s, got %s" % [i, expected_paths[i], texture.resource_path]
+
+	return ""
+
+func _test_missing_level_image_uses_zero_index() -> String:
+	var game_board := load("res://scripts/board/GameBoard.gd")
+	var images: Array = [ImageTexture.new()]
+
+	var selected_index: int = game_board._get_puzzle_level_image_index(images, 1)
+	if selected_index != 0:
+		return "expected one-image theme level 1 to use image 0, got %d" % selected_index
+
+	images = [ImageTexture.new(), ImageTexture.new()]
+	selected_index = game_board._get_puzzle_level_image_index(images, 2)
+	if selected_index != 0:
+		return "expected missing level 2 image to use image 0, got %d" % selected_index
+
+	images = [ImageTexture.new(), null]
+	selected_index = game_board._get_puzzle_level_image_index(images, 1)
+	if selected_index != 0:
+		return "expected null level 1 image to use image 0, got %d" % selected_index
 
 	return ""
