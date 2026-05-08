@@ -7,10 +7,10 @@
 [ext_resource type="Texture2D" uid="uid://cts54nauj7k38" path="res://assets/sprites/png/white_rook.png" id="5_rook"]
 [ext_resource type="Texture2D" uid="uid://bfi33f17grhm0" path="res://assets/sprites/png/white_queen.png" id="6_queen"]
 [ext_resource type="Texture2D" uid="uid://b2rrcwouele0e" path="res://assets/sprites/png/white_king.png" id="7_king"]
-[ext_resource type="Texture2D" uid="uid://bx0kdart3jkt8" path="res://assets/ui/themes/default/level0.png" id="8_puzzle_1"]
+[ext_resource type="Texture2D" uid="uid://g36a0m1o48ls" path="res://assets/ui/themes/default/level0.png" id="8_puzzle_1"]
 [ext_resource type="Texture2D" path="res://assets/ui/checklines-screen-badge.png" id="9_badge"]
-[ext_resource type="Texture2D" uid="uid://cfa5tj4lm8wlg" path="res://assets/ui/themes/default/level1.png" id="10_puzzle_2"]
-[ext_resource type="Texture2D" uid="uid://36iq1iyxa5f5" path="res://assets/ui/themes/default/level2.png" id="11_puzzle_3"]
+[ext_resource type="Texture2D" uid="uid://b45cbqlgqgubm" path="res://assets/ui/themes/default/level1.png" id="10_puzzle_2"]
+[ext_resource type="Texture2D" uid="uid://dy76phu44lna" path="res://assets/ui/themes/default/level2.png" id="11_puzzle_3"]
 
 [resource]
 script = ExtResource("1_theme")
