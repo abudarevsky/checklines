@@ -91,11 +91,18 @@ func build_line_scoring_event(chain: Dictionary) -> Dictionary:
 		"value": int(round(raw_score))
 	}
 
-func build_sacrifice_event(piece_type: int) -> Dictionary:
+func _get_sacrifice_cost(piece_type: int) -> int:
 	if current_score <= 0:
-		return {}
+		return 0
 
 	var sacrifice_cost: int = mini(get_piece_value(piece_type), current_score)
+	if sacrifice_cost <= 0:
+		return 0
+
+	return sacrifice_cost
+
+func build_sacrifice_event(piece_type: int) -> Dictionary:
+	var sacrifice_cost := _get_sacrifice_cost(piece_type)
 	if sacrifice_cost <= 0:
 		return {}
 
@@ -104,13 +111,36 @@ func build_sacrifice_event(piece_type: int) -> Dictionary:
 		"value": -sacrifice_cost
 	}
 
-func build_level_complete_event() -> Dictionary:
+func build_piece_disappearance_event(piece_type: int, message_template: String) -> Dictionary:
+	var sacrifice_cost := _get_sacrifice_cost(piece_type)
+	if sacrifice_cost <= 0:
+		return {}
+
+	var message := message_template.strip_edges()
+	if message.is_empty():
+		message = "{piece} disappeared -{cost} :("
+	message = message.replace("{piece}", get_piece_type_name(piece_type))
+	message = message.replace("{cost}", str(sacrifice_cost))
+
 	return {
-		"message": "Level Complete",
+		"message": message,
+		"value": -sacrifice_cost,
+		"show_value": false
+	}
+
+func build_level_complete_event(level_number: int = 0) -> Dictionary:
+	var message := "Level complete"
+	if level_number > 0:
+		message = "Level complete %d" % level_number
+	return {
+		"message": message,
 		"value": LEVEL_COMPLETE_SCORE
 	}
 
 func format_scoring_event(event: Dictionary) -> String:
+	if not bool(event.get("show_value", true)):
+		return str(event.get("message", ""))
+
 	var value := int(event.get("value", 0))
 	var sign := "+" if value >= 0 else "−"
 	return "%s   %s%d" % [str(event.get("message", "")), sign, abs(value)]

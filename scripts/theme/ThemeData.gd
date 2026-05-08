@@ -15,6 +15,8 @@ class_name ThemeData
 
 @export var board_cell_light_color: Color = Color(0.7, 0.7, 0.7)
 @export var board_cell_dark_color: Color = Color(0.3, 0.3, 0.3)
+@export var blocked_cell_light_color: Color = Color(0.82, 0.82, 0.82, 1.0)
+@export var blocked_cell_dark_line_color: Color = Color(0.18, 0.18, 0.18, 1.0)
 
 @export var left_border_color: Color = Color.RED
 @export var top_border_color: Color = Color.BLUE
@@ -45,6 +47,7 @@ class_name ThemeData
 @export var puzzle_message_font_weight: int = 700
 @export var puzzle_message_font_size: int = 30
 @export var level_start_message_template: String = ""
+@export var piece_disappearance_message_template: String = "I fell for nothing -{cost} :("
 
 @export var gameplay_backdrop_base_color: Color = Color(0.0, 0.004, 0.007, 1.0)
 @export var gameplay_backdrop_edge_glow_color: Color = Color(0.0, 0.28, 0.43, 1.0)

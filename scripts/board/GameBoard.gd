@@ -54,6 +54,7 @@ var puzzle_effect_tween: Tween
 var base_score_position: Vector2 = Vector2.ZERO
 var base_message_position: Vector2 = Vector2.ZERO
 var default_theme_cache: ThemeData = null
+var forced_sacrifice_spawn_count: int = 0
 
 const TOP_BAR_SHADOW_HEIGHT: float = 5.0
 const BOARD_TOP_GAP: float = 2.0
@@ -82,6 +83,7 @@ const PUZZLE_LEVEL_COMPLETE_HOLD: float = 3.0
 const PUZZLE_IMAGE_FADE_DURATION: float = 0.5
 const PUZZLE_TILE_UNROLL_DURATION: float = 0.45
 const PUZZLE_TILE_UNROLL_STAGGER: float = 0.018
+const BLOCKED_CELL_COUNTS_BY_LEVEL: Array[int] = [0, 1, 2]
 const DEBUG_HUD_LAYOUT: bool = false
 
 func _ready():
@@ -330,6 +332,7 @@ func _apply_icon_button_style(
 func _setup_signals():
 	board_manager.capture_made.connect(_on_capture_made)
 	board_manager.piece_moved.connect(_on_piece_moved)
+	board_manager.piece_sacrificed.connect(_on_piece_sacrificed)
 	GameManager.score_updated.connect(_on_score_updated)
 	GameManager.line_metrics_updated.connect(_on_line_metrics_updated)
 	GameManager.game_over.connect(_on_game_over)
@@ -691,6 +694,7 @@ func _load_puzzle_level(level_index: int):
 	revealed_puzzle_tiles = 0
 	puzzle_image.texture = _get_puzzle_level_texture(current_puzzle_level)
 	puzzle_image.modulate.a = 1.0
+	_generate_blocked_cells_for_level(current_puzzle_level)
 	_build_puzzle_tile_order()
 	_clear_puzzle_tiles()
 	_update_layout()
@@ -702,6 +706,30 @@ func _get_level_start_message(level_number: int) -> String:
 	if template.is_empty():
 		return "Starting level #%d" % level_number
 	return template.replace("{number}", str(level_number))
+
+static func _get_blocked_cell_count_for_level(level_index: int) -> int:
+	if level_index < 0:
+		return 0
+	if level_index < BLOCKED_CELL_COUNTS_BY_LEVEL.size():
+		return BLOCKED_CELL_COUNTS_BY_LEVEL[level_index]
+	return BLOCKED_CELL_COUNTS_BY_LEVEL[BLOCKED_CELL_COUNTS_BY_LEVEL.size() - 1]
+
+func _generate_blocked_cells_for_level(level_index: int):
+	board_manager.set_blocked_cells([])
+
+	var blocked_cell_count := _get_blocked_cell_count_for_level(level_index)
+	if blocked_cell_count <= 0:
+		return
+
+	var candidate_cells: Array = board_manager.get_empty_cells()
+	if candidate_cells.is_empty():
+		return
+
+	candidate_cells.shuffle()
+	var selected_cells: Array[Vector2i] = []
+	for i in range(mini(blocked_cell_count, candidate_cells.size())):
+		selected_cells.append(candidate_cells[i])
+	board_manager.set_blocked_cells(selected_cells)
 
 func _build_puzzle_tile_order():
 	puzzle_tile_order.clear()
@@ -829,8 +857,10 @@ func _apply_puzzle_progress(removed_pieces: int):
 		revealed_puzzle_tiles = _get_total_puzzle_tiles()
 		remaining -= tiles_left
 		_refresh_puzzle_tiles()
-		_queue_scoring_event(GameManager.build_level_complete_event())
-		await _show_puzzle_overlay_message("Level Complete", PUZZLE_LEVEL_COMPLETE_HOLD)
+		var completed_level_number := current_puzzle_level + 1
+		var level_complete_message := "Level complete %d" % completed_level_number
+		_queue_scoring_event(GameManager.build_level_complete_event(completed_level_number))
+		await _show_puzzle_overlay_message(level_complete_message, PUZZLE_LEVEL_COMPLETE_HOLD)
 		await _fade_puzzle_image_out()
 
 		if current_puzzle_level + 1 >= _get_puzzle_level_count():
@@ -911,6 +941,19 @@ func _on_capture_made(_piece, _target, captured_piece_type: int):
 	AudioManager.vibrate()
 	_queue_scoring_event(GameManager.build_sacrifice_event(captured_piece_type))
 
+func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
+	if is_processing_move:
+		return
+
+	AudioManager.play_sound("capture")
+	AudioManager.vibrate()
+	var theme := _get_theme()
+	var message_template := ""
+	if theme != null:
+		message_template = theme.piece_disappearance_message_template
+	_queue_scoring_event(GameManager.build_piece_disappearance_event(piece_type, message_template))
+	_resolve_sacrifice_turn()
+
 func _on_piece_moved(_from, _to):
 	if is_processing_move:
 		return
@@ -986,6 +1029,27 @@ func _resolve_turn():
 	if not game_over_overlay.visible and not pause_overlay.visible:
 		board_manager.set_input_enabled(true)
 
+func _resolve_sacrifice_turn():
+	is_processing_move = true
+	board_manager.set_input_enabled(false)
+	await get_tree().create_timer(0.3).timeout
+
+	var spawned_count: int = _spawn_new_pieces(_get_sacrifice_spawn_count())
+	if spawned_count == 0:
+		board_manager.fill_empty_cells_with_kings()
+		_check_game_over()
+		is_processing_move = false
+		return
+
+	await get_tree().create_timer(0.3).timeout
+	await _resolve_chain_waves()
+	await get_tree().create_timer(0.3).timeout
+	_check_game_over()
+
+	is_processing_move = false
+	if not game_over_overlay.visible and not pause_overlay.visible:
+		board_manager.set_input_enabled(true)
+
 func _resolve_chain_waves() -> bool:
 	var cleared_any := false
 
@@ -1038,5 +1102,10 @@ func _animate_chain_removal(chain):
 	for piece in chain:
 		board_manager.remove_piece(piece.grid_position)
 
-func _spawn_new_pieces() -> int:
-	return board_manager.spawn_random_pieces(3)
+func _get_sacrifice_spawn_count() -> int:
+	if forced_sacrifice_spawn_count > 0:
+		return forced_sacrifice_spawn_count
+	return 2 + randi_range(0, 1)
+
+func _spawn_new_pieces(count: int = 3) -> int:
+	return board_manager.spawn_random_pieces(count)

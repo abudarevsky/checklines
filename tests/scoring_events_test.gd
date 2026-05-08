@@ -23,6 +23,7 @@ func _initialize():
 	_run_test("formats sacrifice event", _test_sacrifice_event, failures)
 	_run_test("does not overdraw sacrifice score", _test_sacrifice_event_clamps_to_available_score, failures)
 	_run_test("does not build zero-score sacrifice event", _test_zero_score_sacrifice_event, failures)
+	_run_test("formats blocked-cell disappearance event", _test_piece_disappearance_event, failures)
 	_run_test("scores level completion", _test_level_complete_event, failures)
 
 	if failures.is_empty():
@@ -120,9 +121,23 @@ func _test_zero_score_sacrifice_event() -> String:
 		return "expected no sacrifice event at zero score"
 	return ""
 
+func _test_piece_disappearance_event() -> String:
+	_game_manager().current_score = 12
+	var event: Dictionary = _game_manager().build_piece_disappearance_event(
+		GameManager.PieceType.QUEEN,
+		"I fell for nothing -{cost} :("
+	)
+	if event["message"] != "I fell for nothing -7 :(":
+		return "wrong disappearance message"
+	if event["value"] != -7:
+		return "expected -7, got %d" % event["value"]
+	if _game_manager().format_scoring_event(event) != "I fell for nothing -7 :(":
+		return "wrong formatted disappearance event"
+	return ""
+
 func _test_level_complete_event() -> String:
-	var event: Dictionary = _game_manager().build_level_complete_event()
-	if event["message"] != "Level Complete":
+	var event: Dictionary = _game_manager().build_level_complete_event(2)
+	if event["message"] != "Level complete 2":
 		return "wrong level complete message"
 	if event["value"] != 500:
 		return "expected 500, got %d" % event["value"]
