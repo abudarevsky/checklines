@@ -58,6 +58,9 @@ Message display rules:
 - HUD messages live inside the score row while displayed
 - HUD messages should use an opaque score-row-colored backing panel, not transparent text over the scores
 - HUD messages wipe in from the left and wipe out to the right
+- score events produced by the same move/turn should be combined into one HUD message, separated by bullets, instead of displayed as sequential HUD messages
+- HUD messages queued within the two-second bundle window should be combined before they animate, so rapid scoring turns do not create a long message backlog
+- score HUD messages are presentation only; board input should resume after board resolution and should not wait for score HUD exposure to finish
 - in-puzzle level/start messages should appear on the reusable `FlyingBanner` cloth banner across the puzzle image, not as bare text over artwork
 - while the message wipes in, the score and best text slide out as if pushed away, then slide back when the message exits
 - message and score animations should be clipped within the score row frame

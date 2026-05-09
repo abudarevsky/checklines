@@ -18,6 +18,16 @@ class_name FlyingBanner
 
 @export var flight_duration: float = 1.25
 @export var center_hold_duration: float = 1.0
+@export_range(1.0, 4.0, 0.25) var render_scale: float = 2.0:
+	set(value):
+		render_scale = value
+		_update_banner_texture()
+
+@export_range(0.2, 0.8, 0.01) var font_height_ratio: float = 0.46:
+	set(value):
+		font_height_ratio = value
+		_update_banner_texture()
+
 @export var wind_strength: float = 8.0:
 	set(value):
 		wind_strength = value
@@ -193,28 +203,31 @@ func _update_banner_texture():
 		return
 
 	_ensure_nodes()
-	var viewport_size := Vector2i(maxi(1, ceili(banner_size.x)), maxi(1, ceili(banner_size.y)))
+	var safe_render_scale := maxf(render_scale, 1.0)
+	var render_size := banner_size * safe_render_scale
+	var viewport_size := Vector2i(maxi(1, ceili(render_size.x)), maxi(1, ceili(render_size.y)))
 	banner_viewport.size = viewport_size
-	banner_control.size = banner_size
+	banner_control.size = render_size
 
-	var shadow_offset := maxf(4.0, banner_size.y * 0.08)
+	var shadow_offset := maxf(4.0, render_size.y * 0.08)
 	banner_shadow.position = Vector2(0.0, shadow_offset)
-	banner_shadow.size = banner_size
+	banner_shadow.size = render_size
 	banner_shadow.color = banner_shadow_color
 
 	banner_panel.position = Vector2.ZERO
-	banner_panel.size = banner_size - Vector2(0.0, shadow_offset)
-	banner_panel.add_theme_stylebox_override("panel", _build_banner_style())
+	banner_panel.size = render_size - Vector2(0.0, shadow_offset)
+	banner_panel.add_theme_stylebox_override("panel", _build_banner_style(safe_render_scale))
 
-	banner_label.position = Vector2(18.0, 0.0)
-	banner_label.size = banner_panel.size - Vector2(36.0, 0.0)
+	var horizontal_padding := 22.0 * safe_render_scale
+	banner_label.position = Vector2(horizontal_padding, 0.0)
+	banner_label.size = banner_panel.size - Vector2(horizontal_padding * 2.0, 0.0)
 	banner_label.text = phrase_text
 	banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	banner_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	banner_label.add_theme_color_override("font_color", banner_text_color)
-	banner_label.add_theme_font_size_override("font_size", int(maxf(24.0, banner_size.y * 0.34)))
-	banner_label.add_theme_constant_override("outline_size", 2)
+	banner_label.add_theme_font_size_override("font_size", int(maxf(30.0, render_size.y * font_height_ratio)))
+	banner_label.add_theme_constant_override("outline_size", int(maxf(2.0, safe_render_scale * 1.5)))
 	banner_label.add_theme_color_override("font_outline_color", banner_text_outline_color)
 
 	if shader_material != null:
@@ -233,15 +246,16 @@ func _update_shader_parameters():
 	if banner_viewport != null:
 		shader_material.set_shader_parameter("banner_texture", banner_viewport.get_texture())
 
-func _build_banner_style() -> StyleBoxFlat:
+func _build_banner_style(scale_factor: float = 1.0) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = banner_color
 	style.border_color = banner_border_color
-	style.border_width_left = 3
-	style.border_width_top = 3
-	style.border_width_right = 3
-	style.border_width_bottom = 3
-	var radius := int(maxf(6.0, banner_size.y * 0.12))
+	var border_width := int(maxf(3.0, 3.0 * scale_factor))
+	style.border_width_left = border_width
+	style.border_width_top = border_width
+	style.border_width_right = border_width
+	style.border_width_bottom = border_width
+	var radius := int(maxf(6.0, banner_size.y * 0.12) * scale_factor)
 	style.corner_radius_top_left = radius
 	style.corner_radius_top_right = radius
 	style.corner_radius_bottom_left = radius

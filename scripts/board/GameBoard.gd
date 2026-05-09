@@ -50,7 +50,11 @@ var current_puzzle_level: int = 0
 var revealed_puzzle_tiles: int = 0
 var puzzle_tile_order: Array[int] = []
 var message_queue: Array[String] = []
+var pending_hud_messages: Array[String] = []
+var score_message_batch: Array[String] = []
 var is_message_queue_running: bool = false
+var is_score_message_batch_open: bool = false
+var hud_message_bundle_generation: int = 0
 var message_tween: Tween
 var puzzle_effect_tween: Tween
 var base_score_position: Vector2 = Vector2.ZERO
@@ -79,6 +83,7 @@ const PUZZLE_LEVEL_TILE_COUNTS: Array[int] = [25, 50, 75, 100]
 const PUZZLE_TILE_MARGIN: float = -1.0
 const MESSAGE_SLIDE_DISTANCE: float = 120.0
 const MESSAGE_SLIDE_IN_DURATION: float = 0.42
+const MESSAGE_BUNDLE_WINDOW: float = 2.0
 const MESSAGE_HOLD_DURATION: float = 3.0
 const MESSAGE_SLIDE_OUT_DURATION: float = 0.38
 const PUZZLE_IMAGE_PREVIEW_DURATION: float = 2.0
@@ -86,8 +91,8 @@ const PUZZLE_LEVEL_COMPLETE_HOLD: float = 3.0
 const PUZZLE_IMAGE_FADE_DURATION: float = 0.5
 const PUZZLE_TILE_UNROLL_DURATION: float = 0.45
 const PUZZLE_TILE_UNROLL_STAGGER: float = 0.018
-const PUZZLE_MESSAGE_BANNER_MIN_HEIGHT: float = 56.0
-const PUZZLE_MESSAGE_BANNER_MAX_HEIGHT: float = 86.0
+const PUZZLE_MESSAGE_BANNER_MIN_HEIGHT: float = 76.0
+const PUZZLE_MESSAGE_BANNER_MAX_HEIGHT: float = 112.0
 const PUZZLE_MESSAGE_BANNER_FLIGHT_DURATION: float = 0.96
 const PUZZLE_MESSAGE_BANNER_HOLD_DURATION: float = 1.0
 const BLOCKED_CELL_COUNTS_BY_LEVEL: Array[int] = [0, 1, 2]
@@ -164,6 +169,8 @@ func _apply_puzzle_banner_theme(theme: ThemeData):
 	puzzle_flying_banner.banner_text_color = theme.puzzle_message_text_color
 	puzzle_flying_banner.banner_text_outline_color = theme.puzzle_message_outline_color
 	puzzle_flying_banner.banner_border_color = theme.gameplay_frame_color
+	puzzle_flying_banner.render_scale = 2.5
+	puzzle_flying_banner.font_height_ratio = 0.35
 	puzzle_flying_banner.wind_strength = 15.0
 	puzzle_flying_banner.wave_speed = 3.0
 	puzzle_flying_banner.wave_frequency = 7.5
@@ -521,7 +528,7 @@ func _update_message_layout(score_clip_width: float):
 func _update_puzzle_overlay_banner_layout(panel_width: float, puzzle_height: float):
 	puzzle_overlay_area_size = Vector2(panel_width, puzzle_height)
 	var banner_height := clampf(
-		puzzle_height * 0.34,
+		puzzle_height * 0.46,
 		PUZZLE_MESSAGE_BANNER_MIN_HEIGHT,
 		PUZZLE_MESSAGE_BANNER_MAX_HEIGHT
 	)
@@ -607,7 +614,11 @@ func _initialize_puzzle_progress():
 	revealed_puzzle_tiles = 0
 	puzzle_tile_order.clear()
 	message_queue.clear()
+	pending_hud_messages.clear()
+	score_message_batch.clear()
 	is_message_queue_running = false
+	is_score_message_batch_open = false
+	hud_message_bundle_generation += 1
 	if message_tween:
 		message_tween.kill()
 		message_tween = null
@@ -893,6 +904,30 @@ func _queue_message(text: String):
 	if text.is_empty():
 		return
 
+	pending_hud_messages.append(text)
+	if pending_hud_messages.size() == 1:
+		_flush_pending_hud_messages_after_delay(hud_message_bundle_generation)
+
+func _flush_pending_hud_messages_after_delay(generation: int):
+	await get_tree().create_timer(MESSAGE_BUNDLE_WINDOW).timeout
+	if generation != hud_message_bundle_generation:
+		return
+	_flush_pending_hud_messages()
+
+func _flush_pending_hud_messages():
+	if pending_hud_messages.is_empty():
+		return
+
+	var messages := PackedStringArray()
+	for message in pending_hud_messages:
+		messages.append(message)
+	pending_hud_messages.clear()
+	_enqueue_bundled_message("  •  ".join(messages))
+
+func _enqueue_bundled_message(text: String):
+	if text.is_empty():
+		return
+
 	message_queue.append(text)
 	if not is_message_queue_running:
 		_run_message_queue()
@@ -902,7 +937,32 @@ func _queue_scoring_event(event: Dictionary):
 		return
 
 	GameManager.add_scoring_event(event)
-	_queue_message(GameManager.format_scoring_event(event))
+	var formatted_event := GameManager.format_scoring_event(event)
+	if is_score_message_batch_open:
+		score_message_batch.append(formatted_event)
+	else:
+		_queue_message(formatted_event)
+
+func _begin_score_message_batch():
+	if is_score_message_batch_open:
+		return
+
+	score_message_batch.clear()
+	is_score_message_batch_open = true
+
+func _flush_score_message_batch():
+	if not is_score_message_batch_open:
+		return
+
+	is_score_message_batch_open = false
+	if score_message_batch.is_empty():
+		return
+
+	var messages := PackedStringArray()
+	for message in score_message_batch:
+		messages.append(message)
+	score_message_batch.clear()
+	_queue_message("  •  ".join(messages))
 
 func _run_message_queue():
 	if is_message_queue_running:
@@ -960,6 +1020,7 @@ func _spawn_initial_pieces():
 func _on_capture_made(_piece, _target, captured_piece_type: int):
 	AudioManager.play_sound("capture")
 	AudioManager.vibrate()
+	_begin_score_message_batch()
 	_queue_scoring_event(GameManager.build_sacrifice_event(captured_piece_type))
 
 func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
@@ -972,6 +1033,7 @@ func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
 	var message_template := ""
 	if theme != null:
 		message_template = theme.piece_disappearance_message_template
+	_begin_score_message_batch()
 	_queue_scoring_event(GameManager.build_piece_disappearance_event(piece_type, message_template))
 	_resolve_sacrifice_turn()
 
@@ -1031,6 +1093,7 @@ func _on_main_menu_pressed():
 func _resolve_turn():
 	is_processing_move = true
 	board_manager.set_input_enabled(false)
+	_begin_score_message_batch()
 	await get_tree().create_timer(0.3).timeout
 
 	var cleared_from_move := await _resolve_chain_waves()
@@ -1039,6 +1102,7 @@ func _resolve_turn():
 		if spawned_count == 0:
 			board_manager.fill_empty_cells_with_kings()
 			_check_game_over()
+			_flush_score_message_batch()
 			is_processing_move = false
 			return
 		await get_tree().create_timer(0.3).timeout
@@ -1047,6 +1111,7 @@ func _resolve_turn():
 	await get_tree().create_timer(0.3).timeout
 	_check_game_over()
 
+	_flush_score_message_batch()
 	is_processing_move = false
 	if not game_over_overlay.visible and not pause_overlay.visible:
 		board_manager.set_input_enabled(true)
@@ -1054,12 +1119,14 @@ func _resolve_turn():
 func _resolve_sacrifice_turn():
 	is_processing_move = true
 	board_manager.set_input_enabled(false)
+	_begin_score_message_batch()
 	await get_tree().create_timer(0.3).timeout
 
 	var spawned_count: int = _spawn_new_pieces(_get_sacrifice_spawn_count())
 	if spawned_count == 0:
 		board_manager.fill_empty_cells_with_kings()
 		_check_game_over()
+		_flush_score_message_batch()
 		is_processing_move = false
 		return
 
@@ -1068,6 +1135,7 @@ func _resolve_sacrifice_turn():
 	await get_tree().create_timer(0.3).timeout
 	_check_game_over()
 
+	_flush_score_message_batch()
 	is_processing_move = false
 	if not game_over_overlay.visible and not pause_overlay.visible:
 		board_manager.set_input_enabled(true)
