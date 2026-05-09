@@ -44,6 +44,8 @@ class_name ThemeData
 @export var puzzle_tile_cover_color: Color = Color(0.06, 0.06, 0.06, 0.92)
 @export var puzzle_message_text_color: Color = Color(0.12, 0.12, 0.12, 1.0)
 @export var puzzle_message_outline_color: Color = Color(1.0, 1.0, 1.0, 0.28)
+@export var puzzle_message_banner_color: Color = Color(0.04, 0.08, 0.14, 0.92)
+@export var puzzle_message_banner_shadow_color: Color = Color(0.0, 0.0, 0.0, 0.38)
 @export var puzzle_message_font_weight: int = 700
 @export var puzzle_message_font_size: int = 30
 @export var level_start_message_template: String = ""
@@ -61,6 +63,7 @@ class_name ThemeData
 @export var dialog_body_font_size: int = 24
 @export var dialog_score_font_size: int = 34
 @export var dialog_button_font_size: int = 28
+@export var dialog_selector_font_size: int = 30
 @export var dialog_overlay_color: Color = Color(0.02, 0.02, 0.02, 0.62)
 @export var dialog_panel_background_color: Color = Color(0.09, 0.1, 0.12, 0.96)
 @export var dialog_panel_border_color: Color = Color(1.0, 1.0, 1.0, 0.18)

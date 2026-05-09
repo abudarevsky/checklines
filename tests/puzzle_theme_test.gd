@@ -4,7 +4,8 @@ func _initialize():
 	var failures: Array[String] = []
 
 	_run_test("default theme registers three puzzle images", _test_default_theme_puzzle_images, failures)
-	_run_test("missing level image falls back to image zero", _test_missing_level_image_uses_zero_index, failures)
+	_run_test("missing level image falls back to last available image", _test_missing_level_image_uses_last_available_index, failures)
+	_run_test("later levels use the final tile count", _test_later_levels_use_final_tile_count, failures)
 
 	if failures.is_empty():
 		print("All puzzle theme tests passed")
@@ -42,7 +43,7 @@ func _test_default_theme_puzzle_images() -> String:
 
 	return ""
 
-func _test_missing_level_image_uses_zero_index() -> String:
+func _test_missing_level_image_uses_last_available_index() -> String:
 	var game_board := load("res://scripts/board/GameBoard.gd")
 	var images: Array = [ImageTexture.new()]
 
@@ -52,12 +53,22 @@ func _test_missing_level_image_uses_zero_index() -> String:
 
 	images = [ImageTexture.new(), ImageTexture.new()]
 	selected_index = game_board._get_puzzle_level_image_index(images, 2)
-	if selected_index != 0:
-		return "expected missing level 2 image to use image 0, got %d" % selected_index
+	if selected_index != 1:
+		return "expected missing level 2 image to use image 1, got %d" % selected_index
 
 	images = [ImageTexture.new(), null]
 	selected_index = game_board._get_puzzle_level_image_index(images, 1)
 	if selected_index != 0:
 		return "expected null level 1 image to use image 0, got %d" % selected_index
 
+	return ""
+
+func _test_later_levels_use_final_tile_count() -> String:
+	var game_board := load("res://scripts/board/GameBoard.gd")
+	if game_board._get_puzzle_level_tile_count(0) != 25:
+		return "expected level 0 to use 25 tiles"
+	if game_board._get_puzzle_level_tile_count(3) != 100:
+		return "expected level 3 to use 100 tiles"
+	if game_board._get_puzzle_level_tile_count(8) != 100:
+		return "expected later levels to keep using 100 tiles"
 	return ""

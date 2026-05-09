@@ -134,6 +134,9 @@ func _draw_blocked_cell(rect: Rect2, theme):
 			draw_line(points[0], points[1], theme.blocked_cell_dark_line_color, line_width)
 		c += spacing
 
+	var border_width := maxf(cell_size * 0.045, 3.0)
+	draw_rect(rect.grow(-border_width * 0.5), theme.blocked_cell_dark_line_color, false, border_width)
+
 func set_blocked_cells(cells: Array):
 	blocked_cells.clear()
 	for cell in cells:
@@ -332,6 +335,7 @@ func _draw_highlight(cell: Vector2i) -> Node:
 	highlight.position = Vector2(cell.x * cell_size, cell.y * cell_size)
 	highlight.size = Vector2(cell_size, cell_size)
 	highlight.color = theme.move_highlight_color
+	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	highlights_container.add_child(highlight)
 	return highlight
 
@@ -356,6 +360,7 @@ func _draw_attack_overlay(attacker: Piece, target_cell: Vector2i) -> Node:
 	bg_rect.size = Vector2(overlay_size, overlay_size)
 	bg_rect.color = theme.attack_overlay_background_color
 	bg_rect.position = Vector2(offset_x - overlay_size / 2, offset_y - overlay_size / 2)
+	bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	
 	overlay_container.add_child(bg_rect)
 	overlay_container.add_child(overlay_sprite)
@@ -377,6 +382,7 @@ func _dim_target_piece(target_cell: Vector2i, attacker_color: GameManager.PieceC
 		top.position = cell_pixel
 		top.size = Vector2(cell_size, border_width)
 		top.color = border_color
+		top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		highlights_container.add_child(top)
 		dim_border_nodes.append(top)
 		
@@ -384,6 +390,7 @@ func _dim_target_piece(target_cell: Vector2i, attacker_color: GameManager.PieceC
 		bottom.position = Vector2(cell_pixel.x, cell_pixel.y + cell_size - border_width)
 		bottom.size = Vector2(cell_size, border_width)
 		bottom.color = border_color
+		bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		highlights_container.add_child(bottom)
 		dim_border_nodes.append(bottom)
 		
@@ -391,6 +398,7 @@ func _dim_target_piece(target_cell: Vector2i, attacker_color: GameManager.PieceC
 		left.position = cell_pixel
 		left.size = Vector2(border_width, cell_size)
 		left.color = border_color
+		left.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		highlights_container.add_child(left)
 		dim_border_nodes.append(left)
 		
@@ -398,6 +406,7 @@ func _dim_target_piece(target_cell: Vector2i, attacker_color: GameManager.PieceC
 		right.position = Vector2(cell_pixel.x + cell_size - border_width, cell_pixel.y)
 		right.size = Vector2(border_width, cell_size)
 		right.color = border_color
+		right.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		highlights_container.add_child(right)
 		dim_border_nodes.append(right)
 

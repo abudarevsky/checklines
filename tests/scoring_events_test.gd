@@ -137,7 +137,7 @@ func _test_piece_disappearance_event() -> String:
 
 func _test_level_complete_event() -> String:
 	var event: Dictionary = _game_manager().build_level_complete_event(2)
-	if event["message"] != "Level complete 2":
+	if event["message"] != "Level 2 complete!":
 		return "wrong level complete message"
 	if event["value"] != 500:
 		return "expected 500, got %d" % event["value"]

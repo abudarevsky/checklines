@@ -131,7 +131,7 @@ func build_piece_disappearance_event(piece_type: int, message_template: String) 
 func build_level_complete_event(level_number: int = 0) -> Dictionary:
 	var message := "Level complete"
 	if level_number > 0:
-		message = "Level complete %d" % level_number
+		message = "Level %d complete!" % level_number
 	return {
 		"message": message,
 		"value": LEVEL_COMPLETE_SCORE

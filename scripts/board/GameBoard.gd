@@ -13,7 +13,7 @@ const PuzzleTileCover = preload("res://scripts/ui/PuzzleTileCover.gd")
 @onready var puzzle_frame: PanelContainer = $CanvasLayer/PuzzlePanel/PuzzleFrame
 @onready var puzzle_image: TextureRect = $CanvasLayer/PuzzlePanel/PuzzleImage
 @onready var puzzle_tiles: Control = $CanvasLayer/PuzzlePanel/PuzzleTiles
-@onready var puzzle_overlay_label: Label = $CanvasLayer/PuzzlePanel/PuzzleOverlayLabel
+@onready var puzzle_flying_banner: FlyingBanner = $CanvasLayer/PuzzlePanel/PuzzleFlyingBanner
 @onready var puzzle_badge: TextureRect = $CanvasLayer/PuzzleBadge
 @onready var gear_button: Button = $CanvasLayer/GearButton
 @onready var score_clip: Control = $CanvasLayer/ScoreClip
@@ -26,6 +26,8 @@ const PuzzleTileCover = preload("res://scripts/ui/PuzzleTileCover.gd")
 @onready var color_lines_value_label: Label = $CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat/ValueLabel
 @onready var type_lines_badge: LineMetricBadge = $CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat/Badge
 @onready var type_lines_value_label: Label = $CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/TypeLinesStat/ValueLabel
+@onready var level_badge: LineMetricBadge = $CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/LevelStat/Badge
+@onready var level_value_label: Label = $CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/LevelStat/ValueLabel
 @onready var pause_overlay: Control = $CanvasLayer/UI/PauseOverlay
 @onready var pause_backdrop: ColorRect = $CanvasLayer/UI/PauseOverlay/Backdrop
 @onready var pause_panel: PanelContainer = $CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel
@@ -53,6 +55,7 @@ var message_tween: Tween
 var puzzle_effect_tween: Tween
 var base_score_position: Vector2 = Vector2.ZERO
 var base_message_position: Vector2 = Vector2.ZERO
+var puzzle_overlay_area_size: Vector2 = Vector2.ZERO
 var default_theme_cache: ThemeData = null
 var forced_sacrifice_spawn_count: int = 0
 
@@ -72,7 +75,7 @@ const SCORE_ROW_HEIGHT: float = 66.0
 const SCORE_FRAME_EXTRA_SPACE: float = 0.0
 const PUZZLE_COLUMNS: int = 5
 const PUZZLE_ROWS: int = 5
-const PUZZLE_LEVEL_TILE_COUNTS: Array[int] = [25, 50, 75]
+const PUZZLE_LEVEL_TILE_COUNTS: Array[int] = [25, 50, 75, 100]
 const PUZZLE_TILE_MARGIN: float = -1.0
 const MESSAGE_SLIDE_DISTANCE: float = 120.0
 const MESSAGE_SLIDE_IN_DURATION: float = 0.42
@@ -83,6 +86,10 @@ const PUZZLE_LEVEL_COMPLETE_HOLD: float = 3.0
 const PUZZLE_IMAGE_FADE_DURATION: float = 0.5
 const PUZZLE_TILE_UNROLL_DURATION: float = 0.45
 const PUZZLE_TILE_UNROLL_STAGGER: float = 0.018
+const PUZZLE_MESSAGE_BANNER_MIN_HEIGHT: float = 56.0
+const PUZZLE_MESSAGE_BANNER_MAX_HEIGHT: float = 86.0
+const PUZZLE_MESSAGE_BANNER_FLIGHT_DURATION: float = 0.96
+const PUZZLE_MESSAGE_BANNER_HOLD_DURATION: float = 1.0
 const BLOCKED_CELL_COUNTS_BY_LEVEL: Array[int] = [0, 1, 2]
 const DEBUG_HUD_LAYOUT: bool = false
 
@@ -123,10 +130,7 @@ func apply_theme(theme: ThemeData):
 	message_label.add_theme_color_override("font_outline_color", theme.hud_outline_color)
 	message_label.add_theme_font_override("font", _build_dialog_font(theme.dialog_font_names, theme.puzzle_message_font_weight))
 	message_label.add_theme_font_size_override("font_size", theme.puzzle_message_font_size)
-	puzzle_overlay_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
-	puzzle_overlay_label.add_theme_color_override("font_outline_color", theme.hud_outline_color)
-	puzzle_overlay_label.add_theme_font_override("font", _build_dialog_font(theme.dialog_font_names, theme.dialog_title_font_weight))
-	puzzle_overlay_label.add_theme_font_size_override("font_size", maxi(theme.dialog_title_font_size, 58))
+	_apply_puzzle_banner_theme(theme)
 	score_frame.add_theme_stylebox_override("panel", _build_gameplay_frame_style(theme))
 	puzzle_frame.add_theme_stylebox_override("panel", _build_gameplay_frame_style(theme))
 	if theme.checklines_badge_texture != null:
@@ -140,16 +144,33 @@ func apply_theme(theme: ThemeData):
 	color_lines_value_label.add_theme_color_override("font_outline_color", theme.hud_secondary_outline_color)
 	type_lines_value_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
 	type_lines_value_label.add_theme_color_override("font_outline_color", theme.hud_secondary_outline_color)
+	level_value_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
+	level_value_label.add_theme_color_override("font_outline_color", theme.hud_secondary_outline_color)
 
 	board_manager.apply_theme(theme)
 	color_lines_badge.apply_theme(theme)
 	type_lines_badge.apply_theme(theme)
+	level_badge.apply_theme(theme)
 	_apply_dialog_theme(theme)
 	if _has_puzzle_levels():
 		puzzle_image.texture = _get_puzzle_level_texture(current_puzzle_level)
 		if puzzle_tile_order.size() == _get_total_puzzle_tiles():
 			_refresh_puzzle_tiles()
 	_update_layout()
+
+func _apply_puzzle_banner_theme(theme: ThemeData):
+	puzzle_flying_banner.banner_color = theme.puzzle_message_banner_color
+	puzzle_flying_banner.banner_shadow_color = theme.puzzle_message_banner_shadow_color
+	puzzle_flying_banner.banner_text_color = theme.puzzle_message_text_color
+	puzzle_flying_banner.banner_text_outline_color = theme.puzzle_message_outline_color
+	puzzle_flying_banner.banner_border_color = theme.gameplay_frame_color
+	puzzle_flying_banner.wind_strength = 15.0
+	puzzle_flying_banner.wave_speed = 3.0
+	puzzle_flying_banner.wave_frequency = 7.5
+	puzzle_flying_banner.secondary_strength = 5.0
+	puzzle_flying_banner.secondary_frequency = 18.0
+	puzzle_flying_banner.edge_flutter_strength = 9.0
+	puzzle_flying_banner.center_hold_duration = PUZZLE_MESSAGE_BANNER_HOLD_DURATION
 
 func _apply_dialog_theme(theme):
 	pause_backdrop.color = theme.dialog_overlay_color
@@ -439,10 +460,7 @@ func _update_top_hud_layout(viewport_size: Vector2) -> float:
 	puzzle_tiles.offset_top = PUZZLE_FRAME_INSET
 	puzzle_tiles.offset_right = -PUZZLE_FRAME_INSET
 	puzzle_tiles.offset_bottom = -PUZZLE_FRAME_INSET
-	puzzle_overlay_label.offset_left = PUZZLE_FRAME_INSET
-	puzzle_overlay_label.offset_top = PUZZLE_FRAME_INSET
-	puzzle_overlay_label.offset_right = -PUZZLE_FRAME_INSET
-	puzzle_overlay_label.offset_bottom = -PUZZLE_FRAME_INSET
+	_update_puzzle_overlay_banner_layout(panel_width, puzzle_height)
 
 	var score_frame_top: float = puzzle_panel.offset_bottom + HUD_MARGIN_GAP
 	var score_panel_height: float = SCORE_ROW_HEIGHT + SCORE_FRAME_INSET_Y * 2.0
@@ -499,6 +517,18 @@ func _update_message_layout(score_clip_width: float):
 		message_panel.position = base_message_position + Vector2(-slide_distance, 0.0)
 		message_label.position = base_message_position + Vector2(-slide_distance, 0.0)
 		score_hbox.position = base_score_position
+
+func _update_puzzle_overlay_banner_layout(panel_width: float, puzzle_height: float):
+	puzzle_overlay_area_size = Vector2(panel_width, puzzle_height)
+	var banner_height := clampf(
+		puzzle_height * 0.34,
+		PUZZLE_MESSAGE_BANNER_MIN_HEIGHT,
+		PUZZLE_MESSAGE_BANNER_MAX_HEIGHT
+	)
+	var banner_width := maxf(panel_width - PUZZLE_FRAME_INSET * 2.0, 1.0)
+	puzzle_flying_banner.banner_size = Vector2(banner_width, banner_height)
+	if not puzzle_flying_banner.visible:
+		puzzle_flying_banner.position = _get_puzzle_overlay_start_position()
 
 func _get_message_slide_distance(score_clip_width: float = 0.0) -> float:
 	var measured_width := score_clip_width
@@ -586,10 +616,7 @@ func _initialize_puzzle_progress():
 		puzzle_effect_tween = null
 	message_label.text = ""
 	message_label.modulate.a = 1.0
-	puzzle_overlay_label.visible = false
-	puzzle_overlay_label.text = ""
-	puzzle_overlay_label.modulate.a = 1.0
-	puzzle_overlay_label.scale = Vector2.ONE
+	puzzle_flying_banner.stop_banner()
 	puzzle_image.modulate.a = 1.0
 	message_panel.position = base_message_position + Vector2(-_get_message_slide_distance(), 0.0)
 	message_label.position = base_message_position + Vector2(-_get_message_slide_distance(), 0.0)
@@ -598,9 +625,6 @@ func _initialize_puzzle_progress():
 
 func _has_puzzle_levels() -> bool:
 	return _get_puzzle_theme().puzzle_level_images.size() > 0
-
-func _get_puzzle_level_count() -> int:
-	return PUZZLE_LEVEL_TILE_COUNTS.size()
 
 func _get_puzzle_level_texture(level_index: int) -> Texture2D:
 	var theme: ThemeData = _get_puzzle_theme()
@@ -616,7 +640,13 @@ static func _get_puzzle_level_image_index(puzzle_images: Array, level_index: int
 		return 0
 	if level_index >= 0 and level_index < puzzle_images.size() and puzzle_images[level_index] != null:
 		return level_index
+	for i in range(mini(level_index, puzzle_images.size() - 1), -1, -1):
+		if puzzle_images[i] != null:
+			return i
 	return 0
+
+static func _get_puzzle_level_tile_count(level_index: int) -> int:
+	return PUZZLE_LEVEL_TILE_COUNTS[clampi(level_index, 0, PUZZLE_LEVEL_TILE_COUNTS.size() - 1)]
 
 func _get_puzzle_theme() -> ThemeData:
 	var theme: ThemeData = _get_theme()
@@ -690,10 +720,11 @@ func _load_puzzle_level(level_index: int):
 		return
 
 	puzzle_panel.visible = true
-	current_puzzle_level = clampi(level_index, 0, _get_puzzle_level_count() - 1)
+	current_puzzle_level = maxi(level_index, 0)
 	revealed_puzzle_tiles = 0
 	puzzle_image.texture = _get_puzzle_level_texture(current_puzzle_level)
 	puzzle_image.modulate.a = 1.0
+	_update_line_metrics_ui()
 	_generate_blocked_cells_for_level(current_puzzle_level)
 	_build_puzzle_tile_order()
 	_clear_puzzle_tiles()
@@ -738,7 +769,7 @@ func _build_puzzle_tile_order():
 	puzzle_tile_order.shuffle()
 
 func _get_total_puzzle_tiles() -> int:
-	return PUZZLE_LEVEL_TILE_COUNTS[clampi(current_puzzle_level, 0, PUZZLE_LEVEL_TILE_COUNTS.size() - 1)]
+	return _get_puzzle_level_tile_count(current_puzzle_level)
 
 func _get_puzzle_columns() -> int:
 	return ceili(float(_get_total_puzzle_tiles()) / float(PUZZLE_ROWS))
@@ -786,7 +817,7 @@ func _refresh_puzzle_tiles(animate_unroll: bool = false):
 	if animate_unroll:
 		await _animate_puzzle_tiles_unroll()
 
-func _show_puzzle_overlay_message(text: String, hold_duration: float):
+func _show_puzzle_overlay_message(text: String, _hold_duration: float):
 	if text.is_empty():
 		return
 
@@ -794,26 +825,19 @@ func _show_puzzle_overlay_message(text: String, hold_duration: float):
 		puzzle_effect_tween.kill()
 		puzzle_effect_tween = null
 
-	puzzle_overlay_label.text = text
-	puzzle_overlay_label.visible = true
-	puzzle_overlay_label.modulate.a = 0.0
-	puzzle_overlay_label.scale = Vector2(0.92, 0.92)
-	puzzle_overlay_label.pivot_offset = puzzle_overlay_label.size * 0.5
+	var from := _get_puzzle_overlay_start_position()
+	var to := _get_puzzle_overlay_end_position()
+	await puzzle_flying_banner.show_banner(text, from, to, PUZZLE_MESSAGE_BANNER_FLIGHT_DURATION)
 
-	puzzle_effect_tween = create_tween()
-	puzzle_effect_tween.set_parallel(true)
-	puzzle_effect_tween.tween_property(puzzle_overlay_label, "modulate:a", 1.0, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	puzzle_effect_tween.tween_property(puzzle_overlay_label, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	await puzzle_effect_tween.finished
-	await get_tree().create_timer(hold_duration).timeout
+func _get_puzzle_overlay_start_position() -> Vector2:
+	var banner_size := puzzle_flying_banner.banner_size
+	var center_y := puzzle_overlay_area_size.y * 0.5
+	return Vector2(-banner_size.x * 0.55 - PUZZLE_FRAME_INSET, center_y)
 
-	puzzle_effect_tween = create_tween()
-	puzzle_effect_tween.tween_property(puzzle_overlay_label, "modulate:a", 0.0, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	await puzzle_effect_tween.finished
-	puzzle_overlay_label.visible = false
-	puzzle_overlay_label.text = ""
-	puzzle_overlay_label.scale = Vector2.ONE
-	puzzle_effect_tween = null
+func _get_puzzle_overlay_end_position() -> Vector2:
+	var banner_size := puzzle_flying_banner.banner_size
+	var center_y := puzzle_overlay_area_size.y * 0.5
+	return Vector2(puzzle_overlay_area_size.x + banner_size.x * 0.55 + PUZZLE_FRAME_INSET, center_y)
 
 func _animate_puzzle_tiles_unroll():
 	var covers: Array = puzzle_tiles.get_children()
@@ -846,7 +870,7 @@ func _apply_puzzle_progress(removed_pieces: int):
 		return
 
 	var remaining := removed_pieces
-	while remaining > 0 and current_puzzle_level < _get_puzzle_level_count():
+	while remaining > 0:
 		var tiles_left := _get_total_puzzle_tiles() - revealed_puzzle_tiles
 		if remaining < tiles_left:
 			revealed_puzzle_tiles += remaining
@@ -858,13 +882,10 @@ func _apply_puzzle_progress(removed_pieces: int):
 		remaining -= tiles_left
 		_refresh_puzzle_tiles()
 		var completed_level_number := current_puzzle_level + 1
-		var level_complete_message := "Level complete %d" % completed_level_number
+		var level_complete_message := "Level %d complete!" % completed_level_number
 		_queue_scoring_event(GameManager.build_level_complete_event(completed_level_number))
 		await _show_puzzle_overlay_message(level_complete_message, PUZZLE_LEVEL_COMPLETE_HOLD)
 		await _fade_puzzle_image_out()
-
-		if current_puzzle_level + 1 >= _get_puzzle_level_count():
-			return
 
 		await _load_puzzle_level(current_puzzle_level + 1)
 
@@ -973,6 +994,7 @@ func _update_ui():
 func _update_line_metrics_ui():
 	color_lines_value_label.text = str(GameManager.color_lines_cleared)
 	type_lines_value_label.text = str(GameManager.type_lines_cleared)
+	level_value_label.text = str(current_puzzle_level + 1)
 
 func _on_game_over(final_score: int):
 	board_manager.set_input_enabled(false)
