@@ -22,8 +22,8 @@ func _initialize():
 	_run_test("scores king-led typed line with king multiplier", _test_king_led_line_score, failures)
 	_run_test("formats sacrifice event", _test_sacrifice_event, failures)
 	_run_test("does not overdraw sacrifice score", _test_sacrifice_event_clamps_to_available_score, failures)
-	_run_test("does not build zero-score sacrifice event", _test_zero_score_sacrifice_event, failures)
-	_run_test("formats blocked-cell disappearance event", _test_piece_disappearance_event, failures)
+	_run_test("builds zero-score sacrifice as display-only event", _test_zero_score_sacrifice_event, failures)
+	_run_test("formats trap disappearance event", _test_trap_disappearance_event, failures)
 	_run_test("scores level completion", _test_level_complete_event, failures)
 
 	if failures.is_empty():
@@ -117,13 +117,21 @@ func _test_sacrifice_event_clamps_to_available_score() -> String:
 func _test_zero_score_sacrifice_event() -> String:
 	_game_manager().current_score = 0
 	var event: Dictionary = _game_manager().build_sacrifice_event(GameManager.PieceType.PAWN)
-	if not event.is_empty():
-		return "expected no sacrifice event at zero score"
+	if event.is_empty():
+		return "expected display-only sacrifice event at zero score"
+	if event["message"] != "Pawn Sacrifice":
+		return "wrong sacrifice message"
+	if event["value"] != 0:
+		return "expected 0, got %d" % event["value"]
+	if not bool(event.get("display_only", false)):
+		return "expected display-only sacrifice event"
+	if _game_manager().format_scoring_event(event) != "Pawn Sacrifice":
+		return "wrong formatted display-only sacrifice event"
 	return ""
 
-func _test_piece_disappearance_event() -> String:
+func _test_trap_disappearance_event() -> String:
 	_game_manager().current_score = 12
-	var event: Dictionary = _game_manager().build_piece_disappearance_event(
+	var event: Dictionary = _game_manager().build_trap_disappearance_event(
 		GameManager.PieceType.QUEEN,
 		"I fell for nothing -{cost} :("
 	)

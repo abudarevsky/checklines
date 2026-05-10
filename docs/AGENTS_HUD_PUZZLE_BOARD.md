@@ -50,16 +50,16 @@ Message display rules:
 - level start message templates may include `{number}` as the level number placeholder
 - current default theme level start message: `"Let the fight begin!"`
 - current neon theme level start message: `"Let's shed some light on the dark."`
-- blocked-cell piece disappearance messages are theme-defined through `ThemeData.piece_disappearance_message_template`
-- current default blocked-cell disappearance message: `"I fell for nothing -{cost} :("`
-- current neon blocked-cell disappearance message: `"Dark is the new light... :( -{cost}"`
+- trap piece disappearance messages are theme-defined through `ThemeData.trap_disappearance_message_template`
+- current default trap disappearance message: `"I fell for nothing -{cost} :("`
+- current neon trap disappearance message: `"Dark is the new light... :( -{cost}"`
 - game board screen frames use `ThemeData.gameplay_frame_color`; neon should use cyan frames with cyan glow
 - HUD messages should use the dialog font family at a larger, more prominent size
 - HUD messages live inside the score row while displayed
 - HUD messages should use an opaque score-row-colored backing panel, not transparent text over the scores
 - HUD messages wipe in from the left and wipe out to the right
 - score events produced by the same move/turn should be combined into one HUD message, separated by bullets, instead of displayed as sequential HUD messages
-- HUD messages queued within the two-second bundle window should be combined before they animate, so rapid scoring turns do not create a long message backlog
+- HUD messages should appear immediately and keep a two-line recent-message log; if a second score event arrives within two seconds, show it below the previous message instead of delaying display
 - score HUD messages are presentation only; board input should resume after board resolution and should not wait for score HUD exposure to finish
 - in-puzzle level/start messages should appear on the reusable `FlyingBanner` cloth banner across the puzzle image, not as bare text over artwork
 - while the message wipes in, the score and best text slide out as if pushed away, then slide back when the message exits

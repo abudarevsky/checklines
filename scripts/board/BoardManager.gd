@@ -4,6 +4,7 @@ class_name BoardManager
 const SpawnPlannerScript = preload("res://scripts/board/SpawnPlanner.gd")
 
 signal piece_selected(piece)
+signal piece_deselected
 signal piece_moved(from, to)
 signal capture_made(piece, target, captured_piece_type)
 signal piece_sacrificed(from, to, piece_type)
@@ -17,7 +18,7 @@ var highlighted_attacks = []
 var dimmed_pieces = []
 var highlight_nodes = []
 var dim_border_nodes = []
-var blocked_cells: Array[Vector2i] = []
+var traps: Array[Vector2i] = []
 var input_enabled: bool = true
 var show_borders: bool = true
 var left_border_width: float = GameManager.BORDER_WIDTH
@@ -55,7 +56,7 @@ func clear_board():
 	for child in highlights_container.get_children():
 		child.queue_free()
 	board.clear()
-	blocked_cells.clear()
+	traps.clear()
 	selected_piece = null
 	highlighted_cells.clear()
 	highlighted_attacks.clear()
@@ -103,13 +104,13 @@ func _draw_board():
 				cell_size,
 				cell_size
 			)
-			if is_cell_blocked(Vector2i(x, y)):
-				_draw_blocked_cell(rect, theme)
+			if is_trap(Vector2i(x, y)):
+				_draw_trap(rect, theme)
 			else:
 				draw_rect(rect, color)
 
-func _draw_blocked_cell(rect: Rect2, theme):
-	draw_rect(rect, theme.blocked_cell_light_color)
+func _draw_trap(rect: Rect2, theme):
+	draw_rect(rect, theme.trap_light_color)
 
 	var spacing := maxf(cell_size * 0.18, 10.0)
 	var line_width := maxf(cell_size * 0.035, 2.0)
@@ -131,24 +132,24 @@ func _draw_blocked_cell(rect: Rect2, theme):
 			points.append(rect.position + Vector2(x_at_bottom, rect.size.y))
 
 		if points.size() >= 2:
-			draw_line(points[0], points[1], theme.blocked_cell_dark_line_color, line_width)
+			draw_line(points[0], points[1], theme.trap_dark_line_color, line_width)
 		c += spacing
 
 	var border_width := maxf(cell_size * 0.045, 3.0)
-	draw_rect(rect.grow(-border_width * 0.5), theme.blocked_cell_dark_line_color, false, border_width)
+	draw_rect(rect.grow(-border_width * 0.5), theme.trap_dark_line_color, false, border_width)
 
-func set_blocked_cells(cells: Array):
-	blocked_cells.clear()
+func set_traps(cells: Array):
+	traps.clear()
 	for cell in cells:
 		var grid_pos: Vector2i = cell
-		if _is_grid_in_bounds(grid_pos) and not board.has(grid_pos) and not (grid_pos in blocked_cells):
-			blocked_cells.append(grid_pos)
+		if _is_grid_in_bounds(grid_pos) and not board.has(grid_pos) and not (grid_pos in traps):
+			traps.append(grid_pos)
 	if selected_piece != null:
 		deselect_piece()
 	queue_redraw()
 
-func is_cell_blocked(grid_pos: Vector2i) -> bool:
-	return grid_pos in blocked_cells
+func is_trap(grid_pos: Vector2i) -> bool:
+	return grid_pos in traps
 
 func _draw_borders():
 	if not show_borders:
@@ -315,6 +316,7 @@ func select_piece(piece):
 	piece_selected.emit(piece)
 
 func deselect_piece():
+	var had_selected := selected_piece != null
 	if selected_piece:
 		selected_piece.set_selected(false)
 		_shrink_all_borders()
@@ -323,6 +325,8 @@ func deselect_piece():
 	highlighted_attacks.clear()
 	_restore_dimmed_pieces()
 	_clear_highlights()
+	if had_selected:
+		piece_deselected.emit()
 
 func set_input_enabled(enabled: bool):
 	input_enabled = enabled
@@ -432,7 +436,7 @@ func move_piece(piece, target: Vector2i):
 	
 	board.erase(from_pos)
 
-	if is_cell_blocked(target):
+	if is_trap(target):
 		piece.queue_free()
 		deselect_piece()
 		piece_sacrificed.emit(from_pos, target, moved_piece_type)
@@ -471,7 +475,7 @@ func get_empty_cells():
 	for y in range(board_size):
 		for x in range(board_size):
 			var pos: Vector2i = Vector2i(x, y)
-			if not board.has(pos) and not is_cell_blocked(pos):
+			if not board.has(pos) and not is_trap(pos):
 				empty.append(pos)
 	return empty
 

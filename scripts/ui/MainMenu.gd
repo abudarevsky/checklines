@@ -20,12 +20,16 @@ extends Control
 @onready var settings_vibration_button: Button = $SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/VibrationRow/VibrationButton
 @onready var settings_theme_label: Label = $SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/ThemeRow/ThemeLabel
 @onready var settings_theme_option: OptionButton = $SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/ThemeRow/ThemeOption
+@onready var settings_language_label: Label = $SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/LanguageRow/LanguageLabel
+@onready var settings_language_option: OptionButton = $SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/LanguageRow/LanguageOption
 @onready var settings_close_button: Button = $SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/ButtonRow/ButtonCloseSettings
 
 func _ready():
 	_lock_mobile_orientation()
 	apply_theme(_get_theme())
 	_populate_theme_selector()
+	_populate_language_selector()
+	_apply_localized_text()
 	_sync_settings_ui()
 	button_play.pressed.connect(_on_play_pressed)
 	button_how_to_play.pressed.connect(_on_how_to_play_pressed)
@@ -36,6 +40,7 @@ func _ready():
 	settings_sound_button.pressed.connect(_on_settings_sound_pressed)
 	settings_vibration_button.pressed.connect(_on_settings_vibration_pressed)
 	settings_theme_option.item_selected.connect(_on_settings_theme_selected)
+	settings_language_option.item_selected.connect(_on_settings_language_selected)
 	var theme_manager: Variant = _get_theme_manager()
 	if theme_manager != null and not theme_manager.theme_changed.is_connected(_on_theme_changed):
 		theme_manager.theme_changed.connect(_on_theme_changed)
@@ -88,10 +93,12 @@ func apply_theme(theme_data):
 	settings_sound_label.add_theme_color_override("font_color", theme_data.dialog_body_color)
 	settings_vibration_label.add_theme_color_override("font_color", theme_data.dialog_body_color)
 	settings_theme_label.add_theme_color_override("font_color", theme_data.dialog_body_color)
+	settings_language_label.add_theme_color_override("font_color", theme_data.dialog_body_color)
 	settings_title_label.add_theme_font_override("font", title_font)
 	settings_sound_label.add_theme_font_override("font", body_font)
 	settings_vibration_label.add_theme_font_override("font", body_font)
 	settings_theme_label.add_theme_font_override("font", body_font)
+	settings_language_label.add_theme_font_override("font", body_font)
 	settings_panel.add_theme_stylebox_override("panel", dialog_panel_style)
 	_apply_dialog_button_style(
 		settings_sound_button,
@@ -134,13 +141,21 @@ func apply_theme(theme_data):
 		theme_data.menu_button_outline_border_hover_color
 	)
 	settings_theme_option.add_theme_font_override("font", body_font)
-	settings_theme_option.add_theme_font_size_override("font_size", theme_data.dialog_body_font_size + 6)
+	settings_theme_option.add_theme_font_size_override("font_size", theme_data.dialog_selector_font_size)
 	settings_theme_option.add_theme_color_override("font_color", theme_data.dialog_button_text_color)
 	settings_theme_option.add_theme_color_override("font_hover_color", theme_data.dialog_button_text_color)
 	settings_theme_option.add_theme_stylebox_override("normal", _build_dialog_button_style(theme_data.dialog_button_secondary_color, theme_data.dialog_button_secondary_border_color))
 	settings_theme_option.add_theme_stylebox_override("hover", _build_dialog_button_style(theme_data.dialog_button_secondary_hover_color, theme_data.dialog_button_secondary_border_hover_color))
 	settings_theme_option.add_theme_stylebox_override("pressed", _build_dialog_button_style(theme_data.dialog_button_secondary_hover_color, theme_data.dialog_button_secondary_border_hover_color))
 	_apply_theme_selector_popup_style(settings_theme_option, body_font, theme_data)
+	settings_language_option.add_theme_font_override("font", body_font)
+	settings_language_option.add_theme_font_size_override("font_size", theme_data.dialog_selector_font_size)
+	settings_language_option.add_theme_color_override("font_color", theme_data.dialog_button_text_color)
+	settings_language_option.add_theme_color_override("font_hover_color", theme_data.dialog_button_text_color)
+	settings_language_option.add_theme_stylebox_override("normal", _build_dialog_button_style(theme_data.dialog_button_secondary_color, theme_data.dialog_button_secondary_border_color))
+	settings_language_option.add_theme_stylebox_override("hover", _build_dialog_button_style(theme_data.dialog_button_secondary_hover_color, theme_data.dialog_button_secondary_border_hover_color))
+	settings_language_option.add_theme_stylebox_override("pressed", _build_dialog_button_style(theme_data.dialog_button_secondary_hover_color, theme_data.dialog_button_secondary_border_hover_color))
+	_apply_theme_selector_popup_style(settings_language_option, body_font, theme_data)
 
 	_apply_button_style(
 		button_play,
@@ -261,7 +276,7 @@ func _apply_theme_selector_popup_style(option_button: OptionButton, body_font: F
 		return
 
 	popup.add_theme_font_override("font", body_font)
-	popup.add_theme_font_size_override("font_size", theme_data.dialog_body_font_size + 6)
+	popup.add_theme_font_size_override("font_size", theme_data.dialog_selector_font_size)
 	popup.add_theme_color_override("font_color", theme_data.dialog_button_text_color)
 	popup.add_theme_color_override("font_hover_color", theme_data.dialog_button_text_color)
 	popup.add_theme_stylebox_override("panel", _build_dialog_panel_style(theme_data.dialog_panel_background_color, theme_data.dialog_panel_border_color))
@@ -296,12 +311,21 @@ func _on_settings_theme_selected(index: int):
 	var theme_id = str(settings_theme_option.get_item_metadata(index))
 	Settings.set_theme_id(theme_id)
 
+func _on_settings_language_selected(index: int):
+	var language_code = str(settings_language_option.get_item_metadata(index))
+	Settings.set_language_code(language_code)
+
 func _on_settings_changed():
+	_apply_localized_text()
+	_populate_theme_selector()
+	_populate_language_selector()
 	_sync_settings_ui()
 
 func _on_theme_changed(_theme_data, _theme_id):
 	apply_theme(_get_theme())
 	_populate_theme_selector()
+	_populate_language_selector()
+	_apply_localized_text()
 	_sync_settings_ui()
 
 func _populate_theme_selector():
@@ -311,21 +335,47 @@ func _populate_theme_selector():
 		return
 
 	for theme_id in theme_manager.get_available_theme_ids():
-		settings_theme_option.add_item(theme_manager.get_theme_display_name(theme_id))
+		settings_theme_option.add_item(Localization.t("theme_" + str(theme_id)))
 		settings_theme_option.set_item_metadata(settings_theme_option.get_item_count() - 1, theme_id)
 
+func _populate_language_selector():
+	settings_language_option.clear()
+	for language_code in Localization.get_available_language_codes():
+		settings_language_option.add_item(Localization.get_language_display_name(language_code))
+		settings_language_option.set_item_metadata(settings_language_option.get_item_count() - 1, language_code)
+
 func _sync_settings_ui():
-	settings_sound_button.text = "Sound: On" if Settings.sound_enabled else "Sound: Off"
-	settings_vibration_button.text = "Vibration: On" if Settings.vibration_enabled else "Vibration: Off"
+	settings_sound_button.text = Localization.t("sound_on") if Settings.sound_enabled else Localization.t("sound_off")
+	settings_vibration_button.text = Localization.t("vibration_on") if Settings.vibration_enabled else Localization.t("vibration_off")
 
 	var theme_manager: Variant = _get_theme_manager()
-	if theme_manager == null:
-		return
+	if theme_manager != null:
+		for i in range(settings_theme_option.get_item_count()):
+			if str(settings_theme_option.get_item_metadata(i)) == Settings.theme_id:
+				settings_theme_option.select(i)
+				break
 
-	for i in range(settings_theme_option.get_item_count()):
-		if str(settings_theme_option.get_item_metadata(i)) == Settings.theme_id:
-			settings_theme_option.select(i)
+	for i in range(settings_language_option.get_item_count()):
+		if str(settings_language_option.get_item_metadata(i)) == Settings.language_code:
+			settings_language_option.select(i)
 			break
+
+func _apply_localized_text():
+	title_label.text = Localization.t("main_title")
+	subtitle_label.text = Localization.t("main_subtitle")
+	button_play.text = Localization.t("play")
+	button_how_to_play.text = Localization.t("how_to_play")
+	button_settings.text = Localization.t("settings")
+	button_quit.text = Localization.t("quit")
+	how_to_play_header.text = Localization.t("how_to_play")
+	how_to_play_instructions.text = Localization.t("how_to_play_text")
+	button_back.text = Localization.t("back")
+	settings_title_label.text = Localization.t("settings")
+	settings_sound_label.text = Localization.t("sound")
+	settings_vibration_label.text = Localization.t("vibration")
+	settings_theme_label.text = Localization.t("theme")
+	settings_language_label.text = Localization.t("language")
+	settings_close_button.text = Localization.t("close")
 
 func _on_quit_pressed():
 	get_tree().quit()

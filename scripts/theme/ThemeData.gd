@@ -15,8 +15,8 @@ class_name ThemeData
 
 @export var board_cell_light_color: Color = Color(0.7, 0.7, 0.7)
 @export var board_cell_dark_color: Color = Color(0.3, 0.3, 0.3)
-@export var blocked_cell_light_color: Color = Color(0.82, 0.82, 0.82, 1.0)
-@export var blocked_cell_dark_line_color: Color = Color(0.18, 0.18, 0.18, 1.0)
+@export var trap_light_color: Color = Color(0.82, 0.82, 0.82, 1.0)
+@export var trap_dark_line_color: Color = Color(0.18, 0.18, 0.18, 1.0)
 
 @export var left_border_color: Color = Color.RED
 @export var top_border_color: Color = Color.BLUE
@@ -33,6 +33,9 @@ class_name ThemeData
 @export var hud_secondary_text_color: Color = Color(0.05, 0.05, 0.05, 0.92)
 @export var hud_outline_color: Color = Color(0.25, 0.25, 0.25, 0.35)
 @export var hud_secondary_outline_color: Color = Color(0.25, 0.25, 0.25, 0.3)
+@export var move_hint_panel_color: Color = Color(0.03, 0.07, 0.12, 0.88)
+@export var move_hint_text_color: Color = Color(0.96, 0.91, 0.78, 1.0)
+@export var move_hint_icon_color: Color = Color(0.96, 0.91, 0.78, 1.0)
 @export var gameplay_frame_color: Color = Color(0.79, 0.62, 0.29, 0.95)
 @export var gameplay_frame_glow_color: Color = Color.TRANSPARENT
 @export var gameplay_frame_glow_size: float = 0.0
@@ -49,7 +52,7 @@ class_name ThemeData
 @export var puzzle_message_font_weight: int = 700
 @export var puzzle_message_font_size: int = 30
 @export var level_start_message_template: String = ""
-@export var piece_disappearance_message_template: String = "I fell for nothing -{cost} :("
+@export var trap_disappearance_message_template: String = "I fell for nothing -{cost} :("
 
 @export var gameplay_backdrop_base_color: Color = Color(0.0, 0.004, 0.007, 1.0)
 @export var gameplay_backdrop_edge_glow_color: Color = Color(0.0, 0.28, 0.43, 1.0)

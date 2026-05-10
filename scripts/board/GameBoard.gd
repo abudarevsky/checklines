@@ -14,6 +14,9 @@ const PuzzleTileCover = preload("res://scripts/ui/PuzzleTileCover.gd")
 @onready var puzzle_image: TextureRect = $CanvasLayer/PuzzlePanel/PuzzleImage
 @onready var puzzle_tiles: Control = $CanvasLayer/PuzzlePanel/PuzzleTiles
 @onready var puzzle_flying_banner: FlyingBanner = $CanvasLayer/PuzzlePanel/PuzzleFlyingBanner
+@onready var move_hint_panel: PanelContainer = $CanvasLayer/MoveHintPanel
+@onready var move_hint_icon: Control = $CanvasLayer/MoveHintPanel/MoveHintHBox/BulbIcon
+@onready var move_hint_label: Label = $CanvasLayer/MoveHintPanel/MoveHintHBox/MoveHintLabel
 @onready var puzzle_badge: TextureRect = $CanvasLayer/PuzzleBadge
 @onready var gear_button: Button = $CanvasLayer/GearButton
 @onready var score_clip: Control = $CanvasLayer/ScoreClip
@@ -49,12 +52,11 @@ var chain_animation_tween: Tween
 var current_puzzle_level: int = 0
 var revealed_puzzle_tiles: int = 0
 var puzzle_tile_order: Array[int] = []
-var message_queue: Array[String] = []
-var pending_hud_messages: Array[String] = []
+var hud_message_log: Array[Dictionary] = []
 var score_message_batch: Array[String] = []
 var is_message_queue_running: bool = false
 var is_score_message_batch_open: bool = false
-var hud_message_bundle_generation: int = 0
+var hud_message_generation: int = 0
 var message_tween: Tween
 var puzzle_effect_tween: Tween
 var base_score_position: Vector2 = Vector2.ZERO
@@ -65,6 +67,8 @@ var forced_sacrifice_spawn_count: int = 0
 
 const TOP_BAR_SHADOW_HEIGHT: float = 5.0
 const BOARD_TOP_GAP: float = 2.0
+const MOVE_HINT_GAP: float = 8.0
+const MOVE_HINT_HEIGHT: float = 58.0
 const SCREEN_CONTENT_MARGIN: float = 6.0
 const HUD_MARGIN_LEFT: float = 3.0
 const HUD_MARGIN_TOP: float = 3.0
@@ -83,8 +87,8 @@ const PUZZLE_LEVEL_TILE_COUNTS: Array[int] = [25, 50, 75, 100]
 const PUZZLE_TILE_MARGIN: float = -1.0
 const MESSAGE_SLIDE_DISTANCE: float = 120.0
 const MESSAGE_SLIDE_IN_DURATION: float = 0.42
-const MESSAGE_BUNDLE_WINDOW: float = 2.0
-const MESSAGE_HOLD_DURATION: float = 3.0
+const MESSAGE_RECENT_WINDOW: float = 2.0
+const MESSAGE_HOLD_DURATION: float = 2.0
 const MESSAGE_SLIDE_OUT_DURATION: float = 0.38
 const PUZZLE_IMAGE_PREVIEW_DURATION: float = 2.0
 const PUZZLE_LEVEL_COMPLETE_HOLD: float = 3.0
@@ -95,7 +99,7 @@ const PUZZLE_MESSAGE_BANNER_MIN_HEIGHT: float = 76.0
 const PUZZLE_MESSAGE_BANNER_MAX_HEIGHT: float = 112.0
 const PUZZLE_MESSAGE_BANNER_FLIGHT_DURATION: float = 0.96
 const PUZZLE_MESSAGE_BANNER_HOLD_DURATION: float = 1.0
-const BLOCKED_CELL_COUNTS_BY_LEVEL: Array[int] = [0, 1, 2]
+const TRAP_COUNTS_BY_LEVEL: Array[int] = [0, 1, 2]
 const DEBUG_HUD_LAYOUT: bool = false
 
 func _ready():
@@ -103,6 +107,7 @@ func _ready():
 	_lock_mobile_orientation()
 	apply_theme(_get_theme())
 	_setup_signals()
+	_apply_localized_text()
 	_initialize_game()
 	_update_layout()
 	_update_ui()
@@ -130,11 +135,16 @@ func apply_theme(theme: ThemeData):
 	score_panel.color = Color(0.03, 0.07, 0.12, 0.0)
 	score_shadow.color = theme.hud_shadow_color
 	puzzle_panel.color = Color(0.06, 0.09, 0.13, 1.0)
+	move_hint_panel.add_theme_stylebox_override("panel", _build_move_hint_panel_style(theme))
+	move_hint_label.add_theme_color_override("font_color", theme.move_hint_text_color)
+	move_hint_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.45))
+	move_hint_label.add_theme_constant_override("outline_size", 2)
+	move_hint_icon.set("icon_color", theme.move_hint_icon_color)
 	message_panel.color = Color(0.03, 0.07, 0.12, 1.0)
 	message_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
 	message_label.add_theme_color_override("font_outline_color", theme.hud_outline_color)
 	message_label.add_theme_font_override("font", _build_dialog_font(theme.dialog_font_names, theme.puzzle_message_font_weight))
-	message_label.add_theme_font_size_override("font_size", theme.puzzle_message_font_size)
+	message_label.add_theme_font_size_override("font_size", mini(theme.puzzle_message_font_size, 24))
 	_apply_puzzle_banner_theme(theme)
 	score_frame.add_theme_stylebox_override("panel", _build_gameplay_frame_style(theme))
 	puzzle_frame.add_theme_stylebox_override("panel", _build_gameplay_frame_style(theme))
@@ -339,6 +349,23 @@ func _build_dialog_button_style(background_color: Color, border_color: Color) ->
 	style.content_margin_bottom = 14.0
 	return style
 
+func _build_move_hint_panel_style(theme: ThemeData) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = theme.move_hint_panel_color
+	style.border_width_left = 0
+	style.border_width_top = 0
+	style.border_width_right = 0
+	style.border_width_bottom = 0
+	style.corner_radius_top_left = 0
+	style.corner_radius_top_right = 0
+	style.corner_radius_bottom_left = 0
+	style.corner_radius_bottom_right = 0
+	style.content_margin_left = 16.0
+	style.content_margin_top = 10.0
+	style.content_margin_right = 16.0
+	style.content_margin_bottom = 10.0
+	return style
+
 func _apply_icon_button_style(
 	button: Button,
 	font: Font,
@@ -358,12 +385,16 @@ func _apply_icon_button_style(
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 
 func _setup_signals():
+	board_manager.piece_selected.connect(_on_piece_selected)
+	board_manager.piece_deselected.connect(_on_piece_deselected)
 	board_manager.capture_made.connect(_on_capture_made)
 	board_manager.piece_moved.connect(_on_piece_moved)
 	board_manager.piece_sacrificed.connect(_on_piece_sacrificed)
 	GameManager.score_updated.connect(_on_score_updated)
 	GameManager.line_metrics_updated.connect(_on_line_metrics_updated)
 	GameManager.game_over.connect(_on_game_over)
+	if not Settings.settings_changed.is_connected(_on_settings_changed):
+		Settings.settings_changed.connect(_on_settings_changed)
 	gear_button.pressed.connect(_on_gear_pressed)
 	resume_button.pressed.connect(_on_resume_pressed)
 	pause_reset_button.pressed.connect(_on_restart_pressed)
@@ -381,19 +412,20 @@ func _update_layout():
 	var top_bar_height: float = _update_top_hud_layout(viewport_size)
 	var board_render_size: float = board_manager.get_rendered_pixel_size()
 	var bottom_margin: float = HUD_MARGIN_TOP
-	var available_height: float = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - BOARD_TOP_GAP - bottom_margin, 120.0)
+	var hint_footprint := MOVE_HINT_GAP + MOVE_HINT_HEIGHT
+	var available_height: float = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - BOARD_TOP_GAP - hint_footprint - bottom_margin, 120.0)
 	var content_width: float = maxf(viewport_size.x - SCREEN_CONTENT_MARGIN * 2.0, 1.0)
 	var width_scale: float = content_width / board_render_size
 	var height_scale: float = available_height / board_render_size
 	var scale_factor: float = maxf(minf(width_scale, height_scale), 0.1)
 	var scaled_board_height: float = board_render_size * scale_factor
-	var required_height: float = top_bar_height + TOP_BAR_SHADOW_HEIGHT + BOARD_TOP_GAP + scaled_board_height + bottom_margin
+	var required_height: float = top_bar_height + TOP_BAR_SHADOW_HEIGHT + BOARD_TOP_GAP + scaled_board_height + hint_footprint + bottom_margin
 
 	_ensure_window_height(required_height, viewport_size)
 
 	viewport_size = get_viewport_rect().size
 	board_render_size = board_manager.get_rendered_pixel_size()
-	available_height = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - BOARD_TOP_GAP - bottom_margin, 120.0)
+	available_height = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - BOARD_TOP_GAP - hint_footprint - bottom_margin, 120.0)
 	content_width = maxf(viewport_size.x - SCREEN_CONTENT_MARGIN * 2.0, 1.0)
 	width_scale = content_width / board_render_size
 	height_scale = available_height / board_render_size
@@ -406,6 +438,13 @@ func _update_layout():
 	var board_x: float = (viewport_size.x - scaled_board_width) * 0.5
 	var board_y: float = top_bar_height + TOP_BAR_SHADOW_HEIGHT + BOARD_TOP_GAP
 	board_manager.position = Vector2(board_x, board_y)
+	_update_move_hint_layout(board_x, board_y + scaled_board_height + MOVE_HINT_GAP, scaled_board_width)
+
+func _update_move_hint_layout(board_x: float, hint_y: float, board_width: float):
+	move_hint_panel.offset_left = board_x
+	move_hint_panel.offset_top = hint_y
+	move_hint_panel.offset_right = board_x + board_width
+	move_hint_panel.offset_bottom = hint_y + MOVE_HINT_HEIGHT
 
 func _update_screen_backdrop(viewport_size: Vector2):
 	screen_background.position = Vector2.ZERO
@@ -603,6 +642,7 @@ func _input(event):
 func _initialize_game():
 	board_manager.board_size = GameManager.board_size
 	board_manager.clear_board()
+	_on_piece_deselected()
 	board_manager.set_input_enabled(false)
 	await _initialize_puzzle_progress()
 	_spawn_initial_pieces()
@@ -613,12 +653,11 @@ func _initialize_puzzle_progress():
 	current_puzzle_level = 0
 	revealed_puzzle_tiles = 0
 	puzzle_tile_order.clear()
-	message_queue.clear()
-	pending_hud_messages.clear()
+	hud_message_log.clear()
 	score_message_batch.clear()
 	is_message_queue_running = false
 	is_score_message_batch_open = false
-	hud_message_bundle_generation += 1
+	hud_message_generation += 1
 	if message_tween:
 		message_tween.kill()
 		message_tween = null
@@ -736,7 +775,7 @@ func _load_puzzle_level(level_index: int):
 	puzzle_image.texture = _get_puzzle_level_texture(current_puzzle_level)
 	puzzle_image.modulate.a = 1.0
 	_update_line_metrics_ui()
-	_generate_blocked_cells_for_level(current_puzzle_level)
+	_generate_traps_for_level(current_puzzle_level)
 	_build_puzzle_tile_order()
 	_clear_puzzle_tiles()
 	_update_layout()
@@ -746,21 +785,25 @@ func _load_puzzle_level(level_index: int):
 func _get_level_start_message(level_number: int) -> String:
 	var template: String = _get_puzzle_theme().level_start_message_template.strip_edges()
 	if template.is_empty():
-		return "Starting level #%d" % level_number
+		return _tf("level_start_default", {"number": level_number})
+	if template == "Let the fight begin!":
+		return _t("level_start_default_theme")
+	if template == "Let's shed some light on the dark.":
+		return _t("level_start_neon_theme")
 	return template.replace("{number}", str(level_number))
 
-static func _get_blocked_cell_count_for_level(level_index: int) -> int:
+static func _get_trap_count_for_level(level_index: int) -> int:
 	if level_index < 0:
 		return 0
-	if level_index < BLOCKED_CELL_COUNTS_BY_LEVEL.size():
-		return BLOCKED_CELL_COUNTS_BY_LEVEL[level_index]
-	return BLOCKED_CELL_COUNTS_BY_LEVEL[BLOCKED_CELL_COUNTS_BY_LEVEL.size() - 1]
+	if level_index < TRAP_COUNTS_BY_LEVEL.size():
+		return TRAP_COUNTS_BY_LEVEL[level_index]
+	return TRAP_COUNTS_BY_LEVEL[TRAP_COUNTS_BY_LEVEL.size() - 1]
 
-func _generate_blocked_cells_for_level(level_index: int):
-	board_manager.set_blocked_cells([])
+func _generate_traps_for_level(level_index: int):
+	board_manager.set_traps([])
 
-	var blocked_cell_count := _get_blocked_cell_count_for_level(level_index)
-	if blocked_cell_count <= 0:
+	var trap_count := _get_trap_count_for_level(level_index)
+	if trap_count <= 0:
 		return
 
 	var candidate_cells: Array = board_manager.get_empty_cells()
@@ -769,9 +812,9 @@ func _generate_blocked_cells_for_level(level_index: int):
 
 	candidate_cells.shuffle()
 	var selected_cells: Array[Vector2i] = []
-	for i in range(mini(blocked_cell_count, candidate_cells.size())):
+	for i in range(mini(trap_count, candidate_cells.size())):
 		selected_cells.append(candidate_cells[i])
-	board_manager.set_blocked_cells(selected_cells)
+	board_manager.set_traps(selected_cells)
 
 func _build_puzzle_tile_order():
 	puzzle_tile_order.clear()
@@ -893,7 +936,7 @@ func _apply_puzzle_progress(removed_pieces: int):
 		remaining -= tiles_left
 		_refresh_puzzle_tiles()
 		var completed_level_number := current_puzzle_level + 1
-		var level_complete_message := "Level %d complete!" % completed_level_number
+		var level_complete_message := _tf("level_complete", {"number": completed_level_number})
 		_queue_scoring_event(GameManager.build_level_complete_event(completed_level_number))
 		await _show_puzzle_overlay_message(level_complete_message, PUZZLE_LEVEL_COMPLETE_HOLD)
 		await _fade_puzzle_image_out()
@@ -904,42 +947,44 @@ func _queue_message(text: String):
 	if text.is_empty():
 		return
 
-	pending_hud_messages.append(text)
-	if pending_hud_messages.size() == 1:
-		_flush_pending_hud_messages_after_delay(hud_message_bundle_generation)
+	_append_hud_message(text)
+	_show_hud_message_log()
 
-func _flush_pending_hud_messages_after_delay(generation: int):
-	await get_tree().create_timer(MESSAGE_BUNDLE_WINDOW).timeout
-	if generation != hud_message_bundle_generation:
-		return
-	_flush_pending_hud_messages()
+func _append_hud_message(text: String):
+	var now := Time.get_ticks_msec() / 1000.0
+	var recent_messages: Array[Dictionary] = []
+	for entry in hud_message_log:
+		if now - float(entry.get("time", 0.0)) <= MESSAGE_RECENT_WINDOW:
+			recent_messages.append(entry)
+	recent_messages.append({
+		"text": text,
+		"time": now
+	})
+	while recent_messages.size() > 2:
+		recent_messages.pop_front()
+	hud_message_log = recent_messages
 
-func _flush_pending_hud_messages():
-	if pending_hud_messages.is_empty():
-		return
-
-	var messages := PackedStringArray()
-	for message in pending_hud_messages:
-		messages.append(message)
-	pending_hud_messages.clear()
-	_enqueue_bundled_message("  •  ".join(messages))
-
-func _enqueue_bundled_message(text: String):
-	if text.is_empty():
-		return
-
-	message_queue.append(text)
-	if not is_message_queue_running:
-		_run_message_queue()
+func _get_hud_message_log_text() -> String:
+	var lines := PackedStringArray()
+	for entry in hud_message_log:
+		lines.append(str(entry.get("text", "")))
+	return "\n".join(lines)
 
 func _queue_scoring_event(event: Dictionary):
-	if event.is_empty() or int(event.get("value", 0)) == 0:
+	if event.is_empty():
 		return
 
-	GameManager.add_scoring_event(event)
+	var value := int(event.get("value", 0))
+	var display_only := bool(event.get("display_only", false))
+	if value == 0 and not display_only:
+		return
+
+	if not display_only:
+		GameManager.add_scoring_event(event)
 	var formatted_event := GameManager.format_scoring_event(event)
 	if is_score_message_batch_open:
 		score_message_batch.append(formatted_event)
+		_queue_message(formatted_event)
 	else:
 		_queue_message(formatted_event)
 
@@ -957,28 +1002,27 @@ func _flush_score_message_batch():
 	is_score_message_batch_open = false
 	if score_message_batch.is_empty():
 		return
-
-	var messages := PackedStringArray()
-	for message in score_message_batch:
-		messages.append(message)
 	score_message_batch.clear()
-	_queue_message("  •  ".join(messages))
 
-func _run_message_queue():
-	if is_message_queue_running:
+func _show_hud_message_log():
+	var text := _get_hud_message_log_text()
+	if text.is_empty():
 		return
 
+	hud_message_generation += 1
+	var generation := hud_message_generation
 	is_message_queue_running = true
-	while not message_queue.is_empty():
-		var next_message: String = str(message_queue.pop_front())
-		var slide_distance := _get_message_slide_distance()
-		message_label.text = next_message
+	var slide_distance := _get_message_slide_distance()
+	message_label.text = text
+	message_label.modulate.a = 1.0
+	if message_tween:
+		message_tween.kill()
+		message_tween = null
+
+	if message_label.position.x != base_message_position.x:
 		message_panel.position = base_message_position + Vector2(-slide_distance, 0.0)
 		message_label.position = base_message_position + Vector2(-slide_distance, 0.0)
 		score_hbox.position = base_score_position
-		message_label.modulate.a = 1.0
-		if message_tween:
-			message_tween.kill()
 		message_tween = create_tween()
 		message_tween.set_parallel(true)
 		message_tween.set_trans(Tween.TRANS_QUAD)
@@ -986,26 +1030,85 @@ func _run_message_queue():
 		message_tween.tween_property(message_label, "position:x", base_message_position.x, MESSAGE_SLIDE_IN_DURATION)
 		message_tween.tween_property(message_panel, "position:x", base_message_position.x, MESSAGE_SLIDE_IN_DURATION)
 		message_tween.tween_property(score_hbox, "position:x", base_score_position.x + slide_distance, MESSAGE_SLIDE_IN_DURATION)
-		await message_tween.finished
-		await get_tree().create_timer(MESSAGE_HOLD_DURATION).timeout
-		message_tween = create_tween()
-		message_tween.set_parallel(true)
-		message_tween.set_trans(Tween.TRANS_QUAD)
-		message_tween.set_ease(Tween.EASE_IN)
-		message_tween.tween_property(message_label, "position:x", base_message_position.x + slide_distance, MESSAGE_SLIDE_OUT_DURATION)
-		message_tween.tween_property(message_panel, "position:x", base_message_position.x + slide_distance, MESSAGE_SLIDE_OUT_DURATION)
-		message_tween.tween_property(score_hbox, "position:x", base_score_position.x, MESSAGE_SLIDE_OUT_DURATION)
-		await message_tween.finished
-		message_label.text = ""
-		message_panel.position = base_message_position + Vector2(-slide_distance, 0.0)
-		message_label.position = base_message_position + Vector2(-slide_distance, 0.0)
+		message_tween.finished.connect(_start_hud_message_hold.bind(generation))
+	else:
+		message_panel.position = base_message_position
+		message_label.position = base_message_position
+		score_hbox.position = base_score_position + Vector2(slide_distance, 0.0)
+		_start_hud_message_hold(generation)
 
+func _start_hud_message_hold(generation: int):
+	if generation != hud_message_generation:
+		return
+	message_tween = null
+	var timer := get_tree().create_timer(MESSAGE_HOLD_DURATION)
+	timer.timeout.connect(_slide_hud_message_out.bind(generation))
+
+func _slide_hud_message_out(generation: int):
+	if generation != hud_message_generation:
+		return
+
+	var slide_distance := _get_message_slide_distance()
+	if message_tween:
+		message_tween.kill()
+	message_tween = create_tween()
+	message_tween.set_parallel(true)
+	message_tween.set_trans(Tween.TRANS_QUAD)
+	message_tween.set_ease(Tween.EASE_IN)
+	message_tween.tween_property(message_label, "position:x", base_message_position.x + slide_distance, MESSAGE_SLIDE_OUT_DURATION)
+	message_tween.tween_property(message_panel, "position:x", base_message_position.x + slide_distance, MESSAGE_SLIDE_OUT_DURATION)
+	message_tween.tween_property(score_hbox, "position:x", base_score_position.x, MESSAGE_SLIDE_OUT_DURATION)
+	message_tween.finished.connect(_clear_hud_message_log_after_slide.bind(generation, slide_distance))
+
+func _clear_hud_message_log_after_slide(generation: int, slide_distance: float):
+	if generation != hud_message_generation:
+		return
+
+	message_label.text = ""
+	message_panel.position = base_message_position + Vector2(-slide_distance, 0.0)
+	message_label.position = base_message_position + Vector2(-slide_distance, 0.0)
+	score_hbox.position = base_score_position
 	is_message_queue_running = false
 	message_tween = null
 
 func _check_game_over():
 	if not board_manager.has_legal_moves() or not board_manager.can_spawn_any_piece():
 		GameManager.end_game()
+
+func _on_piece_selected(piece):
+	var moves: Array = piece.get_legal_moves(board_manager.board)
+	var captures: Array = piece.get_legal_captures(board_manager.board)
+	var piece_name := GameManager.get_piece_type_name(int(piece.piece_type))
+	var move_count := moves.size()
+	var capture_count := captures.size()
+	if move_count <= 0 and capture_count <= 0:
+		move_hint_label.text = _tf("move_hint_blocked", {"piece": piece_name})
+	elif capture_count <= 0:
+		move_hint_label.text = _tf("move_hint_move_only", {
+			"piece": piece_name,
+			"moves": _get_move_hint_count_text(move_count, "move_hint_move_one", "move_hint_move_many")
+		})
+	elif move_count <= 0:
+		move_hint_label.text = _tf("move_hint_attack_only", {
+			"piece": piece_name,
+			"attacks": _get_move_hint_count_text(capture_count, "move_hint_attack_one", "move_hint_attack_many")
+		})
+	else:
+		move_hint_label.text = _tf("move_hint_move_attack", {
+			"piece": piece_name,
+			"moves": _get_move_hint_count_text(move_count, "move_hint_move_one", "move_hint_move_many"),
+			"attacks": _get_move_hint_count_text(capture_count, "move_hint_attack_one", "move_hint_attack_many")
+		})
+	move_hint_panel.visible = true
+
+func _get_move_hint_count_text(count: int, one_key: String, many_key: String) -> String:
+	if count == 1:
+		return _t(one_key)
+	return _tf(many_key, {"count": count})
+
+func _on_piece_deselected():
+	move_hint_panel.visible = false
+	move_hint_label.text = ""
 
 func _spawn_initial_pieces():
 	var piece_count = 3
@@ -1032,9 +1135,13 @@ func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
 	var theme := _get_theme()
 	var message_template := ""
 	if theme != null:
-		message_template = theme.piece_disappearance_message_template
+		message_template = theme.trap_disappearance_message_template
+	if message_template == "I fell for nothing -{cost} :(":
+		message_template = _t("trap_disappeared")
+	elif message_template == "Dark is the new light... :( -{cost}":
+		message_template = _t("trap_disappeared")
 	_begin_score_message_batch()
-	_queue_scoring_event(GameManager.build_piece_disappearance_event(piece_type, message_template))
+	_queue_scoring_event(GameManager.build_trap_disappearance_event(piece_type, message_template))
 	_resolve_sacrifice_turn()
 
 func _on_piece_moved(_from, _to):
@@ -1048,9 +1155,13 @@ func _on_score_updated(_new_score: int):
 func _on_line_metrics_updated(_color_lines: int, _type_lines: int):
 	_update_line_metrics_ui()
 
+func _on_settings_changed():
+	_apply_localized_text()
+	_update_ui()
+
 func _update_ui():
-	score_label.text = "Score: " + str(GameManager.current_score)
-	high_score_label.text = "Best: " + str(GameManager.high_score)
+	score_label.text = "%s: %d" % [_t("score"), GameManager.current_score]
+	high_score_label.text = "%s: %d" % [_t("best"), GameManager.high_score]
 	_update_line_metrics_ui()
 
 func _update_line_metrics_ui():
@@ -1062,7 +1173,7 @@ func _on_game_over(final_score: int):
 	board_manager.set_input_enabled(false)
 	pause_overlay.visible = false
 	game_over_overlay.visible = true
-	game_over_score_label.text = "Final Score: " + str(final_score)
+	game_over_score_label.text = "%s: %d" % [_t("final_score"), final_score]
 	AudioManager.play_sound("game_over")
 
 func _on_gear_pressed():
@@ -1199,3 +1310,37 @@ func _get_sacrifice_spawn_count() -> int:
 
 func _spawn_new_pieces(count: int = 3) -> int:
 	return board_manager.spawn_random_pieces(count)
+
+func _apply_localized_text():
+	pause_title_label.text = _t("game_paused")
+	resume_button.text = _t("resume")
+	pause_reset_button.text = _t("reset")
+	pause_main_menu_button.text = _t("main_menu")
+	game_over_title_label.text = _t("game_over")
+	game_over_summary_label.text = _t("session_complete")
+	restart_button.text = _t("play_again")
+	main_menu_button.text = _t("main_menu")
+	if game_over_overlay.visible:
+		game_over_score_label.text = "%s: %d" % [_t("final_score"), GameManager.current_score]
+
+func _t(key: String) -> String:
+	var localization := _get_localization()
+	if localization != null and localization.has_method("t"):
+		return localization.t(key)
+	return key
+
+func _tf(key: String, values: Dictionary) -> String:
+	var localization := _get_localization()
+	if localization != null and localization.has_method("tf"):
+		return localization.tf(key, values)
+
+	var text := _t(key)
+	for value_key in values.keys():
+		text = text.replace("{" + str(value_key) + "}", str(values[value_key]))
+	return text
+
+func _get_localization() -> Node:
+	var main_loop := Engine.get_main_loop()
+	if main_loop is SceneTree:
+		return main_loop.root.get_node_or_null("Localization")
+	return null

@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://game_board"]
+[gd_scene load_steps=9 format=3 uid="uid://game_board"]
 
 [ext_resource type="Script" path="res://scripts/board/GameBoard.gd" id="1_game"]
 [ext_resource type="PackedScene" uid="uid://board_manager" path="res://scenes/board/BoardManager.tscn" id="2_board"]
@@ -6,6 +6,7 @@
 [ext_resource type="Texture2D" path="res://assets/ui/checklines-screen-badge.png" id="4_badge"]
 [ext_resource type="Texture2D" path="res://assets/ui/gear.svg" id="5_gear"]
 [ext_resource type="PackedScene" path="res://scenes/effects/FlyingBanner.tscn" id="6_flying_banner"]
+[ext_resource type="Script" path="res://scripts/ui/BulbIcon.gd" id="7_bulb_icon"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_score_bg"]
 bg_color = Color(0.3, 0.3, 0.3, 0.95)
@@ -128,6 +129,37 @@ mouse_filter = 2
 [node name="PuzzleFlyingBanner" parent="CanvasLayer/PuzzlePanel" instance=ExtResource("6_flying_banner")]
 visible = false
 
+[node name="MoveHintPanel" type="PanelContainer" parent="CanvasLayer"]
+visible = false
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 640.0
+offset_bottom = 58.0
+grow_horizontal = 2
+mouse_filter = 2
+
+[node name="MoveHintHBox" type="HBoxContainer" parent="CanvasLayer/MoveHintPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="BulbIcon" type="Control" parent="CanvasLayer/MoveHintPanel/MoveHintHBox"]
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+script = ExtResource("7_bulb_icon")
+
+[node name="MoveHintLabel" type="Label" parent="CanvasLayer/MoveHintPanel/MoveHintHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = ""
+vertical_alignment = 1
+autowrap_mode = 3
+
 [node name="PuzzleBadge" type="TextureRect" parent="CanvasLayer"]
 layout_mode = 1
 anchors_preset = 10
@@ -200,6 +232,7 @@ theme_override_font_sizes/font_size = 30
 text = ""
 horizontal_alignment = 1
 vertical_alignment = 1
+autowrap_mode = 3
 
 [node name="ScoreHBox" type="HBoxContainer" parent="CanvasLayer/ScoreClip"]
 layout_mode = 3

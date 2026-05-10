@@ -359,6 +359,26 @@ theme_override_styles/pressed = SubResource("StyleBoxFlat_outline_hover")
 theme_override_colors/font_color = Color(1, 1, 1, 0.9)
 theme_override_font_sizes/font_size = 30
 
+[node name="LanguageRow" type="HBoxContainer" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="LanguageLabel" type="Label" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/LanguageRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 0.84)
+theme_override_font_sizes/font_size = 30
+text = "Language"
+
+[node name="LanguageOption" type="OptionButton" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/LanguageRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(240, 62)
+theme_override_styles/normal = SubResource("StyleBoxFlat_outline")
+theme_override_styles/hover = SubResource("StyleBoxFlat_outline_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_outline_hover")
+theme_override_colors/font_color = Color(1, 1, 1, 0.9)
+theme_override_font_sizes/font_size = 30
+
 [node name="HSeparator2" type="HSeparator" parent="SettingsPanel/SettingsCenter/SettingsCard/SettingsContent"]
 layout_mode = 2
 

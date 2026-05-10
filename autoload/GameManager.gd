@@ -102,23 +102,29 @@ func _get_sacrifice_cost(piece_type: int) -> int:
 	return sacrifice_cost
 
 func build_sacrifice_event(piece_type: int) -> Dictionary:
+	var message := _tf("sacrifice", {"piece": get_piece_type_name(piece_type)})
 	var sacrifice_cost := _get_sacrifice_cost(piece_type)
 	if sacrifice_cost <= 0:
-		return {}
+		return {
+			"message": message,
+			"value": 0,
+			"show_value": false,
+			"display_only": true
+		}
 
 	return {
-		"message": get_piece_type_name(piece_type) + " Sacrifice",
+		"message": message,
 		"value": -sacrifice_cost
 	}
 
-func build_piece_disappearance_event(piece_type: int, message_template: String) -> Dictionary:
+func build_trap_disappearance_event(piece_type: int, message_template: String) -> Dictionary:
 	var sacrifice_cost := _get_sacrifice_cost(piece_type)
 	if sacrifice_cost <= 0:
 		return {}
 
 	var message := message_template.strip_edges()
 	if message.is_empty():
-		message = "{piece} disappeared -{cost} :("
+		message = _t("trap_disappeared")
 	message = message.replace("{piece}", get_piece_type_name(piece_type))
 	message = message.replace("{cost}", str(sacrifice_cost))
 
@@ -129,9 +135,9 @@ func build_piece_disappearance_event(piece_type: int, message_template: String) 
 	}
 
 func build_level_complete_event(level_number: int = 0) -> Dictionary:
-	var message := "Level complete"
+	var message := _t("level_complete_short")
 	if level_number > 0:
-		message = "Level %d complete!" % level_number
+		message = _tf("level_complete", {"number": level_number})
 	return {
 		"message": message,
 		"value": LEVEL_COMPLETE_SCORE
@@ -176,54 +182,132 @@ func get_line_event_message(chain: Dictionary) -> String:
 	var length: int = chain.get("pieces", []).size()
 	match length:
 		5:
-			return "Color Line"
+			return _t("color_line")
 		6:
-			return "6 in Row"
+			return _t("row_6")
 		7:
-			return "7 in Row"
+			return _t("row_7")
 		8:
-			return "8 in Row"
-	return "Long Line"
+			return _t("row_8")
+	return _t("long_line")
 
 func get_piece_type_name(piece_type: int) -> String:
 	match piece_type:
 		PieceType.PAWN:
-			return "Pawn"
+			return _t("piece_pawn")
 		PieceType.KNIGHT:
-			return "Knight"
+			return _t("piece_knight")
 		PieceType.BISHOP:
-			return "Bishop"
+			return _t("piece_bishop")
 		PieceType.ROOK:
-			return "Rook"
+			return _t("piece_rook")
 		PieceType.QUEEN:
-			return "Queen"
+			return _t("piece_queen")
 		PieceType.KING:
-			return "King"
-	return "Piece"
+			return _t("piece_king")
+	return _t("piece_generic")
 
 func _get_type_line_message(piece_type: int) -> String:
 	match piece_type:
 		PieceType.PAWN:
-			return "Pawn Formation"
+			return _t("pawn_formation")
 		PieceType.KNIGHT:
-			return "Knight Line"
+			return _t("knight_line")
 		PieceType.BISHOP:
-			return "Bishop Chain"
+			return _t("bishop_chain")
 		PieceType.ROOK:
-			return "Rook Formation"
+			return _t("rook_formation")
 		PieceType.QUEEN:
-			return "Queen Formation"
-	return "Typed Line"
+			return _t("queen_formation")
+	return _t("typed_line")
 
 func _get_king_led_line_message(piece_type: int) -> String:
 	match piece_type:
 		PieceType.KNIGHT:
-			return "United Knights"
+			return _t("united_knights")
 		PieceType.BISHOP:
-			return "United Bishops"
+			return _t("united_bishops")
 		PieceType.ROOK:
+			return _t("united_rooks")
+	return _t("united_forces")
+
+func _t(key: String) -> String:
+	var localization := _get_localization()
+	if localization != null and localization.has_method("t"):
+		return localization.t(key)
+	return _english_text(key)
+
+func _tf(key: String, values: Dictionary) -> String:
+	var localization := _get_localization()
+	if localization != null and localization.has_method("tf"):
+		return localization.tf(key, values)
+
+	var text := _english_text(key)
+	for value_key in values.keys():
+		text = text.replace("{" + str(value_key) + "}", str(values[value_key]))
+	return text
+
+func _get_localization() -> Node:
+	var main_loop := Engine.get_main_loop()
+	if main_loop is SceneTree:
+		return main_loop.root.get_node_or_null("Localization")
+	return null
+
+func _english_text(key: String) -> String:
+	match key:
+		"level_complete":
+			return "Level {number} complete!"
+		"level_complete_short":
+			return "Level complete"
+		"trap_disappeared":
+			return "{piece} disappeared -{cost} :("
+		"sacrifice":
+			return "{piece} Sacrifice"
+		"piece_pawn":
+			return "Pawn"
+		"piece_knight":
+			return "Knight"
+		"piece_bishop":
+			return "Bishop"
+		"piece_rook":
+			return "Rook"
+		"piece_queen":
+			return "Queen"
+		"piece_king":
+			return "King"
+		"piece_generic":
+			return "Piece"
+		"color_line":
+			return "Color Line"
+		"row_6":
+			return "6 in Row"
+		"row_7":
+			return "7 in Row"
+		"row_8":
+			return "8 in Row"
+		"long_line":
+			return "Long Line"
+		"pawn_formation":
+			return "Pawn Formation"
+		"knight_line":
+			return "Knight Line"
+		"bishop_chain":
+			return "Bishop Chain"
+		"rook_formation":
+			return "Rook Formation"
+		"queen_formation":
+			return "Queen Formation"
+		"typed_line":
+			return "Typed Line"
+		"united_knights":
+			return "United Knights"
+		"united_bishops":
+			return "United Bishops"
+		"united_rooks":
 			return "United Rooks"
-	return "United Forces"
+		"united_forces":
+			return "United Forces"
+	return key
 
 func register_cleared_line(is_color_line: bool, is_type_line: bool):
 	var changed := false
