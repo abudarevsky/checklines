@@ -11,7 +11,6 @@
 [ext_resource type="Texture2D" path="res://assets/ui/checklines-screen-badge.png" id="9_badge"]
 [ext_resource type="Texture2D" uid="uid://b45cbqlgqgubm" path="res://assets/ui/themes/default/level1.png" id="10_puzzle_2"]
 [ext_resource type="Texture2D" uid="uid://dy76phu44lna" path="res://assets/ui/themes/default/level2.png" id="11_puzzle_3"]
-[ext_resource type="Texture2D" path="res://assets/ui/themes/default/main_menu_background.png" id="12_menu_background"]
 
 [resource]
 script = ExtResource("1_theme")
@@ -43,5 +42,4 @@ puzzle_message_banner_color = Color(0.025, 0.12, 0.42, 0.94)
 puzzle_message_banner_shadow_color = Color(0, 0, 0, 0.42)
 level_start_message_template = "Let the fight begin!"
 trap_disappearance_message_template = "I fell for nothing -{cost} :("
-menu_background_texture = ExtResource("12_menu_background")
 dialog_font_names = PackedStringArray("Avenir Next Condensed", "Helvetica Neue", "Arial Narrow", "Arial")

@@ -114,6 +114,15 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("2_background")
 
+[node name="KingdomScreen" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
 [node name="ButtonZones" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
@@ -123,7 +132,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="ThemeCardButton" type="Button" parent="ButtonZones"]
+[node name="Kingdom1Button" type="Button" parent="ButtonZones"]
 layout_mode = 1
 anchor_left = 0.08
 anchor_top = 0.38
@@ -131,6 +140,29 @@ anchor_right = 0.92
 anchor_bottom = 0.71
 grow_horizontal = 2
 grow_vertical = 2
+focus_mode = 0
+flat = true
+
+[node name="Kingdom2Button" type="Button" parent="ButtonZones"]
+layout_mode = 1
+anchor_left = 0.08
+anchor_top = 0.5
+anchor_right = 0.92
+anchor_bottom = 0.71
+grow_horizontal = 2
+grow_vertical = 2
+focus_mode = 0
+flat = true
+
+[node name="Kingdom3Button" type="Button" parent="ButtonZones"]
+layout_mode = 1
+anchor_left = 0.08
+anchor_top = 0.62
+anchor_right = 0.92
+anchor_bottom = 0.83
+grow_horizontal = 2
+grow_vertical = 2
+disabled = true
 focus_mode = 0
 flat = true
 

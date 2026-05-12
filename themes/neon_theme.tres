@@ -12,7 +12,6 @@
 [ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level1.png" id="10_puzzle_2"]
 [ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level2.png" id="11_puzzle_3"]
 [ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level3.png" id="12_puzzle_4"]
-[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/main_menu_background.png" id="13_menu_background"]
 
 [resource]
 script = ExtResource("1_theme")
@@ -70,7 +69,6 @@ dialog_button_secondary_border_color = Color(0, 1, 1, 0.28)
 dialog_button_secondary_border_hover_color = Color(0, 1, 1, 0.48)
 menu_checker_light_color = Color(0.14, 0.14, 0.2, 1)
 menu_checker_dark_color = Color(0.04, 0.04, 0.06, 1)
-menu_background_texture = ExtResource("13_menu_background")
 menu_panel_background_color = Color(0.04, 0.04, 0.08, 0.88)
 menu_panel_border_color = Color(0, 1, 1, 0.2)
 menu_subtitle_color = Color(0.9, 0.9, 1, 0.72)
