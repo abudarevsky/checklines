@@ -51,6 +51,7 @@ Message display rules:
 - current default theme level start message: `"Let the fight begin!"`
 - current neon theme level start message: `"Let's shed some light on the dark."`
 - trap piece disappearance messages are theme-defined through `ThemeData.trap_disappearance_message_template`
+- trap behavior and trap visual definitions come from the common trap library; themes reference trap type ids
 - current default trap disappearance message: `"I fell for nothing -{cost} :("`
 - current neon trap disappearance message: `"Dark is the new light... :( -{cost}"`
 - game board screen frames use `ThemeData.gameplay_frame_color`; neon should use cyan frames with cyan glow

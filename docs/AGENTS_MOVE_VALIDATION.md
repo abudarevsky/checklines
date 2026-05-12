@@ -29,9 +29,9 @@ Advanced puzzle levels can add traps on otherwise empty board cells:
 - level index 1 has 1 trap
 - level index 2 and later have 2 traps
 
-Current trap behavior sacrifices a piece that moves onto the trap and does not let that piece occupy the cell. A piece may target a trap only if its normal movement reaches that empty cell. Random spawning must not place pieces on traps.
+Current `swallow` trap behavior sacrifices a piece that moves onto the trap and does not let that piece occupy the cell. It emits a level-based number of new pieces back to empty board cells. A piece may target a trap only if its normal movement reaches that empty cell. Random spawning must not place pieces on traps.
 
-Trap visuals and future trap behaviors are theme-specific. Each trap visual should be animated by a shader. Trap random appearance rules are intentionally left open until the product spec defines them.
+Trap definitions come from the common trap library. Themes reference trap type ids and may reuse or combine common trap types, but themes must not own gameplay behavior. Each trap visual should be animated by a shader. Trap random appearance rules are intentionally left open until the product spec defines them.
 
 ### Attack / Capture Logic
 

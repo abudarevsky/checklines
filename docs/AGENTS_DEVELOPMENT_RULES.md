@@ -46,6 +46,11 @@ Update only the relevant system:
 - visual styling/resources -> `ThemeData.gd` and `ThemeManager.gd`
 - line detection -> detector script
 
+### Export Files
+
+The `exports/` folder is reserved for build output.
+Do not track, scan, or use files under `exports/` as source context.
+
 ### Avoid
 
 Do not:
@@ -57,4 +62,3 @@ Do not:
 - scatter input logic across piece nodes
 - create hidden full-board effects that are hard to explain
 - make pawn movement too chess-realistic for the multicolor puzzle version
-

@@ -25,6 +25,7 @@
   - game logic
   - line detection
   - supporting systems
+  - `scripts/traps/` contains the common reusable trap library, trap definitions, and trap visuals
 
 - `assets/sprites/`
   - chess piece SVG sources
@@ -41,3 +42,8 @@
 - `export_presets.cfg`
   - platform export presets, including Android, Web, and iOS
   - iOS export uses the configured Xcode project path under `exports/ios/`
+
+- `exports/`
+  - build output only
+  - ignored by git and excluded from project exports
+  - do not scan this folder during code or asset searches

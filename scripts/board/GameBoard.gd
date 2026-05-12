@@ -140,7 +140,7 @@ func apply_theme(theme: ThemeData):
 	move_hint_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.45))
 	move_hint_label.add_theme_constant_override("outline_size", 2)
 	move_hint_icon.set("icon_color", theme.move_hint_icon_color)
-	message_panel.color = Color(0.03, 0.07, 0.12, 1.0)
+	message_panel.color = theme.hud_panel_color
 	message_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
 	message_label.add_theme_color_override("font_outline_color", theme.hud_outline_color)
 	message_label.add_theme_font_override("font", _build_dialog_font(theme.dialog_font_names, theme.puzzle_message_font_weight))
@@ -814,7 +814,11 @@ func _generate_traps_for_level(level_index: int):
 	var selected_cells: Array[Vector2i] = []
 	for i in range(mini(trap_count, candidate_cells.size())):
 		selected_cells.append(candidate_cells[i])
-	board_manager.set_traps(selected_cells)
+	var theme := _get_theme()
+	var trap_type_id := ""
+	if theme != null:
+		trap_type_id = theme.trap_type_id
+	board_manager.set_traps(selected_cells, trap_type_id)
 
 func _build_puzzle_tile_order():
 	puzzle_tile_order.clear()
@@ -1132,6 +1136,7 @@ func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
 
 	AudioManager.play_sound("capture")
 	AudioManager.vibrate()
+	var trap_data: Resource = board_manager.get_trap_data(_to)
 	var theme := _get_theme()
 	var message_template := ""
 	if theme != null:
@@ -1140,9 +1145,21 @@ func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
 		message_template = _t("trap_disappeared")
 	elif message_template == "Dark is the new light... :( -{cost}":
 		message_template = _t("trap_disappeared")
+	var trap_message := _build_trap_disappearance_message(piece_type, message_template)
+	var trap_event := GameManager.build_trap_disappearance_event(piece_type, message_template)
+	board_manager.show_trap_message_cloud(_to, trap_message, theme, piece_type, board_manager.get_last_sacrificed_piece_color())
 	_begin_score_message_batch()
-	_queue_scoring_event(GameManager.build_trap_disappearance_event(piece_type, message_template))
-	_resolve_sacrifice_turn()
+	_queue_scoring_event(trap_event)
+	_resolve_sacrifice_turn(_get_trap_spawn_count(trap_data))
+
+func _build_trap_disappearance_message(piece_type: int, message_template: String) -> String:
+	var message := message_template.strip_edges()
+	if message.is_empty():
+		message = _t("trap_disappeared")
+	var sacrifice_cost := mini(GameManager.get_piece_value(piece_type), GameManager.current_score)
+	message = message.replace("{piece}", GameManager.get_piece_type_name(piece_type))
+	message = message.replace("{cost}", str(maxi(sacrifice_cost, 0)))
+	return message
 
 func _on_piece_moved(_from, _to):
 	if is_processing_move:
@@ -1227,13 +1244,13 @@ func _resolve_turn():
 	if not game_over_overlay.visible and not pause_overlay.visible:
 		board_manager.set_input_enabled(true)
 
-func _resolve_sacrifice_turn():
+func _resolve_sacrifice_turn(spawn_count: int):
 	is_processing_move = true
 	board_manager.set_input_enabled(false)
 	_begin_score_message_batch()
 	await get_tree().create_timer(0.3).timeout
 
-	var spawned_count: int = _spawn_new_pieces(_get_sacrifice_spawn_count())
+	var spawned_count: int = _spawn_new_pieces(spawn_count)
 	if spawned_count == 0:
 		board_manager.fill_empty_cells_with_kings()
 		_check_game_over()
@@ -1303,10 +1320,12 @@ func _animate_chain_removal(chain):
 	for piece in chain:
 		board_manager.remove_piece(piece.grid_position)
 
-func _get_sacrifice_spawn_count() -> int:
+func _get_trap_spawn_count(trap_data: Resource) -> int:
 	if forced_sacrifice_spawn_count > 0:
 		return forced_sacrifice_spawn_count
-	return 2 + randi_range(0, 1)
+	if trap_data != null:
+		return trap_data.get_spawn_count(current_puzzle_level)
+	return 2
 
 func _spawn_new_pieces(count: int = 3) -> int:
 	return board_manager.spawn_random_pieces(count)

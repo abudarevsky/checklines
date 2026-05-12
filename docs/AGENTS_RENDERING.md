@@ -32,7 +32,8 @@ Theme scope includes:
 
 - piece textures
 - piece tint colors
-- board cell colors and trap stripe colors
+- board cell colors
+- selected trap type id from the common trap library
 - side border colors
 - move and attack overlay colors
 - HUD colors

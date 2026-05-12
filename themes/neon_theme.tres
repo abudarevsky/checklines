@@ -7,7 +7,7 @@
 [ext_resource type="Texture2D" uid="uid://cts54nauj7k38" path="res://assets/sprites/png/white_rook.png" id="5_rook"]
 [ext_resource type="Texture2D" uid="uid://bfi33f17grhm0" path="res://assets/sprites/png/white_queen.png" id="6_queen"]
 [ext_resource type="Texture2D" uid="uid://b2rrcwouele0e" path="res://assets/sprites/png/white_king.png" id="7_king"]
-[ext_resource type="Texture2D" uid="uid://b4jt2ecbip7o7" path="res://assets/ui/themes/neon/level0.png" id="8_puzzle_1"]
+[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level0.png" id="8_puzzle_1"]
 [ext_resource type="Texture2D" path="res://assets/ui/themes/neon/neon-checklines-screen-badge.png" id="9_badge"]
 
 [resource]
@@ -24,8 +24,7 @@ green_piece_color = Color(0.14901961, 0.8901961, 0.5372549, 1)
 orange_piece_color = Color(0, 1, 1, 1)
 board_cell_light_color = Color(0.14, 0.14, 0.2, 1)
 board_cell_dark_color = Color(0.04, 0.04, 0.06, 1)
-trap_light_color = Color(0.1, 0.16, 0.22, 1)
-trap_dark_line_color = Color(0, 1, 1, 0.72)
+trap_type_id = "swallow"
 left_border_color = Color(1, 1, 0, 1)
 top_border_color = Color(1, 0, 1, 1)
 right_border_color = Color(0.14901961, 0.8901961, 0.5372549, 1)

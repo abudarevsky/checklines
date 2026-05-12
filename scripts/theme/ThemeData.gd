@@ -15,8 +15,7 @@ class_name ThemeData
 
 @export var board_cell_light_color: Color = Color(0.7, 0.7, 0.7)
 @export var board_cell_dark_color: Color = Color(0.3, 0.3, 0.3)
-@export var trap_light_color: Color = Color(0.82, 0.82, 0.82, 1.0)
-@export var trap_dark_line_color: Color = Color(0.18, 0.18, 0.18, 1.0)
+@export var trap_type_id: String = "swallow"
 
 @export var left_border_color: Color = Color.RED
 @export var top_border_color: Color = Color.BLUE

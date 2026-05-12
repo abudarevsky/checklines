@@ -2,6 +2,9 @@ extends Node2D
 class_name BoardManager
 
 const SpawnPlannerScript = preload("res://scripts/board/SpawnPlanner.gd")
+const TrapLibraryScript = preload("res://scripts/traps/TrapLibrary.gd")
+const TrapVisualScript = preload("res://scripts/traps/TrapVisual.gd")
+const TrapMessageCloudScript = preload("res://scripts/effects/TrapMessageCloud.gd")
 
 signal piece_selected(piece)
 signal piece_deselected
@@ -19,6 +22,8 @@ var dimmed_pieces = []
 var highlight_nodes = []
 var dim_border_nodes = []
 var traps: Array[Vector2i] = []
+var trap_type_by_cell: Dictionary = {}
+var last_sacrificed_piece_color: int = -1
 var input_enabled: bool = true
 var show_borders: bool = true
 var left_border_width: float = GameManager.BORDER_WIDTH
@@ -28,7 +33,9 @@ var bottom_border_width: float = GameManager.BORDER_WIDTH
 var border_tween: Tween
 
 @onready var pieces_container: Node2D = $PiecesContainer
+@onready var trap_visuals_container: Node2D = $TrapVisualsContainer
 @onready var highlights_container: Node2D = $HighlightsContainer
+@onready var effects_container: Node2D = $EffectsContainer
 
 var piece_scene: PackedScene
 
@@ -48,6 +55,7 @@ func _get_theme():
 	return null
 
 func apply_theme(_theme):
+	_refresh_trap_visuals()
 	queue_redraw()
 
 func clear_board():
@@ -55,8 +63,13 @@ func clear_board():
 		child.queue_free()
 	for child in highlights_container.get_children():
 		child.queue_free()
+	for child in effects_container.get_children():
+		child.queue_free()
 	board.clear()
 	traps.clear()
+	trap_type_by_cell.clear()
+	last_sacrificed_piece_color = -1
+	_clear_trap_visuals()
 	selected_piece = null
 	highlighted_cells.clear()
 	highlighted_attacks.clear()
@@ -87,7 +100,11 @@ func get_rendered_pixel_size() -> float:
 func _sync_container_positions():
 	var board_origin := _get_board_origin()
 	pieces_container.position = board_origin
+	if trap_visuals_container != null:
+		trap_visuals_container.position = board_origin
 	highlights_container.position = board_origin
+	if effects_container != null:
+		effects_container.position = board_origin
 
 func _draw_board():
 	var theme = _get_theme()
@@ -104,52 +121,52 @@ func _draw_board():
 				cell_size,
 				cell_size
 			)
-			if is_trap(Vector2i(x, y)):
-				_draw_trap(rect, theme)
-			else:
-				draw_rect(rect, color)
+			draw_rect(rect, color)
 
-func _draw_trap(rect: Rect2, theme):
-	draw_rect(rect, theme.trap_light_color)
-
-	var spacing := maxf(cell_size * 0.18, 10.0)
-	var line_width := maxf(cell_size * 0.035, 2.0)
-	var limit := rect.size.x + rect.size.y
-	var c := 0.0
-	while c <= limit:
-		var points: Array[Vector2] = []
-		var y_at_left := c
-		if y_at_left >= 0.0 and y_at_left <= rect.size.y:
-			points.append(rect.position + Vector2(0.0, y_at_left))
-		var x_at_top := c
-		if x_at_top >= 0.0 and x_at_top <= rect.size.x:
-			points.append(rect.position + Vector2(x_at_top, 0.0))
-		var y_at_right := c - rect.size.x
-		if y_at_right >= 0.0 and y_at_right <= rect.size.y:
-			points.append(rect.position + Vector2(rect.size.x, y_at_right))
-		var x_at_bottom := c - rect.size.y
-		if x_at_bottom >= 0.0 and x_at_bottom <= rect.size.x:
-			points.append(rect.position + Vector2(x_at_bottom, rect.size.y))
-
-		if points.size() >= 2:
-			draw_line(points[0], points[1], theme.trap_dark_line_color, line_width)
-		c += spacing
-
-	var border_width := maxf(cell_size * 0.045, 3.0)
-	draw_rect(rect.grow(-border_width * 0.5), theme.trap_dark_line_color, false, border_width)
-
-func set_traps(cells: Array):
+func set_traps(cells: Array, trap_type_id: String = ""):
 	traps.clear()
+	trap_type_by_cell.clear()
+	var resolved_trap_type_id := trap_type_id
+	if resolved_trap_type_id.is_empty():
+		resolved_trap_type_id = TrapLibraryScript.get_default_trap_id()
 	for cell in cells:
 		var grid_pos: Vector2i = cell
 		if _is_grid_in_bounds(grid_pos) and not board.has(grid_pos) and not (grid_pos in traps):
 			traps.append(grid_pos)
+			trap_type_by_cell[grid_pos] = resolved_trap_type_id
 	if selected_piece != null:
 		deselect_piece()
+	_refresh_trap_visuals()
 	queue_redraw()
 
 func is_trap(grid_pos: Vector2i) -> bool:
 	return grid_pos in traps
+
+func get_trap_type_id(grid_pos: Vector2i) -> String:
+	return str(trap_type_by_cell.get(grid_pos, TrapLibraryScript.get_default_trap_id()))
+
+func get_trap_data(grid_pos: Vector2i) -> Resource:
+	return TrapLibraryScript.get_trap(get_trap_type_id(grid_pos))
+
+func _refresh_trap_visuals():
+	if trap_visuals_container == null:
+		return
+	_clear_trap_visuals()
+	var theme: Resource = _get_theme()
+	if theme == null:
+		return
+	for trap_cell in traps:
+		var visual = TrapVisualScript.new()
+		visual.position = Vector2(trap_cell.x * cell_size, trap_cell.y * cell_size)
+		trap_visuals_container.add_child(visual)
+		var is_light_cell := (trap_cell.x + trap_cell.y) % 2 == 0
+		visual.setup(cell_size, get_trap_data(trap_cell), theme, is_light_cell)
+
+func _clear_trap_visuals():
+	if trap_visuals_container == null:
+		return
+	for child in trap_visuals_container.get_children():
+		child.queue_free()
 
 func _draw_borders():
 	if not show_borders:
@@ -185,6 +202,19 @@ func _get_cell_local_position(grid_pos: Vector2i) -> Vector2:
 
 func get_cell_position(grid_pos: Vector2i) -> Vector2:
 	return _get_cell_local_position(grid_pos)
+
+func show_trap_message_cloud(grid_pos: Vector2i, message: String, theme: Resource, piece_type: int = -1, piece_color: int = -1):
+	if effects_container == null or message.strip_edges().is_empty():
+		return
+	var start := _get_cell_local_position(grid_pos)
+	var board_size_px := _get_board_pixel_size()
+	var end := Vector2(board_size_px * 0.5, board_size_px * 0.5)
+	var cloud = TrapMessageCloudScript.new()
+	effects_container.add_child(cloud)
+	cloud.setup(message, start, end, theme, piece_type, piece_color)
+
+func get_last_sacrificed_piece_color() -> int:
+	return last_sacrificed_piece_color
 
 func grid_to_world(grid_pos: Vector2i) -> Vector2:
 	return _get_board_origin() + _get_cell_local_position(grid_pos)
@@ -241,6 +271,7 @@ func add_piece(type, color, grid_pos):
 	piece.setup(type, color, grid_pos)
 	piece.position = _get_cell_local_position(grid_pos)
 	pieces_container.add_child(piece)
+	piece.play_spawn_notice()
 	board[grid_pos] = piece
 	
 	return piece
@@ -433,10 +464,12 @@ func _clear_highlights():
 func move_piece(piece, target: Vector2i):
 	var from_pos: Vector2i = piece.grid_position
 	var moved_piece_type: int = piece.piece_type
-	
+	var moved_piece_color: int = piece.piece_color
+
 	board.erase(from_pos)
 
 	if is_trap(target):
+		last_sacrificed_piece_color = moved_piece_color
 		piece.queue_free()
 		deselect_piece()
 		piece_sacrificed.emit(from_pos, target, moved_piece_type)

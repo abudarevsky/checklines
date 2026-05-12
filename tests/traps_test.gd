@@ -4,6 +4,8 @@ func _initialize():
 	var failures: Array[String] = []
 
 	_run_test("uses configured trap count by level", _test_trap_count_by_level, failures)
+	_run_test("uses common trap library definition", _test_common_trap_library, failures)
+	_run_test("board stores trap type references", _test_board_trap_type_reference, failures)
 	_run_test("traps are excluded from empty spawn cells", _test_traps_excluded_from_empty_cells, failures)
 	_run_test("moving onto a trap sacrifices the piece", _test_trap_sacrifices_piece, failures)
 
@@ -32,6 +34,38 @@ func _test_trap_count_by_level() -> String:
 	if game_board_script._get_trap_count_for_level(6) != 2:
 		return "expected later levels to keep two traps"
 	return ""
+
+func _test_common_trap_library() -> String:
+	var TrapLibraryScript = load("res://scripts/traps/TrapLibrary.gd")
+	var trap = TrapLibraryScript.get_trap("swallow")
+	if trap == null:
+		return "expected swallow trap definition"
+	if trap.id != "swallow":
+		return "wrong trap id"
+	if trap.get_spawn_count(0) != 2:
+		return "expected level 0 swallow trap to emit 2 pieces"
+	if trap.get_spawn_count(1) != 2:
+		return "expected level 1 swallow trap to emit 2 pieces"
+	if trap.get_spawn_count(2) != 3:
+		return "expected level 2 swallow trap to emit 3 pieces"
+	if trap.get_spawn_count(6) != 3:
+		return "expected later swallow traps to keep emitting 3 pieces"
+	return ""
+
+func _test_board_trap_type_reference() -> String:
+	var BoardManagerScript = load("res://scripts/board/BoardManager.gd")
+	var board_manager = BoardManagerScript.new()
+	board_manager.board_size = 2
+	board_manager.set_traps([Vector2i(0, 0)], "swallow")
+
+	var error_message := ""
+	if board_manager.get_trap_type_id(Vector2i(0, 0)) != "swallow":
+		error_message = "board did not store trap type id"
+	elif board_manager.get_trap_data(Vector2i(0, 0)).id != "swallow":
+		error_message = "board did not resolve trap data from library"
+
+	board_manager.free()
+	return error_message
 
 func _test_traps_excluded_from_empty_cells() -> String:
 	var BoardManagerScript = load("res://scripts/board/BoardManager.gd")

@@ -1,6 +1,10 @@
 extends Node2D
 class_name Piece
 
+const PieceSpawnSwirlScript = preload("res://scripts/effects/PieceSpawnSwirl.gd")
+const SPAWN_PIECE_REVEAL_DELAY: float = 0.82
+const SPAWN_PIECE_REVEAL_DURATION: float = 0.18
+
 @export var piece_type = GameManager.PieceType.PAWN
 @export var piece_color = GameManager.PieceColor.RED
 @export var grid_position: Vector2i = Vector2i(-1, -1)
@@ -51,6 +55,18 @@ func setup(type, color, pos: Vector2i):
 	piece_color = color
 	grid_position = pos
 	apply_theme(_get_theme())
+
+func play_spawn_notice():
+	if sprite == null:
+		return
+	var target_modulate: Color = sprite.modulate
+	sprite.modulate.a = 0.0
+	var swirl = PieceSpawnSwirlScript.new()
+	swirl.z_index = 2
+	add_child(swirl)
+	swirl.setup(piece_size, target_modulate)
+	var reveal_tween := create_tween()
+	reveal_tween.tween_property(sprite, "modulate:a", target_modulate.a, SPAWN_PIECE_REVEAL_DURATION).set_delay(SPAWN_PIECE_REVEAL_DELAY).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func set_selected(selected: bool):
 	is_selected = selected
