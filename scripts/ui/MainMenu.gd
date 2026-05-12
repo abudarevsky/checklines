@@ -6,10 +6,10 @@ extends Control
 @onready var menu_panel: PanelContainer = $CenterContainer/MenuPanel
 @onready var title_label: Label = $CenterContainer/MenuPanel/MenuContent/Title
 @onready var subtitle_label: Label = $CenterContainer/MenuPanel/MenuContent/Subtitle
-@onready var button_play: Button = $CenterContainer/MenuPanel/MenuContent/ButtonPlay
-@onready var button_how_to_play: Button = $CenterContainer/MenuPanel/MenuContent/ButtonHowToPlay
-@onready var button_settings: Button = $CenterContainer/MenuPanel/MenuContent/ButtonSettings
-@onready var button_quit: Button = $CenterContainer/MenuPanel/MenuContent/ButtonQuit
+@onready var button_play: Button = $ButtonZones/ThemeCardButton
+@onready var button_how_to_play: Button = $ButtonZones/ButtonHowToPlay
+@onready var button_settings: Button = $ButtonZones/ButtonSettings
+@onready var button_quit: Button = $ButtonZones/ButtonQuit
 @onready var how_to_play_header: Label = $HowToPlayPanel/HowToPlayCenter/InstructionsContainer/Header
 @onready var how_to_play_instructions: RichTextLabel = $HowToPlayPanel/HowToPlayCenter/InstructionsContainer/Instructions
 @onready var button_back: Button = $HowToPlayPanel/HowToPlayCenter/InstructionsContainer/ButtonRow/ButtonBack
@@ -193,6 +193,10 @@ func apply_theme(theme_data):
 		theme_data.menu_button_outline_border_color,
 		theme_data.menu_button_outline_border_hover_color
 	)
+	_apply_button_zone_style(button_play)
+	_apply_button_zone_style(button_how_to_play)
+	_apply_button_zone_style(button_settings)
+	_apply_button_zone_style(button_quit)
 
 func _build_menu_font(font_names: PackedStringArray, font_weight: int) -> SystemFont:
 	var font := SystemFont.new()
@@ -266,6 +270,17 @@ func _build_button_style(background_color: Color, border_color: Color) -> StyleB
 
 func _apply_dialog_button_style(button: Button, font: Font, normal_color: Color, hover_color: Color, text_color: Color, text_color_hover: Color, normal_border_color: Color = Color.TRANSPARENT, hover_border_color: Color = Color.TRANSPARENT):
 	_apply_button_style(button, font, normal_color, hover_color, text_color, text_color_hover, normal_border_color, hover_border_color)
+
+func _apply_button_zone_style(button: Button):
+	var empty_style := StyleBoxEmpty.new()
+	button.flat = true
+	button.add_theme_stylebox_override("normal", empty_style)
+	button.add_theme_stylebox_override("hover", empty_style)
+	button.add_theme_stylebox_override("pressed", empty_style)
+	button.add_theme_stylebox_override("focus", empty_style)
+	button.add_theme_color_override("font_color", Color.TRANSPARENT)
+	button.add_theme_color_override("font_hover_color", Color.TRANSPARENT)
+	button.add_theme_color_override("font_pressed_color", Color.TRANSPARENT)
 
 func _build_dialog_button_style(background_color: Color, border_color: Color) -> StyleBoxFlat:
 	return _build_button_style(background_color, border_color)
@@ -363,10 +378,10 @@ func _sync_settings_ui():
 func _apply_localized_text():
 	title_label.text = Localization.t("main_title")
 	subtitle_label.text = Localization.t("main_subtitle")
-	button_play.text = Localization.t("play")
-	button_how_to_play.text = Localization.t("how_to_play")
-	button_settings.text = Localization.t("settings")
-	button_quit.text = Localization.t("quit")
+	button_play.text = ""
+	button_how_to_play.text = ""
+	button_settings.text = ""
+	button_quit.text = ""
 	how_to_play_header.text = Localization.t("how_to_play")
 	how_to_play_instructions.text = Localization.t("how_to_play_text")
 	button_back.text = Localization.t("back")

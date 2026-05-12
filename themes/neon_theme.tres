@@ -9,6 +9,10 @@
 [ext_resource type="Texture2D" uid="uid://b2rrcwouele0e" path="res://assets/sprites/png/white_king.png" id="7_king"]
 [ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level0.png" id="8_puzzle_1"]
 [ext_resource type="Texture2D" path="res://assets/ui/themes/neon/neon-checklines-screen-badge.png" id="9_badge"]
+[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level1.png" id="10_puzzle_2"]
+[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level2.png" id="11_puzzle_3"]
+[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level3.png" id="12_puzzle_4"]
+[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/main_menu_background.png" id="13_menu_background"]
 
 [resource]
 script = ExtResource("1_theme")
@@ -44,7 +48,7 @@ gameplay_frame_glow_color = Color(1, 1, 1, 0.86)
 gameplay_frame_glow_size = 5.0
 metric_tile_background_color = Color(0.08, 0.08, 0.14, 1)
 metric_outline_color = Color(0.6, 0.6, 1, 0.6)
-puzzle_level_images = [ExtResource("8_puzzle_1")]
+puzzle_level_images = [ExtResource("8_puzzle_1"), ExtResource("10_puzzle_2"), ExtResource("11_puzzle_3"), ExtResource("12_puzzle_4")]
 checklines_badge_texture = ExtResource("9_badge")
 puzzle_board_background_color = Color(0.06, 0.06, 0.12, 1)
 puzzle_message_text_color = Color(1, 1, 1, 1)
@@ -66,6 +70,7 @@ dialog_button_secondary_border_color = Color(0, 1, 1, 0.28)
 dialog_button_secondary_border_hover_color = Color(0, 1, 1, 0.48)
 menu_checker_light_color = Color(0.14, 0.14, 0.2, 1)
 menu_checker_dark_color = Color(0.04, 0.04, 0.06, 1)
+menu_background_texture = ExtResource("13_menu_background")
 menu_panel_background_color = Color(0.04, 0.04, 0.08, 0.88)
 menu_panel_border_color = Color(0, 1, 1, 0.2)
 menu_subtitle_color = Color(0.9, 0.9, 1, 0.72)

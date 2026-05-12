@@ -84,6 +84,7 @@ class_name ThemeData
 @export var menu_checker_light_color: Color = Color(0.34, 0.34, 0.34)
 @export var menu_checker_dark_color: Color = Color(0.22, 0.22, 0.22)
 @export var menu_overlay_color: Color = Color(0.0, 0.0, 0.0, 0.75)
+@export var menu_background_texture: Texture2D
 @export var menu_panel_background_color: Color = Color(0.08, 0.08, 0.08, 0.88)
 @export var menu_panel_border_color: Color = Color(1.0, 1.0, 1.0, 0.12)
 @export var menu_title_color: Color = Color(1.0, 1.0, 1.0, 0.98)

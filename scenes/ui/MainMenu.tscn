@@ -114,7 +114,61 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("2_background")
 
+[node name="ButtonZones" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ThemeCardButton" type="Button" parent="ButtonZones"]
+layout_mode = 1
+anchor_left = 0.08
+anchor_top = 0.38
+anchor_right = 0.92
+anchor_bottom = 0.71
+grow_horizontal = 2
+grow_vertical = 2
+focus_mode = 0
+flat = true
+
+[node name="ButtonHowToPlay" type="Button" parent="ButtonZones"]
+layout_mode = 1
+anchor_left = 0.06
+anchor_top = 0.925
+anchor_right = 0.36
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+focus_mode = 0
+flat = true
+
+[node name="ButtonSettings" type="Button" parent="ButtonZones"]
+layout_mode = 1
+anchor_left = 0.36
+anchor_top = 0.925
+anchor_right = 0.67
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+focus_mode = 0
+flat = true
+
+[node name="ButtonQuit" type="Button" parent="ButtonZones"]
+layout_mode = 1
+anchor_left = 0.67
+anchor_top = 0.925
+anchor_right = 0.96
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+focus_mode = 0
+flat = true
+
 [node name="CenterContainer" type="CenterContainer" parent="." unique_id=765950095]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
