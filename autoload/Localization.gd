@@ -14,7 +14,7 @@ const LANGUAGE_NAMES := {
 
 const TRANSLATIONS := {
 	"en": {
-		"main_title": "Check Lines",
+		"main_title": "Royal Lines",
 		"main_subtitle": "Chess movement. Lines puzzle. 5 in a row.",
 		"play": "Play",
 		"how_to_play": "How to Play",
@@ -84,7 +84,7 @@ const TRANSLATIONS := {
 			"move_hint_blocked": "{piece} is blocked."
 	},
 	"ru": {
-		"main_title": "Check Lines",
+		"main_title": "Royal Lines",
 		"main_subtitle": "Шахматные ходы. Головоломка Lines. 5 в ряд.",
 		"play": "Играть",
 		"how_to_play": "Как играть",
@@ -154,7 +154,7 @@ const TRANSLATIONS := {
 			"move_hint_blocked": "{piece} заблокирована."
 	},
 	"de": {
-		"main_title": "Check Lines",
+		"main_title": "Royal Lines",
 		"main_subtitle": "Schachzüge. Lines-Rätsel. 5 in einer Reihe.",
 		"play": "Spielen",
 		"how_to_play": "Anleitung",
@@ -224,7 +224,7 @@ const TRANSLATIONS := {
 			"move_hint_blocked": "{piece} ist blockiert."
 	},
 	"fr": {
-		"main_title": "Check Lines",
+		"main_title": "Royal Lines",
 		"main_subtitle": "Mouvements d'échecs. Puzzle Lines. 5 à la suite.",
 		"play": "Jouer",
 		"how_to_play": "Comment jouer",
@@ -294,7 +294,7 @@ const TRANSLATIONS := {
 			"move_hint_blocked": "{piece} est bloquée."
 	},
 	"es": {
-		"main_title": "Check Lines",
+		"main_title": "Royal Lines",
 		"main_subtitle": "Movimiento de ajedrez. Puzzle Lines. 5 en línea.",
 		"play": "Jugar",
 		"how_to_play": "Cómo jugar",
@@ -364,7 +364,7 @@ const TRANSLATIONS := {
 			"move_hint_blocked": "{piece} está bloqueada."
 	},
 	"fi": {
-		"main_title": "Check Lines",
+		"main_title": "Royal Lines",
 		"main_subtitle": "Shakkisiirrot. Lines-pulma. 5 peräkkäin.",
 		"play": "Pelaa",
 		"how_to_play": "Ohjeet",
@@ -434,7 +434,7 @@ const TRANSLATIONS := {
 			"move_hint_blocked": "{piece} on jumissa."
 	},
 	"sv": {
-		"main_title": "Check Lines",
+		"main_title": "Royal Lines",
 		"main_subtitle": "Schackdrag. Lines-pussel. 5 i rad.",
 		"play": "Spela",
 		"how_to_play": "Så spelar du",

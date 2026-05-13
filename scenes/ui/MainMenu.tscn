@@ -221,7 +221,7 @@ theme_override_constants/separation = 20
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.98)
 theme_override_font_sizes/font_size = 66
-text = "Check Lines"
+text = "Royal Lines"
 horizontal_alignment = 1
 
 [node name="Subtitle" type="Label" parent="CenterContainer/MenuPanel/MenuContent" unique_id=564260024]

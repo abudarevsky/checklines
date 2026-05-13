@@ -148,8 +148,8 @@ func format_scoring_event(event: Dictionary) -> String:
 		return str(event.get("message", ""))
 
 	var value := int(event.get("value", 0))
-	var sign := "+" if value >= 0 else "−"
-	return "%s   %s%d" % [str(event.get("message", "")), sign, abs(value)]
+	var value_prefix := "+" if value >= 0 else "−"
+	return "%s   %s%d" % [str(event.get("message", "")), value_prefix, abs(value)]
 
 func get_piece_value(piece_type: int) -> int:
 	return PIECE_VALUES.get(piece_type, 0)
