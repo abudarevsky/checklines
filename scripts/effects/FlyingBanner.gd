@@ -16,6 +16,11 @@ class_name FlyingBanner
 		horizontal_subdivisions = value
 		_rebuild_banner()
 
+@export_range(0.1, 1.0, 0.05) var width_scale: float = 1.0:
+	set(value):
+		width_scale = value
+		_rebuild_banner()
+
 @export var flight_duration: float = 1.25
 @export var center_hold_duration: float = 1.0
 @export_range(1.0, 4.0, 0.25) var render_scale: float = 2.0:
@@ -268,7 +273,7 @@ func _build_subdivided_quad_mesh(size: Vector2, subdivisions: int) -> ArrayMesh:
 	var vertices := PackedVector2Array()
 	var uvs := PackedVector2Array()
 	var indices := PackedInt32Array()
-	var half_size := size * 0.5
+	var half_size := size * Vector2(width_scale, 1.0) * 0.5
 
 	for x in range(columns + 1):
 		var u := float(x) / float(columns)

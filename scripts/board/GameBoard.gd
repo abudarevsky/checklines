@@ -188,6 +188,7 @@ func _apply_puzzle_banner_theme(theme: ThemeData):
 	puzzle_flying_banner.secondary_frequency = 18.0
 	puzzle_flying_banner.edge_flutter_strength = 9.0
 	puzzle_flying_banner.center_hold_duration = PUZZLE_MESSAGE_BANNER_HOLD_DURATION
+	puzzle_flying_banner.width_scale = 0.8
 
 func _apply_dialog_theme(theme):
 	pause_backdrop.color = theme.dialog_overlay_color
