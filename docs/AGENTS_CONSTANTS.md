@@ -13,7 +13,10 @@ const BOARD_PIXEL_SIZE: int = BOARD_SIZE * CELL_SIZE
 const WINDOW_WIDTH: int = BOARD_PIXEL_SIZE
 const WINDOW_HEIGHT: int = BOARD_PIXEL_SIZE
 const BORDER_WIDTH: int = 3
+const BOARD_INSET_X: int = 20
 ```
+
+`BOARD_INSET_X` is a portrait-mode gameplay content inset. Apply it at the layout/container level so the board, HUD, puzzle panel, score row, and move hint keep the same visual separation from the viewport edge.
 
 ### Color Mapping
 

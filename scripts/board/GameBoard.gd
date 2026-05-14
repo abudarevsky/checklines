@@ -133,7 +133,10 @@ func apply_theme(theme: ThemeData):
 	screen_background.color = theme.gameplay_backdrop_base_color
 	board_tint_overlay.color = Color.TRANSPARENT
 	screen_gradient.texture = _build_screen_gradient_texture(theme)
+	screen_gradient.visible = theme.gameplay_background_texture == null
 	board_background.texture = theme.gameplay_background_texture
+	board_background.visible = theme.gameplay_background_texture != null
+	board_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	score_panel.color = Color(0.03, 0.07, 0.12, 0.0)
 	score_shadow.color = theme.hud_shadow_color
 	puzzle_panel.color = Color(0.06, 0.09, 0.13, 1.0)
@@ -396,6 +399,9 @@ func _setup_signals():
 	GameManager.score_updated.connect(_on_score_updated)
 	GameManager.line_metrics_updated.connect(_on_line_metrics_updated)
 	GameManager.game_over.connect(_on_game_over)
+	var theme_manager := _get_theme_manager()
+	if theme_manager != null and not theme_manager.theme_changed.is_connected(_on_theme_changed):
+		theme_manager.theme_changed.connect(_on_theme_changed)
 	if not Settings.settings_changed.is_connected(_on_settings_changed):
 		Settings.settings_changed.connect(_on_settings_changed)
 	gear_button.pressed.connect(_on_gear_pressed)
@@ -405,6 +411,13 @@ func _setup_signals():
 	restart_button.pressed.connect(_on_restart_pressed)
 	main_menu_button.pressed.connect(_on_main_menu_pressed)
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
+
+func _get_theme_manager() -> Node:
+	var main_loop: MainLoop = Engine.get_main_loop()
+	if main_loop is SceneTree:
+		var root: Window = main_loop.root
+		return root.get_node_or_null("ThemeManager")
+	return null
 
 func _on_viewport_size_changed():
 	_update_layout()
@@ -416,8 +429,9 @@ func _update_layout():
 	var board_render_size: float = board_manager.get_rendered_pixel_size()
 	var bottom_margin: float = HUD_MARGIN_TOP
 	var hint_footprint := MOVE_HINT_GAP + MOVE_HINT_HEIGHT
+	var content_margin_x: float = _get_horizontal_content_margin(viewport_size)
 	var available_height: float = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - BOARD_TOP_GAP - hint_footprint - bottom_margin, 120.0)
-	var content_width: float = maxf(viewport_size.x - SCREEN_CONTENT_MARGIN * 2.0, 1.0)
+	var content_width: float = maxf(viewport_size.x - content_margin_x * 2.0, 1.0)
 	var width_scale: float = content_width / board_render_size
 	var height_scale: float = available_height / board_render_size
 	var scale_factor: float = maxf(minf(width_scale, height_scale), 0.1)
@@ -428,8 +442,9 @@ func _update_layout():
 
 	viewport_size = get_viewport_rect().size
 	board_render_size = board_manager.get_rendered_pixel_size()
+	content_margin_x = _get_horizontal_content_margin(viewport_size)
 	available_height = maxf(viewport_size.y - top_bar_height - TOP_BAR_SHADOW_HEIGHT - BOARD_TOP_GAP - hint_footprint - bottom_margin, 120.0)
-	content_width = maxf(viewport_size.x - SCREEN_CONTENT_MARGIN * 2.0, 1.0)
+	content_width = maxf(viewport_size.x - content_margin_x * 2.0, 1.0)
 	width_scale = content_width / board_render_size
 	height_scale = available_height / board_render_size
 	scale_factor = maxf(minf(width_scale, height_scale), 0.1)
@@ -466,8 +481,14 @@ func _update_screen_backdrop(viewport_size: Vector2):
 	board_tint_overlay.size = viewport_size
 	board_tint_overlay.z_index = -90
 
+func _get_horizontal_content_margin(viewport_size: Vector2) -> float:
+	var margin := SCREEN_CONTENT_MARGIN
+	if viewport_size.y >= viewport_size.x:
+		margin += GameManager.BOARD_INSET_X
+	return margin
+
 func _update_top_hud_layout(viewport_size: Vector2) -> float:
-	var panel_margin: float = SCREEN_CONTENT_MARGIN + HUD_MARGIN_LEFT
+	var panel_margin: float = _get_horizontal_content_margin(viewport_size) + HUD_MARGIN_LEFT
 	var panel_width: float = maxf(viewport_size.x - panel_margin * 2.0, 0.0)
 	var puzzle_texture: Texture2D = _get_puzzle_level_texture(current_puzzle_level)
 	var puzzle_height: float = 160.0
@@ -1182,6 +1203,9 @@ func _on_line_metrics_updated(_color_lines: int, _type_lines: int):
 func _on_settings_changed():
 	_apply_localized_text()
 	_update_ui()
+
+func _on_theme_changed(theme_data, _theme_id: String):
+	apply_theme(theme_data as ThemeData)
 
 func _update_ui():
 	score_label.text = "%s: %d" % [_t("score"), GameManager.current_score]

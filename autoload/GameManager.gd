@@ -12,6 +12,7 @@ const BORDER_WIDTH: int = 3
 const SELECTED_BORDER_WIDTH: int = 10
 const BORDER_PADDING: int = 8
 const BOARD_FRAME_MARGIN: int = SELECTED_BORDER_WIDTH + BORDER_PADDING
+const BOARD_INSET_X: int = 20
 
 const COLOR_MAP: Dictionary = {
 	PieceColor.RED: Color(1, 1, 0, 1),

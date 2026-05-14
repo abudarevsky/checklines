@@ -2,9 +2,9 @@ extends Control
 
 const MAIN_SCREEN_BACKGROUND_TEXTURE := preload("res://assets/ui/themes/main_screen/background_image.png")
 const MAIN_SCREEN_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/main_screen_backround_mainframe.png")
-const ACTIVE_CARD_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/active_card_frame.png")
-const INACTIVE_CARD_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/inactive_card_frame.png")
-const KINGDOM_1_SOURCE_TEXTURE := preload("res://assets/ui/themes/main_screen/kindom1.png")
+const ACTIVE_CARD_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/card_frame_active_final.png")
+const INACTIVE_CARD_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/card_frame_inactive_final.png")
+const KINGDOM_1_TEXTURE := preload("res://assets/ui/themes/main_screen/kingdom1.png")
 const KINGDOM_2_TEXTURE := preload("res://assets/ui/themes/main_screen/kingdom2.png")
 const KINGDOM_3_TEXTURE := preload("res://assets/ui/themes/main_screen/kingdom3.png")
 
@@ -20,7 +20,6 @@ const KINGDOM_CARD_RECTS := [
 ]
 const KINGDOM_FRAME_PADDING := Vector2(12.0, 10.0)
 const KINGDOM_CARD_CONTENT_INSET := Vector2(30.0, 58.0)
-const KINGDOM_1_CARD_REGION := Rect2(230.0, 230.0, 1588.0, 1160.0)
 const KINGDOM_DRAG_CLICK_THRESHOLD := 12.0
 const KINGDOM_DOUBLE_PRESS_MS := 500
 const HOW_TO_PLAY_ZONE := Rect2(58.0, 1266.0, 230.0, 92.0)
@@ -63,7 +62,6 @@ var kingdom_scroll_bottom_fade: ColorRect
 var kingdom_frame_nodes: Array[TextureRect] = []
 var kingdom_card_nodes: Array[TextureRect] = []
 var kingdom_coming_soon_label: Label
-var kingdom_1_card_texture: AtlasTexture
 var kingdom_frame_material: ShaderMaterial
 var selected_kingdom_index := 0
 var kingdom_drag_active := false
@@ -309,11 +307,10 @@ func _build_kingdom_screen():
 	kingdom_scroll_bottom_fade.material = _build_scroll_fade_material(false)
 	kingdom_design_root.add_child(kingdom_scroll_bottom_fade)
 
-	kingdom_1_card_texture = _build_atlas_texture(KINGDOM_1_SOURCE_TEXTURE, KINGDOM_1_CARD_REGION)
 	kingdom_frame_material = _build_frame_mask_material()
 	kingdom_frame_nodes.clear()
 	kingdom_card_nodes.clear()
-	var kingdom_textures: Array[Texture2D] = [kingdom_1_card_texture, KINGDOM_2_TEXTURE, KINGDOM_3_TEXTURE]
+	var kingdom_textures: Array[Texture2D] = [KINGDOM_1_TEXTURE, KINGDOM_2_TEXTURE, KINGDOM_3_TEXTURE]
 	for i in range(KINGDOM_CARD_RECTS.size()):
 		var frame_rect := _get_kingdom_frame_rect(KINGDOM_CARD_RECTS[i])
 		var card_rect := _get_kingdom_card_content_rect(frame_rect)
@@ -349,12 +346,6 @@ func _get_kingdom_card_content_rect(frame_rect: Rect2) -> Rect2:
 		frame_rect.position + KINGDOM_CARD_CONTENT_INSET,
 		frame_rect.size - KINGDOM_CARD_CONTENT_INSET * 2.0
 	)
-
-func _build_atlas_texture(texture: Texture2D, region: Rect2) -> AtlasTexture:
-	var atlas_texture := AtlasTexture.new()
-	atlas_texture.atlas = texture
-	atlas_texture.region = region
-	return atlas_texture
 
 func _build_frame_mask_material() -> ShaderMaterial:
 	var shader := Shader.new()

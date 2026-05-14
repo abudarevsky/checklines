@@ -48,7 +48,7 @@ Theme scope includes:
 - main menu kingdom card artwork
 - settings dialog colors and theme selector popup styling
 - other purely visual presentation values
-- gameplay background image (tiled pattern stretch)
+- gameplay background image
 
 Theme scope does not include:
 
@@ -61,6 +61,8 @@ Theme scope does not include:
 
 The active theme is selected through persisted settings and loaded by `ThemeManager`.
 Current available theme ids are `default` and `neon`.
+
+Gameplay screens should use `ThemeData.gameplay_background_texture` as the visible backdrop when a theme provides it. The generated gameplay gradient is a fallback for themes without a background texture, not an overlay that hides theme artwork.
 
 Theme selection now lives in the main menu settings dialog. Keep it persisted and theme-driven, but do not add extra theme management UI unless explicitly requested.
 

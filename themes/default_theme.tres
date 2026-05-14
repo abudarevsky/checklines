@@ -11,7 +11,7 @@
 [ext_resource type="Texture2D" path="res://assets/ui/checklines-screen-badge.png" id="9_badge"]
 [ext_resource type="Texture2D" uid="uid://b45cbqlgqgubm" path="res://assets/ui/themes/default/level1.png" id="10_puzzle_2"]
 [ext_resource type="Texture2D" uid="uid://dy76phu44lna" path="res://assets/ui/themes/default/level2.png" id="11_puzzle_3"]
-[ext_resource type="Texture2D" uid="uid://bg_d" path="res://assets/ui/themes/default/background_image.png" id="12_bg"]
+[ext_resource type="Texture2D" path="res://assets/ui/themes/default/background_image.png" id="12_bg"]
 
 [resource]
 script = ExtResource("1_theme")

@@ -12,7 +12,7 @@
 [ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level1.png" id="10_puzzle_2"]
 [ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level2.png" id="11_puzzle_3"]
 [ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level3.png" id="12_puzzle_4"]
-[ext_resource type="Texture2D" uid="uid://bg_n" path="res://assets/ui/themes/neon/background_image.png" id="13_bg"]
+[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/background_image.png" id="13_bg"]
 
 [resource]
 script = ExtResource("1_theme")

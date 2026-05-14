@@ -75,6 +75,6 @@ If HUD layout changes, preserve:
 - centered badge and left-side gear button sharing the same header row
 - theme-driven puzzle visuals and message styling
 - dark backdrop-colored screen background behind both HUD and board
-- full-window dark vignette/gradient background that stays visible around the content edge
+- full-window theme background image when provided, with the generated vignette/gradient used only as fallback
 - default gameplay backdrop should stay close to the reference: near-black center with restrained teal-blue side glow, not a bright vertical gradient
 - puzzle cover tiles drawn as puzzle-piece silhouettes with tabs and sockets
