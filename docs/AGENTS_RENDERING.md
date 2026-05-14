@@ -48,6 +48,7 @@ Theme scope includes:
 - main menu kingdom card artwork
 - settings dialog colors and theme selector popup styling
 - other purely visual presentation values
+- gameplay background image (tiled pattern stretch)
 
 Theme scope does not include:
 
