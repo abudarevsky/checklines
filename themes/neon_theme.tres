@@ -12,6 +12,7 @@
 [ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level1.png" id="10_puzzle_2"]
 [ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level2.png" id="11_puzzle_3"]
 [ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level3.png" id="12_puzzle_4"]
+[ext_resource type="Texture2D" uid="uid://bg_n" path="res://assets/ui/themes/neon/background_image.png" id="13_bg"]
 
 [resource]
 script = ExtResource("1_theme")
@@ -82,3 +83,4 @@ menu_button_outline_color = Color(0.2, 0.2, 0.4, 0.92)
 menu_button_outline_hover_color = Color(0.24, 0.24, 0.48, 0.96)
 menu_button_outline_border_color = Color(0, 1, 1, 0.35)
 menu_button_outline_border_hover_color = Color(0, 1, 1, 0.55)
+gameplay_background_texture = ExtResource("13_bg")

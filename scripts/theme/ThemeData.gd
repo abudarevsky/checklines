@@ -53,6 +53,7 @@ class_name ThemeData
 @export var level_start_message_template: String = ""
 @export var trap_disappearance_message_template: String = "I fell for nothing -{cost} :("
 
+@export var gameplay_background_texture: Texture2D
 @export var gameplay_backdrop_base_color: Color = Color(0.0, 0.004, 0.007, 1.0)
 @export var gameplay_backdrop_edge_glow_color: Color = Color(0.0, 0.28, 0.43, 1.0)
 @export var gameplay_backdrop_center_glow_color: Color = Color(0.0, 0.09, 0.14, 1.0)

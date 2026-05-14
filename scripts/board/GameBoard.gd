@@ -5,6 +5,7 @@ const PuzzleTileCover = preload("res://scripts/ui/PuzzleTileCover.gd")
 @onready var board_manager = $BoardManager
 @onready var screen_background: ColorRect = $ScreenBackground
 @onready var screen_gradient: TextureRect = $ScreenGradient
+@onready var board_background: TextureRect = $BoardBackground
 @onready var score_frame: PanelContainer = $CanvasLayer/ScoreFrame
 @onready var board_tint_overlay: ColorRect = $BoardTintOverlay
 @onready var score_panel: ColorRect = $CanvasLayer/ScorePanel
@@ -132,6 +133,7 @@ func apply_theme(theme: ThemeData):
 	screen_background.color = theme.gameplay_backdrop_base_color
 	board_tint_overlay.color = Color.TRANSPARENT
 	screen_gradient.texture = _build_screen_gradient_texture(theme)
+	board_background.texture = theme.gameplay_background_texture
 	score_panel.color = Color(0.03, 0.07, 0.12, 0.0)
 	score_shadow.color = theme.hud_shadow_color
 	puzzle_panel.color = Color(0.06, 0.09, 0.13, 1.0)
@@ -455,6 +457,10 @@ func _update_screen_backdrop(viewport_size: Vector2):
 	screen_gradient.position = Vector2.ZERO
 	screen_gradient.size = viewport_size
 	screen_gradient.z_index = -95
+
+	board_background.position = Vector2.ZERO
+	board_background.size = viewport_size
+	board_background.z_index = -92
 
 	board_tint_overlay.position = Vector2.ZERO
 	board_tint_overlay.size = viewport_size
