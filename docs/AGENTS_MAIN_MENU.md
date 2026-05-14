@@ -8,17 +8,20 @@ scripts/ui/MainMenu.gd
 scripts/ui/MainMenuBoard.gd
 ```
 
-The intended presentation is:
+The intended presentation is a theme-driven art menu with a stable layout:
 
-- full-screen dark checkerboard background
-- centered dark menu panel
-- primary actions in the center
+- full-screen main screen background artwork
+- scrollable kingdom selection area
+- kingdom cards composed from themed kingdom art and themed card-frame artwork
+- bottom action panel with How To Play, Settings, and Exit actions
 - settings dialog with sound, vibration, theme, and language controls
 - full-screen HowToPlay overlay panel
 
-Use `MainMenuBoard.gd` for the checkerboard background layer.
+Main screen background images, kingdom card frames, and other menu art may vary by theme.
+Do not change the conceptual menu layout when updating art: keep the scroll area, bottom action panel, and kingdom selection model intact unless explicitly asked to redesign the menu.
 
-Do not replace the current menu background with a stretched `TextureRect` checkerboard unless explicitly requested.
+Selecting a kingdom is a single tap/click.
+Starting a kingdom session is a double tap/click on that kingdom.
 
 Keep the menu scene as a `Control`-based layout.
 

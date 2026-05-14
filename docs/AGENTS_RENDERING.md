@@ -43,6 +43,9 @@ Theme scope includes:
 - game board screen frame colors and glow
 - dialog colors and typography
 - menu colors and button styles
+- main menu background artwork
+- main menu kingdom card frame artwork
+- main menu kingdom card artwork
 - settings dialog colors and theme selector popup styling
 - other purely visual presentation values
 
