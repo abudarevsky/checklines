@@ -18,6 +18,7 @@ The intended presentation is a theme-driven art menu with a stable layout:
 - full-screen HowToPlay overlay panel
 
 Main screen background images, kingdom card frames, and other menu art may vary by theme.
+The main-screen backdrop should follow the active theme background texture when selection changes, while kingdom-specific art such as the neon frame and card-frame variants may switch with the selected kingdom.
 Do not change the conceptual menu layout when updating art: keep the scroll area, bottom action panel, and kingdom selection model intact unless explicitly asked to redesign the menu.
 
 Selecting a kingdom is a single tap/click.

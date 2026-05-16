@@ -2,8 +2,11 @@ extends Control
 
 const MAIN_SCREEN_BACKGROUND_TEXTURE := preload("res://assets/ui/themes/main_screen/background_image.png")
 const MAIN_SCREEN_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/main_screen_backround_mainframe.png")
+const KINGDOM_2_MAIN_SCREEN_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/main_screen_mainframe_neon_bg.png")
 const ACTIVE_CARD_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/card_frame_active_final.png")
 const INACTIVE_CARD_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/card_frame_inactive_final.png")
+const KINGDOM_2_ACTIVE_CARD_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/card_frame_active_kindom2.png")
+const KINGDOM_2_INACTIVE_CARD_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/card_frame_inactive_kindom2.png")
 const KINGDOM_1_TEXTURE := preload("res://assets/ui/themes/main_screen/kingdom1.png")
 const KINGDOM_2_TEXTURE := preload("res://assets/ui/themes/main_screen/kingdom2.png")
 const KINGDOM_3_TEXTURE := preload("res://assets/ui/themes/main_screen/kingdom3.png")
@@ -56,6 +59,8 @@ const EXIT_ZONE := Rect2(512.0, 1266.0, 214.0, 92.0)
 @onready var settings_close_button: Button = $SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/ButtonRow/ButtonCloseSettings
 
 var kingdom_design_root: Control
+var main_background_node: TextureRect
+var main_frame_node: TextureRect
 var kingdom_scroll: ScrollContainer
 var kingdom_scroll_content: Control
 var kingdom_scroll_top_fade: ColorRect
@@ -128,6 +133,8 @@ func apply_theme(theme_data):
 
 	if background.has_method("apply_theme"):
 		background.apply_theme(theme_data)
+	if main_background_node != null:
+		main_background_node.texture = theme_data.gameplay_background_texture if theme_data.gameplay_background_texture != null else MAIN_SCREEN_BACKGROUND_TEXTURE
 
 	var panel_style := _build_panel_style(theme_data.menu_panel_background_color, theme_data.menu_panel_border_color)
 	menu_panel.add_theme_stylebox_override("panel", panel_style)
@@ -258,14 +265,14 @@ func _build_kingdom_screen():
 	for child in kingdom_screen.get_children():
 		child.queue_free()
 
-	var background_texture := TextureRect.new()
-	background_texture.name = "BackgroundImage"
-	background_texture.texture = MAIN_SCREEN_BACKGROUND_TEXTURE
-	background_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	background_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	background_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
-	background_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	kingdom_screen.add_child(background_texture)
+	main_background_node = TextureRect.new()
+	main_background_node.name = "BackgroundImage"
+	main_background_node.texture = MAIN_SCREEN_BACKGROUND_TEXTURE
+	main_background_node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	main_background_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	main_background_node.set_anchors_preset(Control.PRESET_FULL_RECT)
+	main_background_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	kingdom_screen.add_child(main_background_node)
 
 	kingdom_design_root = Control.new()
 	kingdom_design_root.name = "DesignRoot"
@@ -273,8 +280,8 @@ func _build_kingdom_screen():
 	kingdom_design_root.mouse_filter = Control.MOUSE_FILTER_PASS
 	kingdom_screen.add_child(kingdom_design_root)
 
-	var main_frame := _create_texture_rect("MainFrame", MAIN_SCREEN_FRAME_TEXTURE, Rect2(Vector2.ZERO, DESIGN_SIZE))
-	kingdom_design_root.add_child(main_frame)
+	main_frame_node = _create_texture_rect("MainFrame", MAIN_SCREEN_FRAME_TEXTURE, Rect2(Vector2.ZERO, DESIGN_SIZE))
+	kingdom_design_root.add_child(main_frame_node)
 
 	kingdom_scroll = ScrollContainer.new()
 	kingdom_scroll.name = "KingdomScroll"
@@ -474,14 +481,21 @@ func _layout_button_zone(button: Button, design_rect: Rect2):
 func _update_kingdom_selection():
 	if kingdom_frame_nodes.size() < 3:
 		return
+	if main_frame_node != null:
+		main_frame_node.texture = KINGDOM_2_MAIN_SCREEN_FRAME_TEXTURE if selected_kingdom_index == 1 else MAIN_SCREEN_FRAME_TEXTURE
 	for i in range(kingdom_frame_nodes.size()):
-		kingdom_frame_nodes[i].texture = ACTIVE_CARD_FRAME_TEXTURE if i == selected_kingdom_index else INACTIVE_CARD_FRAME_TEXTURE
+		kingdom_frame_nodes[i].texture = _get_kingdom_frame_texture(i, i == selected_kingdom_index)
 		var frame_rect := _get_kingdom_frame_rect(KINGDOM_CARD_RECTS[i])
 		kingdom_frame_nodes[i].position = frame_rect.position
 		kingdom_frame_nodes[i].size = frame_rect.size
 		kingdom_frame_nodes[i].modulate = Color.WHITE
 		kingdom_card_nodes[i].modulate = Color(1, 1, 1, 1) if i < 2 else Color(0.34, 0.34, 0.38, 0.72)
 	button_kingdom_3.disabled = true
+
+func _get_kingdom_frame_texture(kingdom_index: int, is_active: bool) -> Texture2D:
+	if kingdom_index == 1:
+		return KINGDOM_2_ACTIVE_CARD_FRAME_TEXTURE if is_active else KINGDOM_2_INACTIVE_CARD_FRAME_TEXTURE
+	return ACTIVE_CARD_FRAME_TEXTURE if is_active else INACTIVE_CARD_FRAME_TEXTURE
 
 func _sync_selected_kingdom_from_settings():
 	selected_kingdom_index = 1 if Settings.theme_id == "neon" else 0
