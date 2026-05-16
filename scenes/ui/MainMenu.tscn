@@ -114,7 +114,7 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("2_background")
 
-[node name="KingdomScreen" type="Control" parent="."]
+[node name="KingdomScreen" type="Control" parent="." unique_id=1320579168]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -123,7 +123,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="ButtonZones" type="Control" parent="."]
+[node name="ButtonZones" type="Control" parent="." unique_id=1993558746]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -132,8 +132,9 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Kingdom1Button" type="Button" parent="ButtonZones"]
+[node name="Kingdom1Button" type="Button" parent="ButtonZones" unique_id=1644307764]
 layout_mode = 1
+anchors_preset = -1
 anchor_left = 0.08
 anchor_top = 0.38
 anchor_right = 0.92
@@ -143,8 +144,9 @@ grow_vertical = 2
 focus_mode = 0
 flat = true
 
-[node name="Kingdom2Button" type="Button" parent="ButtonZones"]
+[node name="Kingdom2Button" type="Button" parent="ButtonZones" unique_id=542847210]
 layout_mode = 1
+anchors_preset = -1
 anchor_left = 0.08
 anchor_top = 0.5
 anchor_right = 0.92
@@ -154,20 +156,22 @@ grow_vertical = 2
 focus_mode = 0
 flat = true
 
-[node name="Kingdom3Button" type="Button" parent="ButtonZones"]
+[node name="Kingdom3Button" type="Button" parent="ButtonZones" unique_id=229662731]
 layout_mode = 1
+anchors_preset = -1
 anchor_left = 0.08
 anchor_top = 0.62
 anchor_right = 0.92
 anchor_bottom = 0.83
 grow_horizontal = 2
 grow_vertical = 2
-disabled = true
 focus_mode = 0
+disabled = true
 flat = true
 
-[node name="ButtonHowToPlay" type="Button" parent="ButtonZones"]
+[node name="ButtonHowToPlay" type="Button" parent="ButtonZones" unique_id=37288482]
 layout_mode = 1
+anchors_preset = -1
 anchor_left = 0.06
 anchor_top = 0.925
 anchor_right = 0.36
@@ -177,8 +181,9 @@ grow_vertical = 2
 focus_mode = 0
 flat = true
 
-[node name="ButtonSettings" type="Button" parent="ButtonZones"]
+[node name="ButtonSettings" type="Button" parent="ButtonZones" unique_id=512908610]
 layout_mode = 1
+anchors_preset = -1
 anchor_left = 0.36
 anchor_top = 0.925
 anchor_right = 0.67
@@ -188,8 +193,9 @@ grow_vertical = 2
 focus_mode = 0
 flat = true
 
-[node name="ButtonQuit" type="Button" parent="ButtonZones"]
+[node name="ButtonQuit" type="Button" parent="ButtonZones" unique_id=651984743]
 layout_mode = 1
+anchors_preset = -1
 anchor_left = 0.67
 anchor_top = 0.925
 anchor_right = 0.96

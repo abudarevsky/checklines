@@ -22,6 +22,7 @@ const KINGDOM_FRAME_PADDING := Vector2(12.0, 10.0)
 const KINGDOM_CARD_CONTENT_INSET := Vector2(30.0, 58.0)
 const KINGDOM_DRAG_CLICK_THRESHOLD := 12.0
 const KINGDOM_DOUBLE_PRESS_MS := 500
+const KINGDOM_DOUBLE_TAP_POSITION_TOLERANCE := 20.0
 const HOW_TO_PLAY_ZONE := Rect2(58.0, 1266.0, 230.0, 92.0)
 const SETTINGS_ZONE := Rect2(290.0, 1266.0, 220.0, 92.0)
 const EXIT_ZONE := Rect2(512.0, 1266.0, 214.0, 92.0)
@@ -103,10 +104,6 @@ func _ready():
 	settings_theme_label.get_parent().visible = false
 	_sync_selected_kingdom_from_settings()
 	_update_kingdom_selection()
-	
-	# Initialize touch tracking
-	last_touch_msec = 0
-	last_touch_position = Vector2.ZERO
 
 func _lock_mobile_orientation():
 	if OS.has_feature("android"):
@@ -803,7 +800,9 @@ func _is_double_tap(event: InputEventScreenTouch) -> bool:
 		var position_diff := event.position.distance_to(last_touch_position)
 		
 		# Check if this is a double tap: within threshold time and close position
-		if time_diff <= KINGDOM_DOUBLE_PRESS_MS and position_diff <= 20.0:  # 20 pixel tolerance
+		if time_diff <= KINGDOM_DOUBLE_PRESS_MS and position_diff <= KINGDOM_DOUBLE_TAP_POSITION_TOLERANCE:
+			last_touch_msec = 0
+			last_touch_position = Vector2.ZERO
 			return true
 		
 		# Update last touch info for next comparison
