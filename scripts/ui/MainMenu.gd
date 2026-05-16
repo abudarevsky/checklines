@@ -71,6 +71,8 @@ var kingdom_drag_start_index := -1
 var kingdom_drag_moved := false
 var last_kingdom_press_index := -1
 var last_kingdom_press_msec := 0
+var last_touch_msec := 0
+var last_touch_position := Vector2.ZERO
 
 func _ready():
 	_lock_mobile_orientation()
@@ -101,6 +103,10 @@ func _ready():
 	settings_theme_label.get_parent().visible = false
 	_sync_selected_kingdom_from_settings()
 	_update_kingdom_selection()
+	
+	# Initialize touch tracking
+	last_touch_msec = 0
+	last_touch_position = Vector2.ZERO
 
 func _lock_mobile_orientation():
 	if OS.has_feature("android"):
@@ -639,7 +645,8 @@ func _handle_kingdom_pointer_input(event: InputEvent) -> bool:
 			return false
 		if event.pressed:
 			_start_kingdom_drag(local_position)
-			if event.double_tap and kingdom_drag_start_index >= 0:
+			# Custom double tap detection for mobile to ensure consistency
+			if _is_double_tap(event) and kingdom_drag_start_index >= 0:
 				_on_kingdom_selected(kingdom_drag_start_index)
 				_play_selected_kingdom(kingdom_drag_start_index)
 		else:
@@ -786,6 +793,24 @@ func _apply_localized_text():
 
 func _on_quit_pressed():
 	get_tree().quit()
+
+func _is_double_tap(event: InputEventScreenTouch) -> bool:
+	# For mobile devices, we implement our own double tap detection
+	# to ensure consistent behavior across platforms
+	if event.pressed:
+		var current_msec := Time.get_ticks_msec()
+		var time_diff := current_msec - last_touch_msec
+		var position_diff := event.position.distance_to(last_touch_position)
+		
+		# Check if this is a double tap: within threshold time and close position
+		if time_diff <= KINGDOM_DOUBLE_PRESS_MS and position_diff <= 20.0:  # 20 pixel tolerance
+			return true
+		
+		# Update last touch info for next comparison
+		last_touch_msec = current_msec
+		last_touch_position = event.position
+	
+	return false
 
 func _input(event: InputEvent):
 	if not event.is_action_pressed("ui_cancel"):
