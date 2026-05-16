@@ -44,20 +44,19 @@ func _test_default_theme_puzzle_images() -> String:
 	return ""
 
 func _test_missing_level_image_uses_last_available_index() -> String:
-	var game_board := load("res://scripts/board/GameBoard.gd")
 	var images: Array = [ImageTexture.new()]
 
-	var selected_index: int = game_board._get_puzzle_level_image_index(images, 1)
+	var selected_index: int = ThemeData.get_puzzle_level_image_index(images, 1)
 	if selected_index != 0:
 		return "expected one-image theme level 1 to use image 0, got %d" % selected_index
 
 	images = [ImageTexture.new(), ImageTexture.new()]
-	selected_index = game_board._get_puzzle_level_image_index(images, 2)
+	selected_index = ThemeData.get_puzzle_level_image_index(images, 2)
 	if selected_index != 1:
 		return "expected missing level 2 image to use image 1, got %d" % selected_index
 
 	images = [ImageTexture.new(), null]
-	selected_index = game_board._get_puzzle_level_image_index(images, 1)
+	selected_index = ThemeData.get_puzzle_level_image_index(images, 1)
 	if selected_index != 0:
 		return "expected null level 1 image to use image 0, got %d" % selected_index
 

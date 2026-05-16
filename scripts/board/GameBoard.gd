@@ -707,21 +707,14 @@ func _has_puzzle_levels() -> bool:
 func _get_puzzle_level_texture(level_index: int) -> Texture2D:
 	var theme: ThemeData = _get_puzzle_theme()
 	if theme != null and not theme.puzzle_level_images.is_empty():
-		var image_index := _get_puzzle_level_image_index(theme.puzzle_level_images, level_index)
+		var image_index := ThemeData.get_puzzle_level_image_index(theme.puzzle_level_images, level_index)
 		var level_texture: Texture2D = theme.puzzle_level_images[image_index]
 		if level_texture != null:
 			return level_texture
 	return load("res://assets/ui/themes/default/level0.png") as Texture2D
 
 static func _get_puzzle_level_image_index(puzzle_images: Array, level_index: int) -> int:
-	if puzzle_images.is_empty():
-		return 0
-	if level_index >= 0 and level_index < puzzle_images.size() and puzzle_images[level_index] != null:
-		return level_index
-	for i in range(mini(level_index, puzzle_images.size() - 1), -1, -1):
-		if puzzle_images[i] != null:
-			return i
-	return 0
+	return ThemeData.get_puzzle_level_image_index(puzzle_images, level_index)
 
 static func _get_puzzle_level_tile_count(level_index: int) -> int:
 	return PUZZLE_LEVEL_TILE_COUNTS[clampi(level_index, 0, PUZZLE_LEVEL_TILE_COUNTS.size() - 1)]
@@ -968,6 +961,7 @@ func _apply_puzzle_progress(removed_pieces: int):
 		remaining -= tiles_left
 		_refresh_puzzle_tiles()
 		var completed_level_number := current_puzzle_level + 1
+		Settings.record_kingdom_completed_level(Settings.theme_id, completed_level_number)
 		var level_complete_message := _tf("level_complete", {"number": completed_level_number})
 		_queue_scoring_event(GameManager.build_level_complete_event(completed_level_number))
 		await _show_puzzle_overlay_message(level_complete_message, PUZZLE_LEVEL_COMPLETE_HOLD)
@@ -1209,7 +1203,8 @@ func _on_theme_changed(theme_data, _theme_id: String):
 
 func _update_ui():
 	score_label.text = "%s: %d" % [_t("score"), GameManager.current_score]
-	high_score_label.text = "%s: %d" % [_t("best"), GameManager.high_score]
+	var best_level_display := Settings.get_kingdom_best_level_display(Settings.theme_id)
+	high_score_label.text = "%s: %d | L: %d" % [_t("best"), GameManager.high_score, best_level_display]
 	_update_line_metrics_ui()
 
 func _update_line_metrics_ui():

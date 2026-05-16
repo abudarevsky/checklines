@@ -12,6 +12,14 @@ Use existing assets from:
 assets/sprites/
 ```
 
+Theme-specific chess-piece sets may live under:
+
+```text
+assets/sprites/themes/<theme_id>/png/
+```
+
+Keep the existing `white_<piece>.png` / `black_<piece>.png` naming convention for imported chess art even when a set currently provides only one neutral/tintable sprite per piece type.
+
 Avoid Godot SVG import dependency for runtime rendering.
 
 ## Theme System

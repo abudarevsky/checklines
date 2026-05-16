@@ -30,6 +30,7 @@
 - `assets/sprites/`
   - chess piece SVG sources
   - rendered PNG sprites
+  - theme-specific rendered PNG sprites under `assets/sprites/themes/<theme_id>/png/`
 
 - `themes/`
   - theme resources

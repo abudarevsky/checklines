@@ -54,7 +54,11 @@ func _get_theme():
 			return theme_manager.get_active_theme()
 	return null
 
-func apply_theme(_theme):
+func apply_theme(theme):
+	if theme != null:
+		for child in pieces_container.get_children():
+			if child is Piece:
+				child.apply_theme(theme)
 	_refresh_trap_visuals()
 	queue_redraw()
 

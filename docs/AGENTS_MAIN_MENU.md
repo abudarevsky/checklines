@@ -12,13 +12,16 @@ The intended presentation is a theme-driven art menu with a stable layout:
 
 - full-screen main screen background artwork
 - scrollable kingdom selection area
-- kingdom cards composed from themed kingdom art and themed card-frame artwork
+- kingdom cards composed from themed progression art and themed card-frame artwork
 - bottom action panel with How To Play, Settings, and Exit actions
 - settings dialog with sound, vibration, theme, and language controls
 - full-screen HowToPlay overlay panel
 
 Main screen background images, kingdom card frames, and other menu art may vary by theme.
 The main-screen backdrop should follow the active theme background texture when selection changes, while kingdom-specific art such as the neon frame and card-frame variants may switch with the selected kingdom.
+Playable kingdom cards should use that kingdom's recorded best progression to choose the displayed puzzle image.
+The menu image progression intentionally lags gameplay progression: keep showing puzzle image index `0` until level 2 has been completed, then advance through later available images with the shared theme-image fallback rule.
+Card artwork should fill the visible inner opening by width while allowing the frame's decorative corner elements to remain overlaid.
 Do not change the conceptual menu layout when updating art: keep the scroll area, bottom action panel, and kingdom selection model intact unless explicitly asked to redesign the menu.
 
 Selecting a kingdom is a single tap/click.

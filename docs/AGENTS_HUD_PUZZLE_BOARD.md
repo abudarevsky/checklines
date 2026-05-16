@@ -13,6 +13,8 @@ Puzzle board rules:
 - one removed piece reveals one puzzle tile
 - fully revealing one picture completes one level
 - level-complete score/HUD and puzzle overlay messages use one-based numbering: `"Level $number complete!"`
+- record the maximum completed level per kingdom only when that level is actually completed
+- the best-score HUD text appends the humanized best level as `"Best: $score | L: $number"` and never displays a level lower than `1`
 - gameplay keeps advancing to higher puzzle levels until the board is full
 - puzzle tile counts are 25, 50, 75, then 100 for level 4 and every later level
 - level images come from the active `ThemeData`

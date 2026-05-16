@@ -6,6 +6,7 @@ signal settings_changed
 @export var vibration_enabled: bool = true
 @export var theme_id: String = "neon"
 @export var language_code: String = "en"
+@export var kingdom_progress_levels: Dictionary = {}
 
 const SETTINGS_FILE := "user://settings.cfg"
 const DEFAULT_THEME_ID := "default"
@@ -22,6 +23,7 @@ func save_settings():
 	config.set_value("settings", "vibration_enabled", vibration_enabled)
 	config.set_value("settings", "theme_id", theme_id)
 	config.set_value("settings", "language_code", language_code)
+	config.set_value("progress", "kingdom_levels", kingdom_progress_levels)
 	config.save(SETTINGS_FILE)
 
 func load_settings():
@@ -36,9 +38,11 @@ func load_settings():
 			theme_id = NEON_THEME_ID if legacy_dark_theme else DEFAULT_THEME_ID
 		theme_id = _normalize_theme_id(theme_id)
 		language_code = _normalize_language_code(str(config.get_value("settings", "language_code", DEFAULT_LANGUAGE_CODE)))
+		kingdom_progress_levels = _normalize_kingdom_progress_levels(config.get_value("progress", "kingdom_levels", {}))
 		settings_changed.emit()
 	else:
 		language_code = _get_system_language_code()
+		kingdom_progress_levels = {}
 
 func toggle_sound():
 	sound_enabled = not sound_enabled
@@ -76,6 +80,27 @@ func set_language_code(new_language_code: String):
 	save_settings()
 	settings_changed.emit()
 
+func get_kingdom_max_completed_level(kingdom_id: String) -> int:
+	return maxi(int(kingdom_progress_levels.get(kingdom_id, 0)), 0)
+
+func get_kingdom_best_level_display(kingdom_id: String) -> int:
+	return maxi(get_kingdom_max_completed_level(kingdom_id), 1)
+
+func get_kingdom_menu_image_level_index(kingdom_id: String) -> int:
+	return maxi(get_kingdom_max_completed_level(kingdom_id) - 2, 0)
+
+func record_kingdom_completed_level(kingdom_id: String, completed_level_number: int):
+	if kingdom_id.is_empty():
+		return
+
+	var normalized_level := maxi(completed_level_number, 0)
+	if normalized_level <= get_kingdom_max_completed_level(kingdom_id):
+		return
+
+	kingdom_progress_levels[kingdom_id] = normalized_level
+	save_settings()
+	settings_changed.emit()
+
 func _normalize_theme_id(value: String) -> String:
 	if value == DEFAULT_THEME_ID or value == NEON_THEME_ID:
 		return value
@@ -85,6 +110,18 @@ func _normalize_language_code(value: String) -> String:
 	if value in LANGUAGE_CODES:
 		return value
 	return DEFAULT_LANGUAGE_CODE
+
+func _normalize_kingdom_progress_levels(value: Variant) -> Dictionary:
+	var normalized: Dictionary = {}
+	if value is not Dictionary:
+		return normalized
+
+	for raw_key in value.keys():
+		var kingdom_id := str(raw_key)
+		if kingdom_id.is_empty():
+			continue
+		normalized[kingdom_id] = maxi(int(value[raw_key]), 0)
+	return normalized
 
 func _get_system_language_code() -> String:
 	var locale_language := OS.get_locale_language()

@@ -127,3 +127,13 @@ func get_border_color(piece_color: int) -> Color:
 		2: return right_border_color
 		3: return bottom_border_color
 	return left_border_color
+
+static func get_puzzle_level_image_index(puzzle_images: Array, level_index: int) -> int:
+	if puzzle_images.is_empty():
+		return 0
+	if level_index >= 0 and level_index < puzzle_images.size() and puzzle_images[level_index] != null:
+		return level_index
+	for i in range(mini(level_index, puzzle_images.size() - 1), -1, -1):
+		if puzzle_images[i] != null:
+			return i
+	return 0
