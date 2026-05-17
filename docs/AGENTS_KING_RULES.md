@@ -1,13 +1,13 @@
 # King Rule
 
-Kings are special joker pieces with the following behavior:
+Kings are special pieces with the following behavior:
 
 - can move and capture using standard king movement  
 - cannot be captured by other pieces  
-- can participate in type-based lines as a wildcard (joker)  
 - only one king should exist on the board at a time  
+- enables Royal Lines made from 4 same-type pieces plus King
 
-Kings are not treated as normal pieces for removal unless explicitly part of a valid line.
+Kings are not treated as normal pieces for removal unless explicitly part of a valid scoring formation.
 
 ## Spawn Rule
 
@@ -19,7 +19,8 @@ Kings are not treated as normal pieces for removal unless explicitly part of a v
 - Random spawning must respect per-color inventory limits based on normal chess counts
 - Spawn placement should avoid creating removable lines when an alternative empty cell exists
 - If every remaining empty cell would create a line, spawning may still use one of those cells
-- If normal spawn inventory is exhausted under the current one-king-total rule, remaining empty cells should be filled with kings and the game should end immediately
+- Under normal play, only one King should exist on the board at a time
+- If normal spawn inventory is exhausted, fill the remaining empty cells with Kings and end the game immediately as the terminal fallback
 
 ## Movement Rule
 
@@ -42,15 +43,10 @@ Target pawn rule:
 
 Keep pawn simple and readable.
 
-## King Rule
+## Product Direction
 
-King is a rare special piece.
+The King is the unique anchor piece for Royal Lines.
 
-Possible target role:
-
-- wildcard / joker-like piece
-- only one king should exist on the board at a time
-- king should help difficult line completion
-- king should not introduce separate king-attack gameplay
-
-Do not build current features around attacking or defending kings.
+- only one King should exist on the board at a time
+- the King should support high-value tactical formations
+- the King should not introduce separate king-attack gameplay unless the product definition changes

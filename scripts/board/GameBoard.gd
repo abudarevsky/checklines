@@ -65,6 +65,9 @@ var base_message_position: Vector2 = Vector2.ZERO
 var puzzle_overlay_area_size: Vector2 = Vector2.ZERO
 var default_theme_cache: ThemeData = null
 var forced_sacrifice_spawn_count: int = 0
+var session_total_turns: int = 0
+var session_clean_turns: int = 0
+var current_turn_had_take: bool = false
 
 const TOP_BAR_SHADOW_HEIGHT: float = 5.0
 const BOARD_TOP_GAP: float = 2.0
@@ -1147,6 +1150,7 @@ func _spawn_initial_pieces():
 			break
 
 func _on_capture_made(_piece, _target, captured_piece_type: int):
+	current_turn_had_take = true
 	AudioManager.play_sound("capture")
 	AudioManager.vibrate()
 	_begin_score_message_batch()
@@ -1156,6 +1160,7 @@ func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
 	if is_processing_move:
 		return
 
+	current_turn_had_take = true
 	AudioManager.play_sound("capture")
 	AudioManager.vibrate()
 	var trap_data: Resource = board_manager.get_trap_data(_to)
@@ -1186,6 +1191,7 @@ func _build_trap_disappearance_message(piece_type: int, message_template: String
 func _on_piece_moved(_from, _to):
 	if is_processing_move:
 		return
+	current_turn_had_take = false
 	_resolve_turn()
 
 func _on_score_updated(_new_score: int):
@@ -1213,6 +1219,7 @@ func _update_line_metrics_ui():
 	level_value_label.text = str(current_puzzle_level + 1)
 
 func _on_game_over(final_score: int):
+	_save_clean_turn_mastery()
 	board_manager.set_input_enabled(false)
 	pause_overlay.visible = false
 	game_over_overlay.visible = true
@@ -1235,6 +1242,9 @@ func _on_restart_pressed():
 	pause_overlay.visible = false
 	game_over_overlay.visible = false
 	is_processing_move = false
+	session_total_turns = 0
+	session_clean_turns = 0
+	current_turn_had_take = false
 	GameManager.reset_game()
 	_initialize_game()
 	_update_layout()
@@ -1255,6 +1265,7 @@ func _resolve_turn():
 		var spawned_count: int = _spawn_new_pieces()
 		if spawned_count == 0:
 			board_manager.fill_empty_cells_with_kings()
+			_record_completed_turn()
 			_check_game_over()
 			_flush_score_message_batch()
 			is_processing_move = false
@@ -1263,6 +1274,7 @@ func _resolve_turn():
 		await _resolve_chain_waves()
 
 	await get_tree().create_timer(0.3).timeout
+	_record_completed_turn()
 	_check_game_over()
 
 	_flush_score_message_batch()
@@ -1279,6 +1291,7 @@ func _resolve_sacrifice_turn(spawn_count: int):
 	var spawned_count: int = _spawn_new_pieces(spawn_count)
 	if spawned_count == 0:
 		board_manager.fill_empty_cells_with_kings()
+		_record_completed_turn()
 		_check_game_over()
 		_flush_score_message_batch()
 		is_processing_move = false
@@ -1287,12 +1300,22 @@ func _resolve_sacrifice_turn(spawn_count: int):
 	await get_tree().create_timer(0.3).timeout
 	await _resolve_chain_waves()
 	await get_tree().create_timer(0.3).timeout
+	_record_completed_turn()
 	_check_game_over()
 
 	_flush_score_message_batch()
 	is_processing_move = false
 	if not game_over_overlay.visible and not pause_overlay.visible:
 		board_manager.set_input_enabled(true)
+
+func _record_completed_turn():
+	session_total_turns += 1
+	if not current_turn_had_take:
+		session_clean_turns += 1
+	current_turn_had_take = false
+
+func _save_clean_turn_mastery():
+	Settings.record_kingdom_clean_turn_session(Settings.theme_id, session_clean_turns, session_total_turns)
 
 func _resolve_chain_waves() -> bool:
 	var cleared_any := false

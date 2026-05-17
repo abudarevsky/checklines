@@ -7,6 +7,7 @@ signal settings_changed
 @export var theme_id: String = "neon"
 @export var language_code: String = "en"
 @export var kingdom_progress_levels: Dictionary = {}
+@export var kingdom_clean_turn_stats: Dictionary = {}
 
 const SETTINGS_FILE := "user://settings.cfg"
 const DEFAULT_THEME_ID := "default"
@@ -24,6 +25,7 @@ func save_settings():
 	config.set_value("settings", "theme_id", theme_id)
 	config.set_value("settings", "language_code", language_code)
 	config.set_value("progress", "kingdom_levels", kingdom_progress_levels)
+	config.set_value("progress", "kingdom_clean_turn_stats", kingdom_clean_turn_stats)
 	config.save(SETTINGS_FILE)
 
 func load_settings():
@@ -39,10 +41,12 @@ func load_settings():
 		theme_id = _normalize_theme_id(theme_id)
 		language_code = _normalize_language_code(str(config.get_value("settings", "language_code", DEFAULT_LANGUAGE_CODE)))
 		kingdom_progress_levels = _normalize_kingdom_progress_levels(config.get_value("progress", "kingdom_levels", {}))
+		kingdom_clean_turn_stats = _normalize_kingdom_clean_turn_stats(config.get_value("progress", "kingdom_clean_turn_stats", {}))
 		settings_changed.emit()
 	else:
 		language_code = _get_system_language_code()
 		kingdom_progress_levels = {}
+		kingdom_clean_turn_stats = {}
 
 func toggle_sound():
 	sound_enabled = not sound_enabled
@@ -101,6 +105,40 @@ func record_kingdom_completed_level(kingdom_id: String, completed_level_number: 
 	save_settings()
 	settings_changed.emit()
 
+func get_kingdom_progress_badge_tier(kingdom_id: String) -> int:
+	return clampi(get_kingdom_max_completed_level(kingdom_id), 0, 3)
+
+func record_kingdom_clean_turn_session(kingdom_id: String, clean_turns: int, total_turns: int):
+	if kingdom_id.is_empty() or total_turns <= 0:
+		return
+
+	var current_best := get_kingdom_best_clean_turn_percent(kingdom_id)
+	var session_percent := float(clean_turns) / float(total_turns) * 100.0
+	if session_percent <= current_best:
+		return
+
+	kingdom_clean_turn_stats[kingdom_id] = {
+		"best_percent": session_percent,
+		"clean_turns": maxi(clean_turns, 0),
+		"total_turns": maxi(total_turns, 0)
+	}
+	save_settings()
+	settings_changed.emit()
+
+func get_kingdom_best_clean_turn_percent(kingdom_id: String) -> float:
+	var stats: Dictionary = kingdom_clean_turn_stats.get(kingdom_id, {})
+	return maxf(float(stats.get("best_percent", 0.0)), 0.0)
+
+func get_kingdom_tactical_badge_tier(kingdom_id: String) -> int:
+	var best_percent := get_kingdom_best_clean_turn_percent(kingdom_id)
+	if best_percent >= 25.0:
+		return 3
+	if best_percent >= 15.0:
+		return 2
+	if best_percent >= 5.0:
+		return 1
+	return 0
+
 func _normalize_theme_id(value: String) -> String:
 	if value == DEFAULT_THEME_ID or value == NEON_THEME_ID:
 		return value
@@ -121,6 +159,23 @@ func _normalize_kingdom_progress_levels(value: Variant) -> Dictionary:
 		if kingdom_id.is_empty():
 			continue
 		normalized[kingdom_id] = maxi(int(value[raw_key]), 0)
+	return normalized
+
+func _normalize_kingdom_clean_turn_stats(value: Variant) -> Dictionary:
+	var normalized: Dictionary = {}
+	if value is not Dictionary:
+		return normalized
+
+	for raw_key in value.keys():
+		var kingdom_id := str(raw_key)
+		if kingdom_id.is_empty() or value[raw_key] is not Dictionary:
+			continue
+		var raw_stats: Dictionary = value[raw_key]
+		normalized[kingdom_id] = {
+			"best_percent": maxf(float(raw_stats.get("best_percent", 0.0)), 0.0),
+			"clean_turns": maxi(int(raw_stats.get("clean_turns", 0)), 0),
+			"total_turns": maxi(int(raw_stats.get("total_turns", 0)), 0)
+		}
 	return normalized
 
 func _get_system_language_code() -> String:

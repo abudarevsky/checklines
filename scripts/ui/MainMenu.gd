@@ -1,5 +1,7 @@
 extends Control
 
+const MenuBadgeShieldScript = preload("res://scripts/ui/MenuBadgeShield.gd")
+const MenuRoadPlayButtonScript = preload("res://scripts/ui/MenuRoadPlayButton.gd")
 const MAIN_SCREEN_BACKGROUND_TEXTURE := preload("res://assets/ui/themes/main_screen/background_image.png")
 const MAIN_SCREEN_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/main_screen_backround_mainframe.png")
 const KINGDOM_2_MAIN_SCREEN_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/main_screen_mainframe_neon_bg.png")
@@ -29,6 +31,10 @@ const KINGDOM_CARD_CONTENT_INSET := Vector2(12.0, 58.0)
 const KINGDOM_DRAG_CLICK_THRESHOLD := 12.0
 const KINGDOM_DOUBLE_PRESS_MS := 500
 const KINGDOM_DOUBLE_TAP_POSITION_TOLERANCE := 20.0
+const BEST_SCORE_RECT := Rect2(44.0, 202.0, 680.0, 42.0)
+const BADGE_SIZE := Vector2(78.0, 86.0)
+const BADGE_GAP := 8.0
+const PLAY_BUTTON_SIZE := Vector2(188.0, 86.0)
 const HOW_TO_PLAY_ZONE := Rect2(58.0, 1266.0, 230.0, 92.0)
 const SETTINGS_ZONE := Rect2(290.0, 1266.0, 220.0, 92.0)
 const EXIT_ZONE := Rect2(512.0, 1266.0, 214.0, 92.0)
@@ -48,7 +54,8 @@ const EXIT_ZONE := Rect2(512.0, 1266.0, 214.0, 92.0)
 @onready var button_settings: Button = $ButtonZones/ButtonSettings
 @onready var button_quit: Button = $ButtonZones/ButtonQuit
 @onready var how_to_play_header: Label = $HowToPlayPanel/HowToPlayCenter/InstructionsContainer/Header
-@onready var how_to_play_instructions: RichTextLabel = $HowToPlayPanel/HowToPlayCenter/InstructionsContainer/Instructions
+@onready var how_to_play_instructions: RichTextLabel = $HowToPlayPanel/HowToPlayCenter/InstructionsContainer/HelpScroll/HelpContent/Instructions
+@onready var how_to_play_badge_row: VBoxContainer = $HowToPlayPanel/HowToPlayCenter/InstructionsContainer/HelpScroll/HelpContent/BadgeGuideRow
 @onready var button_back: Button = $HowToPlayPanel/HowToPlayCenter/InstructionsContainer/ButtonRow/ButtonBack
 @onready var settings_title_label: Label = $SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/SettingsTitle
 @onready var settings_sound_label: Label = $SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/SoundRow/SoundLabel
@@ -70,7 +77,12 @@ var kingdom_scroll_top_fade: ColorRect
 var kingdom_scroll_bottom_fade: ColorRect
 var kingdom_frame_nodes: Array[TextureRect] = []
 var kingdom_card_nodes: Array[TextureRect] = []
+var kingdom_badge_nodes: Array[Array] = []
+var kingdom_play_button_nodes: Array[Button] = []
+var has_user_selected_kingdom := false
+var pending_play_button_animation_index := -1
 var kingdom_coming_soon_label: Label
+var best_score_label: Label
 var kingdom_frame_material: ShaderMaterial
 var selected_kingdom_index := 0
 var kingdom_drag_active := false
@@ -167,6 +179,10 @@ func apply_theme(theme_data):
 	settings_vibration_label.add_theme_font_override("font", body_font)
 	settings_theme_label.add_theme_font_override("font", body_font)
 	settings_language_label.add_theme_font_override("font", body_font)
+	if best_score_label != null:
+		best_score_label.add_theme_font_override("font", title_font)
+		best_score_label.add_theme_font_size_override("font_size", 42)
+		best_score_label.add_theme_color_override("font_color", Color(0.97, 0.78, 0.36, 1.0))
 	settings_panel.add_theme_stylebox_override("panel", dialog_panel_style)
 	_apply_dialog_button_style(
 		settings_sound_button,
@@ -258,6 +274,7 @@ func apply_theme(theme_data):
 	_apply_button_zone_style(button_kingdom_1)
 	_apply_button_zone_style(button_kingdom_2)
 	_apply_button_zone_style(button_kingdom_3)
+	_build_how_to_play_badge_guide(body_font, theme_data)
 	_apply_button_zone_style(button_how_to_play)
 	_apply_button_zone_style(button_settings)
 	_apply_button_zone_style(button_quit)
@@ -285,6 +302,15 @@ func _build_kingdom_screen():
 
 	main_frame_node = _create_texture_rect("MainFrame", MAIN_SCREEN_FRAME_TEXTURE, Rect2(Vector2.ZERO, DESIGN_SIZE))
 	kingdom_design_root.add_child(main_frame_node)
+
+	best_score_label = Label.new()
+	best_score_label.name = "BestScoreLabel"
+	best_score_label.position = BEST_SCORE_RECT.position
+	best_score_label.size = BEST_SCORE_RECT.size
+	best_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	best_score_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	best_score_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	kingdom_design_root.add_child(best_score_label)
 
 	kingdom_scroll = ScrollContainer.new()
 	kingdom_scroll.name = "KingdomScroll"
@@ -323,6 +349,8 @@ func _build_kingdom_screen():
 	kingdom_frame_material = _build_frame_mask_material()
 	kingdom_frame_nodes.clear()
 	kingdom_card_nodes.clear()
+	kingdom_badge_nodes.clear()
+	kingdom_play_button_nodes.clear()
 	var kingdom_textures: Array[Texture2D] = [
 		_get_kingdom_card_texture(0),
 		_get_kingdom_card_texture(1),
@@ -338,6 +366,9 @@ func _build_kingdom_screen():
 		kingdom_scroll_content.add_child(frame)
 		kingdom_frame_nodes.append(frame)
 		kingdom_card_nodes.append(card)
+		kingdom_badge_nodes.append(_create_kingdom_badges(i, frame_rect))
+		if i < 2:
+			kingdom_play_button_nodes.append(_create_kingdom_play_button(i, frame_rect))
 
 	kingdom_coming_soon_label = Label.new()
 	kingdom_coming_soon_label.name = "Kingdom3ComingSoon"
@@ -348,9 +379,11 @@ func _build_kingdom_screen():
 	kingdom_scroll_content.add_child(kingdom_coming_soon_label)
 
 	_reparent_kingdom_buttons_to_scroll()
+	_raise_play_buttons()
 
 	_update_kingdom_screen_layout()
 	_update_kingdom_selection()
+	_update_best_score_label()
 
 func _get_kingdom_frame_rect(card_rect: Rect2) -> Rect2:
 	return Rect2(
@@ -363,6 +396,50 @@ func _get_kingdom_card_content_rect(frame_rect: Rect2) -> Rect2:
 		frame_rect.position + KINGDOM_CARD_CONTENT_INSET,
 		frame_rect.size - KINGDOM_CARD_CONTENT_INSET * 2.0
 	)
+
+func _create_kingdom_badges(kingdom_index: int, frame_rect: Rect2) -> Array:
+	var badges: Array = []
+	for badge_index in range(3):
+		var badge := MenuBadgeShieldScript.new()
+		badge.name = "Kingdom%dBadge%d" % [kingdom_index + 1, badge_index + 1]
+		badge.size = BADGE_SIZE
+		badge.kind = badge_index
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		kingdom_scroll_content.add_child(badge)
+		badges.append(badge)
+	_layout_badge_row(badges, frame_rect)
+	return badges
+
+func _layout_badge_row(badges: Array, frame_rect: Rect2):
+	var x := frame_rect.position.x + 36.0
+	var total_height := BADGE_SIZE.y * badges.size() + BADGE_GAP * maxf(badges.size() - 1, 0)
+	var baseline_y := frame_rect.position.y + (frame_rect.size.y - total_height) * 0.5 + float(badges.size() - 1) * (BADGE_SIZE.y + BADGE_GAP)
+	for i in range(badges.size()):
+		var badge: Control = badges[i]
+		badge.position = Vector2(x + float(i) * (BADGE_SIZE.x + BADGE_GAP), baseline_y)
+
+func _create_kingdom_play_button(kingdom_index: int, frame_rect: Rect2) -> Button:
+	var button := MenuRoadPlayButtonScript.new()
+	button.name = "Kingdom%dPlayButton" % [kingdom_index + 1]
+	button.text = Localization.t("play")
+	button.visible = false
+	button.z_index = 140
+	button.pressed.connect(_play_selected_kingdom.bind(kingdom_index))
+	button.add_theme_font_size_override("font_size", 34)
+	button.add_theme_color_override("font_color", Color(1.0, 0.92, 0.76, 0.98))
+	button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	button.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
+	button.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
+	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	kingdom_scroll_content.add_child(button)
+	_layout_play_button(button, frame_rect)
+	return button
+
+func _layout_play_button(button: Button, frame_rect: Rect2):
+	var total_stack_height := BADGE_SIZE.y * 3.0 + BADGE_GAP * 2.0
+	var baseline_y := frame_rect.position.y + (frame_rect.size.y - total_stack_height) * 0.5 + float(2) * (BADGE_SIZE.y + BADGE_GAP)
+	button.position = Vector2(frame_rect.end.x - PLAY_BUTTON_SIZE.x - 36.0, baseline_y)
+	button.size = PLAY_BUTTON_SIZE
 
 func _build_frame_mask_material() -> ShaderMaterial:
 	var shader := Shader.new()
@@ -459,6 +536,10 @@ func _update_kingdom_screen_layout():
 		var label_rect := KINGDOM_CARD_RECTS[2].grow(-24.0)
 		kingdom_coming_soon_label.position = label_rect.position
 		kingdom_coming_soon_label.size = label_rect.size
+	for i in range(kingdom_badge_nodes.size()):
+		_layout_badge_row(kingdom_badge_nodes[i], _get_kingdom_frame_rect(KINGDOM_CARD_RECTS[i]))
+	for i in range(kingdom_play_button_nodes.size()):
+		_layout_play_button(kingdom_play_button_nodes[i], _get_kingdom_frame_rect(KINGDOM_CARD_RECTS[i]))
 
 func _reparent_kingdom_buttons_to_scroll():
 	if kingdom_scroll_content == null:
@@ -466,6 +547,10 @@ func _reparent_kingdom_buttons_to_scroll():
 	for button in [button_kingdom_1, button_kingdom_2, button_kingdom_3]:
 		if button.get_parent() != kingdom_scroll_content:
 			button.reparent(kingdom_scroll_content)
+
+func _raise_play_buttons():
+	for button in kingdom_play_button_nodes:
+		kingdom_scroll_content.move_child(button, kingdom_scroll_content.get_child_count() - 1)
 
 func _layout_scroll_button_zone(button: Button, content_rect: Rect2):
 	if button == null:
@@ -500,6 +585,8 @@ func _update_kingdom_selection():
 		kingdom_frame_nodes[i].modulate = Color.WHITE
 		kingdom_card_nodes[i].modulate = Color(1, 1, 1, 1) if i < 2 else Color(0.34, 0.34, 0.38, 0.72)
 	button_kingdom_3.disabled = true
+	_update_kingdom_badges()
+	_update_kingdom_play_buttons()
 
 func _get_kingdom_frame_texture(kingdom_index: int, is_active: bool) -> Texture2D:
 	if kingdom_index == 1:
@@ -507,14 +594,14 @@ func _get_kingdom_frame_texture(kingdom_index: int, is_active: bool) -> Texture2
 	return ACTIVE_CARD_FRAME_TEXTURE if is_active else INACTIVE_CARD_FRAME_TEXTURE
 
 func _get_kingdom_card_texture(kingdom_index: int) -> Texture2D:
-	var theme := _get_kingdom_theme(kingdom_index)
-	if theme == null or theme.puzzle_level_images.is_empty():
+	var kingdom_theme := _get_kingdom_theme(kingdom_index)
+	if kingdom_theme == null or kingdom_theme.puzzle_level_images.is_empty():
 		return KINGDOM_1_TEXTURE if kingdom_index == 0 else KINGDOM_2_TEXTURE
 
 	var theme_id := str(KINGDOM_THEME_IDS[kingdom_index])
 	var level_index := Settings.get_kingdom_menu_image_level_index(theme_id)
-	var image_index := ThemeData.get_puzzle_level_image_index(theme.puzzle_level_images, level_index)
-	return theme.puzzle_level_images[image_index] as Texture2D
+	var image_index := ThemeData.get_puzzle_level_image_index(kingdom_theme.puzzle_level_images, level_index)
+	return kingdom_theme.puzzle_level_images[image_index] as Texture2D
 
 func _get_kingdom_theme(kingdom_index: int) -> ThemeData:
 	match kingdom_index:
@@ -535,6 +622,95 @@ func _style_coming_soon_label(theme_data: ThemeData, font: Font):
 	kingdom_coming_soon_label.add_theme_color_override("font_color", theme_data.dialog_body_color)
 	kingdom_coming_soon_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.82))
 	kingdom_coming_soon_label.add_theme_constant_override("outline_size", 5)
+
+func _build_how_to_play_badge_guide(body_font: Font, theme_data: ThemeData):
+	for child in how_to_play_badge_row.get_children():
+		child.queue_free()
+
+	var badge_specs := [
+		{
+			"kind": MenuBadgeShieldScript.Kind.PROGRESSION,
+			"body": Localization.t("badge_progression_summary")
+		},
+		{
+			"kind": MenuBadgeShieldScript.Kind.TACTICAL,
+			"body": Localization.t("badge_tactical_summary")
+		},
+		{
+			"kind": MenuBadgeShieldScript.Kind.CAMPAIGN,
+			"body": Localization.t("badge_campaign_summary")
+		}
+	]
+
+	for spec in badge_specs:
+		var panel := VBoxContainer.new()
+		panel.add_theme_constant_override("separation", 10)
+
+		var state_row := HBoxContainer.new()
+		state_row.add_theme_constant_override("separation", 10)
+		state_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		for tier in [
+			MenuBadgeShieldScript.Tier.EMPTY,
+			MenuBadgeShieldScript.Tier.BRONZE,
+			MenuBadgeShieldScript.Tier.SILVER,
+			MenuBadgeShieldScript.Tier.GOLD
+		]:
+			var badge := MenuBadgeShieldScript.new()
+			badge.custom_minimum_size = Vector2(78, 86)
+			badge.size = Vector2(78, 86)
+			badge.kind = int(spec["kind"])
+			badge.tier = int(tier)
+			badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			state_row.add_child(badge)
+		panel.add_child(state_row)
+
+		var body := Label.new()
+		body.text = str(spec["body"])
+		body.custom_minimum_size = Vector2(560, 0)
+		body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		body.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body.add_theme_font_override("font", body_font)
+		body.add_theme_font_size_override("font_size", 28)
+		body.add_theme_color_override("font_color", theme_data.dialog_body_color)
+		panel.add_child(body)
+
+		how_to_play_badge_row.add_child(panel)
+
+func _update_best_score_label():
+	if best_score_label != null:
+		best_score_label.text = "%s: %d" % [Localization.t("your_best"), GameManager.high_score]
+
+func _update_kingdom_badges():
+	for i in range(kingdom_badge_nodes.size()):
+		var badges: Array = kingdom_badge_nodes[i]
+		if badges.size() < 3:
+			continue
+		var theme_id := str(KINGDOM_THEME_IDS[i])
+		badges[0].tier = Settings.get_kingdom_progress_badge_tier(theme_id)
+		badges[0].progress_level = Settings.get_kingdom_max_completed_level(theme_id)
+		badges[1].tier = Settings.get_kingdom_tactical_badge_tier(theme_id)
+		badges[2].tier = MenuBadgeShieldScript.Tier.EMPTY
+
+func _update_kingdom_play_buttons():
+	for i in range(kingdom_play_button_nodes.size()):
+		var button: Button = kingdom_play_button_nodes[i]
+		button.text = Localization.t("play")
+		button.visible = i == selected_kingdom_index and not how_to_play_panel.visible and not settings_panel.visible
+		if not button.visible:
+			continue
+		if not has_user_selected_kingdom:
+			button.show_complete()
+			continue
+		if pending_play_button_animation_index == i:
+			button.play_unroll()
+		else:
+			button.show_complete()
+	if pending_play_button_animation_index >= 0:
+		call_deferred("_clear_pending_play_button_animation")
+
+func _clear_pending_play_button_animation():
+	pending_play_button_animation_index = -1
 
 func _build_menu_font(font_names: PackedStringArray, font_weight: int) -> SystemFont:
 	var font := SystemFont.new()
@@ -637,9 +813,14 @@ func _apply_theme_selector_popup_style(option_button: OptionButton, body_font: F
 func _on_kingdom_selected(kingdom_index: int):
 	if kingdom_index >= 2:
 		return
+	has_user_selected_kingdom = true
+	pending_play_button_animation_index = kingdom_index
 	selected_kingdom_index = kingdom_index
-	Settings.set_theme_id("neon" if kingdom_index == 1 else "default")
-	_update_kingdom_selection()
+	var next_theme_id := "neon" if kingdom_index == 1 else "default"
+	if Settings.theme_id == next_theme_id:
+		_update_kingdom_selection()
+	else:
+		Settings.set_theme_id(next_theme_id)
 
 func _on_kingdom_pressed(kingdom_index: int):
 	if kingdom_index >= 2:
@@ -735,17 +916,21 @@ func _play_selected_kingdom(kingdom_index: int):
 func _on_how_to_play_pressed():
 	settings_panel.visible = false
 	how_to_play_panel.visible = true
+	_update_kingdom_play_buttons()
 
 func _on_back_pressed():
 	how_to_play_panel.visible = false
+	_update_kingdom_play_buttons()
 
 func _on_settings_pressed():
 	how_to_play_panel.visible = false
 	settings_panel.visible = true
 	_sync_settings_ui()
+	_update_kingdom_play_buttons()
 
 func _on_settings_close_pressed():
 	settings_panel.visible = false
+	_update_kingdom_play_buttons()
 
 func _on_settings_sound_pressed():
 	Settings.toggle_sound()
@@ -769,6 +954,7 @@ func _on_settings_changed():
 	_populate_language_selector()
 	_sync_settings_ui()
 	_update_kingdom_selection()
+	_update_best_score_label()
 
 func _on_theme_changed(_theme_data, _theme_id):
 	apply_theme(_get_theme())

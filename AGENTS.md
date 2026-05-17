@@ -18,7 +18,7 @@ This file is the short entrypoint for coding and reasoning agents. Detailed proj
 
 ## Project Snapshot
 
-Check Lines is a Godot 4.6 puzzle game combining classic Lines-style clearing with chess-piece movement on a fixed 8x8 board. The current design is closer to classic Lines than chess combat: players move colored chess pieces, clear lines of 5+ matching colors or 5+ matching piece types, and reveal puzzle artwork through removals.
+Check Lines is the current codebase for the Royal Lines product direction: a Godot 4.6 tactical survival puzzle game on a fixed 8x8 board that combines chess-inspired movement, line formation, dynamic traps, and survival pressure. Players build color lines, type lines, and Royal Lines while adapting to kingdom-specific challenges over repeated runs.
 
 Core constraints:
 
@@ -44,6 +44,7 @@ Core constraints:
 ## Task Routing
 
 - Gameplay rules: `docs/AGENTS_PROJECT_CONTEXT.md`, `docs/AGENTS_REMOVAL_RULES.md`, `docs/AGENTS_ATTACK_RULES.md`, `docs/AGENTS_KING_RULES.md`, `docs/AGENTS_MOVE_VALIDATION.md`, `docs/AGENTS_LINE_DETECTION.md`.
+- Product vision, kingdoms, badges, campaigns, rewards: `docs/AGENTS_ROYAL_LINES_DESIGN.md`.
 - Spawning and inventory: `docs/AGENTS_PIECE_DISTRIBUTION.md`, `docs/AGENTS_GAME_STATE_OWNERSHIP.md`.
 - Scoring and HUD messages: `docs/AGENTS_SCORING_RULES.md`, `docs/AGENTS_HUD_PUZZLE_BOARD.md`.
 - Theme or rendering changes: `docs/AGENTS_RENDERING.md`, `docs/AGENTS_CONSTANTS.md`.

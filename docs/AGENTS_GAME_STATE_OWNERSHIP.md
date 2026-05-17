@@ -35,7 +35,7 @@ Owns or coordinates:
 - score updates
 - UI updates
 - game-over condition
-- exhausted-spawn fallback to king-filled board ending
+- exhausted-spawn terminal fallback to a king-filled board ending
 
 ### `SpawnPlanner.gd`
 
@@ -71,4 +71,3 @@ Owns:
 - the paper-like fill, outline, and simple lighting of puzzle cover tiles
 
 Keep puzzle tile cover work here instead of reverting to flat `ColorRect` tiles.
-

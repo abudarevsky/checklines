@@ -51,7 +51,7 @@ Core functionality:
 12. At most one king exists on the board at any time
 13. No color exceeds chess-style inventory limits for any piece type
 14. Spawn placement avoids immediate line clears when another empty cell exists
-15. If normal spawn inventory is exhausted, remaining empty cells are filled with kings before game over
+15. If normal spawn inventory is exhausted, remaining empty cells are filled with Kings before game over
 
 Attack highlighting:
 

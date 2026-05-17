@@ -3,6 +3,7 @@
 Root `AGENTS.md` is the canonical source. These files are extracted slices meant to reduce context pressure for local-model work.
 
 - `AGENTS_PROJECT_CONTEXT.md` - project overview, board, colors, piece types
+- `AGENTS_ROYAL_LINES_DESIGN.md` - concise target design, kingdoms, badges, campaigns, rewards
 - `AGENTS_REMOVAL_RULES.md` - line scoring rules
 - `AGENTS_ATTACK_RULES.md` - capture and attack constraints
 - `AGENTS_KING_RULES.md` - king behavior, spawn, movement, pawn rule
@@ -22,5 +23,4 @@ Root `AGENTS.md` is the canonical source. These files are extracted slices meant
 - `AGENTS_PIECE_DISTRIBUTION.md` - random generation and inventory limits
 - `AGENTS_DEVELOPMENT_RULES.md` - edit/refactor constraints
 - `AGENTS_TESTING.md` - syntax checks and manual checklist
-- `AGENTS_CURRENT_WORKING_DEFINITION.md` - concise end-state summary
-
+- `AGENTS_CURRENT_WORKING_DEFINITION.md` - concise current target summary

@@ -1,4 +1,15 @@
 # Current Working Definition
 
-Check Lines is a Lines-style puzzle game on an 8x8 chess-sized board where colored chess pieces are moved using chess-inspired movement rules. The player clears lines of 5+ matching colors or 5+ matching piece types, can make limited color-based captures that do not score by themselves, and reveals puzzle artwork through piece removals during play. Random spawning respects chess-like per-color piece inventories, avoids immediate line-making placements when alternatives exist, and under the current one-king-total rule ends by filling remaining empty cells with kings when normal spawn inventory is exhausted.
+Royal Lines is the current target design for this codebase: a tactical survival strategy game on an 8x8 chess-sized board that combines chess-inspired movement, line formation, dynamic traps, and survival pressure.
 
+The player builds:
+
+- color lines
+- type lines
+- Royal Lines made from 4 same-type pieces plus the only King on the board
+
+The player aims to survive, optimize score, adapt tactically, and play elegantly across themed kingdoms with distinct traps and four difficulty levels. Level 4 is an endless prestige mode rather than a truly completable level.
+
+Mastery is expressed through persistent kingdom badges for progression, tactical efficiency, and campaign success. Optional short campaigns are generated from board state when they are likely achievable, and rewards stay cosmetic, prestige-oriented, mastery-oriented, and non-grindy.
+
+For the concise target-design summary, read `AGENTS_ROYAL_LINES_DESIGN.md`.

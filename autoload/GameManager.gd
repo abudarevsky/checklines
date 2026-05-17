@@ -51,18 +51,27 @@ signal game_over(final_score: int)
 signal line_metrics_updated(color_lines: int, type_lines: int)
 
 func _ready():
-	load_high_score()
+	load_game_state()
 
-func load_high_score():
+func load_game_state():
 	var config := ConfigFile.new()
 	if config.load("user://settings.cfg") == OK:
+		current_score = config.get_value("game", "current_score", 0)
 		high_score = config.get_value("game", "high_score", 0)
+		color_lines_cleared = config.get_value("game", "color_lines_cleared", 0)
+		type_lines_cleared = config.get_value("game", "type_lines_cleared", 0)
 
-func save_high_score():
+func save_game_state():
 	var config := ConfigFile.new()
 	config.load("user://settings.cfg")
+	config.set_value("game", "current_score", current_score)
 	config.set_value("game", "high_score", high_score)
+	config.set_value("game", "color_lines_cleared", color_lines_cleared)
+	config.set_value("game", "type_lines_cleared", type_lines_cleared)
 	config.save("user://settings.cfg")
+
+func save_high_score():
+	save_game_state()
 
 func add_score(points: int):
 	current_score = maxi(current_score + points, 0)
@@ -331,9 +340,10 @@ func reset_game():
 	line_metrics_updated.emit(color_lines_cleared, type_lines_cleared)
 
 func end_game():
-	game_over.emit(current_score)
 	if current_score >= high_score:
-		save_high_score()
+		high_score = current_score
+		save_game_state()
+	game_over.emit(current_score)
 
 func get_piece_spawn_weights() -> Array[float]:
 	return [0.37, 0.23, 0.16, 0.12, 0.10, 0.02]
