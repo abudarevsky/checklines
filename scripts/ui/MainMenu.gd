@@ -645,10 +645,12 @@ func _build_how_to_play_badge_guide(body_font: Font, theme_data: ThemeData):
 	for spec in badge_specs:
 		var panel := VBoxContainer.new()
 		panel.add_theme_constant_override("separation", 10)
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 		var state_row := HBoxContainer.new()
 		state_row.add_theme_constant_override("separation", 10)
 		state_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		state_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		for tier in [
 			MenuBadgeShieldScript.Tier.EMPTY,
 			MenuBadgeShieldScript.Tier.BRONZE,
@@ -661,6 +663,7 @@ func _build_how_to_play_badge_guide(body_font: Font, theme_data: ThemeData):
 			badge.kind = int(spec["kind"])
 			badge.tier = int(tier)
 			badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			state_row.add_child(badge)
 		panel.add_child(state_row)
 
@@ -670,6 +673,7 @@ func _build_how_to_play_badge_guide(body_font: Font, theme_data: ThemeData):
 		body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		body.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		body.add_theme_font_override("font", body_font)
 		body.add_theme_font_size_override("font_size", 28)
 		body.add_theme_color_override("font_color", theme_data.dialog_body_color)
