@@ -17,7 +17,10 @@ static func get_default_trap_id() -> String:
 static func _build_swallow_trap() -> Resource:
 	var trap := TrapDataScript.new()
 	trap.id = SWALLOW_TRAP_ID
-	trap.display_name = "Swallow"
+	trap.display_name = "Big Swamp"
+	trap.description = "I'll chew you up and spit you out."
+	trap.display_name_key = "trap_swallow_name"
+	trap.description_key = "trap_swallow_description"
 	trap.behavior = TrapDataScript.Behavior.SWALLOW_AND_EMIT
 	trap.level_spawn_counts = PackedInt32Array([2, 2, 3])
 	trap.base_color = Color(0.42, 0.56, 0.66, 0.3)

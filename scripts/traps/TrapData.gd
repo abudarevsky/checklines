@@ -5,6 +5,9 @@ enum Behavior { SWALLOW_AND_EMIT }
 
 @export var id: String = ""
 @export var display_name: String = ""
+@export var description: String = ""
+@export var display_name_key: String = ""
+@export var description_key: String = ""
 @export var behavior: Behavior = Behavior.SWALLOW_AND_EMIT
 @export var level_spawn_counts: PackedInt32Array = PackedInt32Array([2, 3, 3])
 @export var base_color: Color = Color(0.84, 0.84, 0.78, 0.72)

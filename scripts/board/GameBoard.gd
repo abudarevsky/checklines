@@ -1,7 +1,5 @@
 extends Node2D
 
-const PuzzleTileCover = preload("res://scripts/ui/PuzzleTileCover.gd")
-
 @onready var board_manager = $BoardManager
 @onready var screen_background: ColorRect = $ScreenBackground
 @onready var screen_gradient: TextureRect = $ScreenGradient
@@ -104,7 +102,8 @@ const PUZZLE_MESSAGE_BANNER_MIN_HEIGHT: float = 76.0
 const PUZZLE_MESSAGE_BANNER_MAX_HEIGHT: float = 112.0
 const PUZZLE_MESSAGE_BANNER_FLIGHT_DURATION: float = 0.96
 const PUZZLE_MESSAGE_BANNER_HOLD_DURATION: float = 1.0
-const TRAP_COUNTS_BY_LEVEL: Array[int] = [0, 1, 2]
+const TRAP_COUNTS_BY_LEVEL: Array[int] = [0, 1, 2, 3]
+const TRAP_KING_TRIGGER_LEVEL: int = 3
 const DEBUG_HUD_LAYOUT: bool = false
 
 func _ready():
@@ -450,6 +449,8 @@ func _apply_icon_button_style(
 func _setup_signals():
 	board_manager.piece_selected.connect(_on_piece_selected)
 	board_manager.piece_deselected.connect(_on_piece_deselected)
+	board_manager.trap_selected.connect(_on_trap_selected)
+	board_manager.trap_deselected.connect(_on_trap_deselected)
 	board_manager.capture_made.connect(_on_capture_made)
 	board_manager.piece_moved.connect(_on_piece_moved)
 	board_manager.piece_sacrificed.connect(_on_piece_sacrificed)
@@ -522,21 +523,25 @@ func _update_move_hint_layout(board_x: float, hint_y: float, board_width: float)
 	move_hint_panel.offset_bottom = hint_y + MOVE_HINT_HEIGHT
 
 func _update_screen_backdrop(viewport_size: Vector2):
-	screen_background.position = Vector2.ZERO
-	screen_background.size = viewport_size
+	_update_viewport_sized_control(screen_background, viewport_size)
 	screen_background.z_index = -100
 
-	screen_gradient.position = Vector2.ZERO
-	screen_gradient.size = viewport_size
+	_update_viewport_sized_control(screen_gradient, viewport_size)
 	screen_gradient.z_index = -95
 
-	board_background.position = Vector2.ZERO
-	board_background.size = viewport_size
+	_update_viewport_sized_control(board_background, viewport_size)
 	board_background.z_index = -92
 
-	board_tint_overlay.position = Vector2.ZERO
-	board_tint_overlay.size = viewport_size
+	_update_viewport_sized_control(board_tint_overlay, viewport_size)
 	board_tint_overlay.z_index = -90
+
+func _update_viewport_sized_control(control: Control, viewport_size: Vector2):
+	control.anchor_left = 0.0
+	control.anchor_top = 0.0
+	control.anchor_right = 0.0
+	control.anchor_bottom = 0.0
+	control.position = Vector2.ZERO
+	control.size = viewport_size
 
 func _get_horizontal_content_margin(viewport_size: Vector2) -> float:
 	var margin := SCREEN_CONTENT_MARGIN
@@ -728,6 +733,7 @@ func _initialize_game():
 	board_manager.board_size = GameManager.board_size
 	board_manager.clear_board()
 	_on_piece_deselected()
+	_on_trap_deselected()
 	board_manager.set_input_enabled(false)
 	await _initialize_puzzle_progress()
 	_spawn_initial_pieces()
@@ -892,11 +898,31 @@ func _generate_traps_for_level(level_index: int):
 	var selected_cells: Array[Vector2i] = []
 	for i in range(mini(trap_count, candidate_cells.size())):
 		selected_cells.append(candidate_cells[i])
+
+	if _should_relocate_level_four_trap(level_index) and selected_cells.size() > 0 and candidate_cells.size() > selected_cells.size():
+		var replacement_cells: Array[Vector2i] = []
+		for cell in candidate_cells:
+			if not (cell in selected_cells):
+				replacement_cells.append(cell)
+		if not replacement_cells.is_empty():
+			selected_cells[randi() % selected_cells.size()] = replacement_cells[0]
+
 	var theme := _get_theme()
 	var trap_type_id := ""
 	if theme != null:
 		trap_type_id = theme.trap_type_id
 	board_manager.set_traps(selected_cells, trap_type_id)
+
+func _should_relocate_level_four_trap(level_index: int) -> bool:
+	if level_index < TRAP_KING_TRIGGER_LEVEL:
+		return false
+	return randf() < _get_trap_king_probability()
+
+func _get_trap_king_probability() -> float:
+	var weights := GameManager.get_piece_spawn_weights()
+	if GameManager.PieceType.KING < weights.size():
+		return clampf(weights[GameManager.PieceType.KING], 0.0, 1.0)
+	return 0.0
 
 func _build_puzzle_tile_order():
 	puzzle_tile_order.clear()
@@ -1193,6 +1219,21 @@ func _on_piece_deselected():
 	move_hint_panel.visible = false
 	move_hint_label.text = ""
 
+func _on_trap_selected(trap_data: Resource):
+	move_hint_label.text = _get_trap_hint_text(trap_data)
+	move_hint_panel.visible = true
+
+func _on_trap_deselected():
+	move_hint_panel.visible = false
+	move_hint_label.text = ""
+
+func _get_trap_hint_text(trap_data: Resource) -> String:
+	var trap_name := _get_trap_display_name(trap_data)
+	var description := _get_trap_description(trap_data)
+	if description.is_empty():
+		return trap_name
+	return "%s\n%s" % [trap_name, description]
+
 func _spawn_initial_pieces():
 	var piece_count = 3
 	
@@ -1219,28 +1260,37 @@ func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
 	AudioManager.vibrate()
 	var trap_data: Resource = board_manager.get_trap_data(_to)
 	var theme := _get_theme()
-	var message_template := ""
-	if theme != null:
-		message_template = theme.trap_disappearance_message_template
-	if message_template == "I fell for nothing -{cost} :(":
-		message_template = _t("trap_disappeared")
-	elif message_template == "Dark is the new light... :( -{cost}":
-		message_template = _t("trap_disappeared")
-	var trap_message := _build_trap_disappearance_message(piece_type, message_template)
-	var trap_event := GameManager.build_trap_disappearance_event(piece_type, message_template)
+	var trap_name := _get_trap_display_name(trap_data)
+	var trap_message := _build_trap_disappearance_message(piece_type, trap_name)
+	var trap_event := GameManager.build_trap_disappearance_event(piece_type, trap_name)
 	board_manager.show_trap_message_cloud(_to, trap_message, theme, piece_type, board_manager.get_last_sacrificed_piece_color())
 	_begin_score_message_batch()
 	_queue_scoring_event(trap_event)
 	_resolve_sacrifice_turn(_get_trap_spawn_count(trap_data))
 
-func _build_trap_disappearance_message(piece_type: int, message_template: String) -> String:
-	var message := message_template.strip_edges()
-	if message.is_empty():
-		message = _t("trap_disappeared")
+func _build_trap_disappearance_message(piece_type: int, trap_name: String) -> String:
 	var sacrifice_cost := mini(GameManager.get_piece_value(piece_type), GameManager.current_score)
-	message = message.replace("{piece}", GameManager.get_piece_type_name(piece_type))
-	message = message.replace("{cost}", str(maxi(sacrifice_cost, 0)))
-	return message
+	return _tf("trap_disappeared", {
+		"trap": trap_name,
+		"cost": maxi(sacrifice_cost, 0)
+	})
+
+func _get_trap_display_name(trap_data: Resource) -> String:
+	if trap_data != null:
+		var display_name_key := str(trap_data.get("display_name_key")).strip_edges()
+		if not display_name_key.is_empty():
+			return _t(display_name_key)
+	if trap_data != null and not str(trap_data.display_name).strip_edges().is_empty():
+		return str(trap_data.display_name).strip_edges()
+	return _t("piece_generic")
+
+func _get_trap_description(trap_data: Resource) -> String:
+	if trap_data == null:
+		return ""
+	var description_key := str(trap_data.get("description_key")).strip_edges()
+	if not description_key.is_empty():
+		return _t(description_key)
+	return str(trap_data.description).strip_edges()
 
 func _on_piece_moved(_from, _to):
 	if is_processing_move:

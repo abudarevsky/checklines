@@ -6,6 +6,7 @@ func _initialize():
 	_run_test("uses configured trap count by level", _test_trap_count_by_level, failures)
 	_run_test("uses common trap library definition", _test_common_trap_library, failures)
 	_run_test("board stores trap type references", _test_board_trap_type_reference, failures)
+	_run_test("board selects trap details", _test_board_selects_trap_details, failures)
 	_run_test("traps are excluded from empty spawn cells", _test_traps_excluded_from_empty_cells, failures)
 	_run_test("moving onto a trap sacrifices the piece", _test_trap_sacrifices_piece, failures)
 
@@ -31,8 +32,10 @@ func _test_trap_count_by_level() -> String:
 		return "expected level 1 to have one trap"
 	if game_board_script._get_trap_count_for_level(2) != 2:
 		return "expected level 2 to have two traps"
-	if game_board_script._get_trap_count_for_level(6) != 2:
-		return "expected later levels to keep two traps"
+	if game_board_script._get_trap_count_for_level(3) != 3:
+		return "expected level 3 to have three traps"
+	if game_board_script._get_trap_count_for_level(6) != 3:
+		return "expected later levels to keep three traps"
 	return ""
 
 func _test_common_trap_library() -> String:
@@ -42,6 +45,14 @@ func _test_common_trap_library() -> String:
 		return "expected swallow trap definition"
 	if trap.id != "swallow":
 		return "wrong trap id"
+	if trap.display_name != "Big Swamp":
+		return "wrong trap display name"
+	if trap.description != "I'll chew you up and spit you out.":
+		return "wrong trap description"
+	if trap.display_name_key != "trap_swallow_name":
+		return "wrong trap display name key"
+	if trap.description_key != "trap_swallow_description":
+		return "wrong trap description key"
 	if trap.get_spawn_count(0) != 2:
 		return "expected level 0 swallow trap to emit 2 pieces"
 	if trap.get_spawn_count(1) != 2:
@@ -63,6 +74,29 @@ func _test_board_trap_type_reference() -> String:
 		error_message = "board did not store trap type id"
 	elif board_manager.get_trap_data(Vector2i(0, 0)).id != "swallow":
 		error_message = "board did not resolve trap data from library"
+
+	board_manager.free()
+	return error_message
+
+func _test_board_selects_trap_details() -> String:
+	var BoardManagerScript = load("res://scripts/board/BoardManager.gd")
+	var board_manager = BoardManagerScript.new()
+	board_manager.board_size = 2
+	board_manager.set_traps([Vector2i(0, 0)], "swallow")
+
+	var selected: Array = []
+	board_manager.trap_selected.connect(func(trap_data: Resource):
+		selected.append(trap_data)
+	)
+	board_manager.handle_trap_cell_click(Vector2i(0, 0))
+
+	var error_message := ""
+	if selected.size() != 1:
+		error_message = "expected trap selection signal"
+	elif selected[0].display_name != "Big Swamp":
+		error_message = "selected trap carried wrong name"
+	elif selected[0].description != "I'll chew you up and spit you out.":
+		error_message = "selected trap carried wrong description"
 
 	board_manager.free()
 	return error_message

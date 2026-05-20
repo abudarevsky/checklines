@@ -42,6 +42,7 @@ Theme scope includes:
 - piece tint colors
 - board cell colors
 - selected trap type id from the common trap library
+- trap cells use the existing wave shader plus visual-only overlays: four theme piece-color corner marks and tiny animated gold sparkles
 - side border colors
 - move and attack overlay colors
 - HUD colors

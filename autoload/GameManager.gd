@@ -127,16 +127,15 @@ func build_sacrifice_event(piece_type: int) -> Dictionary:
 		"value": -sacrifice_cost
 	}
 
-func build_trap_disappearance_event(piece_type: int, message_template: String) -> Dictionary:
+func build_trap_disappearance_event(piece_type: int, trap_name: String) -> Dictionary:
 	var sacrifice_cost := _get_sacrifice_cost(piece_type)
 	if sacrifice_cost <= 0:
 		return {}
 
-	var message := message_template.strip_edges()
-	if message.is_empty():
-		message = _t("trap_disappeared")
-	message = message.replace("{piece}", get_piece_type_name(piece_type))
-	message = message.replace("{cost}", str(sacrifice_cost))
+	var message := _tf("trap_disappeared", {
+		"trap": trap_name,
+		"cost": sacrifice_cost
+	})
 
 	return {
 		"message": message,
@@ -270,7 +269,7 @@ func _english_text(key: String) -> String:
 		"level_complete_short":
 			return "Level complete"
 		"trap_disappeared":
-			return "{piece} disappeared -{cost} :("
+			return "Trapped by {trap} -{cost} :("
 		"sacrifice":
 			return "{piece} Sacrifice"
 		"piece_pawn":

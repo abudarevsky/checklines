@@ -8,6 +8,8 @@ const TrapMessageCloudScript = preload("res://scripts/effects/TrapMessageCloud.g
 
 signal piece_selected(piece)
 signal piece_deselected
+signal trap_selected(trap_data)
+signal trap_deselected
 signal piece_moved(from, to)
 signal capture_made(piece, target, captured_piece_type)
 signal piece_sacrificed(from, to, piece_type)
@@ -23,6 +25,7 @@ var highlight_nodes = []
 var dim_border_nodes = []
 var traps: Array[Vector2i] = []
 var trap_type_by_cell: Dictionary = {}
+var selected_trap_cell: Vector2i = Vector2i(-1, -1)
 var last_sacrificed_piece_color: int = -1
 var input_enabled: bool = true
 var show_borders: bool = true
@@ -72,6 +75,7 @@ func clear_board():
 	board.clear()
 	traps.clear()
 	trap_type_by_cell.clear()
+	selected_trap_cell = Vector2i(-1, -1)
 	last_sacrificed_piece_color = -1
 	_clear_trap_visuals()
 	selected_piece = null
@@ -130,6 +134,8 @@ func _draw_board():
 func set_traps(cells: Array, trap_type_id: String = ""):
 	traps.clear()
 	trap_type_by_cell.clear()
+	var had_selected_trap := selected_trap_cell != Vector2i(-1, -1)
+	selected_trap_cell = Vector2i(-1, -1)
 	var resolved_trap_type_id := trap_type_id
 	if resolved_trap_type_id.is_empty():
 		resolved_trap_type_id = TrapLibraryScript.get_default_trap_id()
@@ -140,6 +146,8 @@ func set_traps(cells: Array, trap_type_id: String = ""):
 			trap_type_by_cell[grid_pos] = resolved_trap_type_id
 	if selected_piece != null:
 		deselect_piece()
+	elif had_selected_trap:
+		trap_deselected.emit()
 	_refresh_trap_visuals()
 	queue_redraw()
 
@@ -165,6 +173,7 @@ func _refresh_trap_visuals():
 		trap_visuals_container.add_child(visual)
 		var is_light_cell := (trap_cell.x + trap_cell.y) % 2 == 0
 		visual.setup(cell_size, get_trap_data(trap_cell), theme, is_light_cell)
+		visual.set_selected(trap_cell == selected_trap_cell)
 
 func _clear_trap_visuals():
 	if trap_visuals_container == null:
@@ -305,6 +314,8 @@ func _is_grid_in_bounds(grid_pos: Vector2i) -> bool:
 func _handle_grid_click(grid_pos: Vector2i):
 	if board.has(grid_pos):
 		handle_occupied_cell_click(grid_pos)
+	elif is_trap(grid_pos):
+		handle_trap_cell_click(grid_pos)
 	else:
 		handle_empty_cell_click(grid_pos)
 
@@ -329,8 +340,20 @@ func handle_empty_cell_click(grid_pos: Vector2i):
 		var moves = selected_piece.get_legal_moves(board)
 		if grid_pos in moves:
 			move_piece(selected_piece, grid_pos)
+			return
+		deselect_piece()
+	deselect_trap()
+
+func handle_trap_cell_click(grid_pos: Vector2i):
+	if selected_piece:
+		var moves = selected_piece.get_legal_moves(board)
+		if grid_pos in moves:
+			move_piece(selected_piece, grid_pos)
+			return
+	select_trap(grid_pos)
 
 func select_piece(piece):
+	deselect_trap()
 	deselect_piece()
 	selected_piece = piece
 	piece.set_selected(true)
@@ -362,6 +385,22 @@ func deselect_piece():
 	_clear_highlights()
 	if had_selected:
 		piece_deselected.emit()
+
+func select_trap(grid_pos: Vector2i):
+	if selected_trap_cell == grid_pos:
+		deselect_trap()
+		return
+	deselect_piece()
+	selected_trap_cell = grid_pos
+	_refresh_trap_visuals()
+	trap_selected.emit(get_trap_data(grid_pos))
+
+func deselect_trap():
+	if selected_trap_cell == Vector2i(-1, -1):
+		return
+	selected_trap_cell = Vector2i(-1, -1)
+	_refresh_trap_visuals()
+	trap_deselected.emit()
 
 func set_input_enabled(enabled: bool):
 	input_enabled = enabled

@@ -31,6 +31,7 @@ Owns or coordinates:
 
 - game loop
 - spawning
+- progression-based trap generation, including Level 4+ king-probability trap relocation without changing trap count or turn spawn count
 - line detection call
 - score updates
 - UI updates

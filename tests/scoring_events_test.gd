@@ -133,13 +133,13 @@ func _test_trap_disappearance_event() -> String:
 	_game_manager().current_score = 12
 	var event: Dictionary = _game_manager().build_trap_disappearance_event(
 		GameManager.PieceType.QUEEN,
-		"I fell for nothing -{cost} :("
+		"Big Swamp"
 	)
-	if event["message"] != "I fell for nothing -7 :(":
+	if event["message"] != "Trapped by Big Swamp -7 :(":
 		return "wrong disappearance message"
 	if event["value"] != -7:
 		return "expected -7, got %d" % event["value"]
-	if _game_manager().format_scoring_event(event) != "I fell for nothing -7 :(":
+	if _game_manager().format_scoring_event(event) != "Trapped by Big Swamp -7 :(":
 		return "wrong formatted disappearance event"
 	return ""
 

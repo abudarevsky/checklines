@@ -20,7 +20,7 @@ func setup(message: String, from: Vector2, to: Vector2, theme: Resource, piece_t
 	_build_cloud(message, theme, piece_type, piece_color)
 	_play(to)
 
-func _build_cloud(message: String, theme: Resource, piece_type: int, piece_color: int):
+func _build_cloud(message: String, theme: Resource, piece_type: int, _piece_color: int):
 	var cloud_size := _get_cloud_size(message)
 	shadow_rect = _build_cloud_rect(cloud_size, Vector2(10.0, 12.0), _get_shadow_color())
 	add_child(shadow_rect)
@@ -71,10 +71,10 @@ func _build_cloud_rect(size: Vector2, offset: Vector2, color: Color) -> ColorRec
 	rect.position = -size * 0.5 + offset
 	rect.size = size
 	rect.color = Color.WHITE
-	var material := ShaderMaterial.new()
-	material.shader = CLOUD_SHADER
-	material.set_shader_parameter("cloud_color", color)
-	rect.material = material
+	var cloud_material := ShaderMaterial.new()
+	cloud_material.shader = CLOUD_SHADER
+	cloud_material.set_shader_parameter("cloud_color", color)
+	rect.material = cloud_material
 	return rect
 
 func _get_cloud_size(message: String) -> Vector2:
