@@ -4,7 +4,7 @@ Current gameplay HUD includes:
 
 - a top puzzle board image panel
 - a message display beneath the puzzle board
-- score and session line counters beneath the message display
+- score and session line counters beneath the message display on a theme-colored score-row background
 - a gear button that opens a pause dialog
 - no persistent bottom action row
 
@@ -14,7 +14,8 @@ Puzzle board rules:
 - fully revealing one picture completes a progression level before Level 4
 - level-complete score/HUD and puzzle overlay messages use one-based numbering: `"Level $number complete!"`
 - record the maximum completed progression level per kingdom only when that level is actually completed
-- the best-score HUD text appends the humanized best level as `"Best: $score | L: $number"` and never displays a level lower than `1`
+- the current score value should render as individual inverted digit plates, like a mechanical counter, while preserving visible spacing between digits
+- the best-score HUD uses a compact three-level pedestal icon plus `"$score | L $number"` and never displays a level lower than `1`; do not show a `"Best"` text prefix in the score row
 - Levels 1-3 are progression levels; Level 4 is endless prestige survival and is measured by performance rather than true completion
 - gameplay may keep advancing puzzle-image presentation after Level 4, but that must not imply additional kingdom progression levels
 - puzzle tile counts are 25, 50, 75, then 100 for Level 4 prestige presentation and any later visual cycles

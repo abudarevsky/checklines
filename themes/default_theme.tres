@@ -45,3 +45,5 @@ level_start_message_template = "Let the fight begin!"
 trap_disappearance_message_template = "I fell for nothing -{cost} :("
 dialog_font_names = PackedStringArray("Avenir Next Condensed", "Helvetica Neue", "Arial Narrow", "Arial")
 gameplay_background_texture = ExtResource("12_bg")
+menu_best_score_label_color = Color(0.97, 0.78, 0.36, 1)
+menu_best_score_value_color = Color(0.97, 0.78, 0.36, 1)

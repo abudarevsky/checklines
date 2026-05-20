@@ -89,6 +89,8 @@ class_name ThemeData
 @export var menu_panel_border_color: Color = Color(1.0, 1.0, 1.0, 0.12)
 @export var menu_title_color: Color = Color(1.0, 1.0, 1.0, 0.98)
 @export var menu_subtitle_color: Color = Color(1.0, 1.0, 1.0, 0.72)
+@export var menu_best_score_label_color: Color = Color(0.97, 0.78, 0.36, 1.0)
+@export var menu_best_score_value_color: Color = Color(0.97, 0.78, 0.36, 1.0)
 @export var menu_button_text_color: Color = Color.WHITE
 @export var menu_button_text_color_hover: Color = Color.WHITE
 @export var menu_outline_button_text_color: Color = Color(1.0, 1.0, 1.0, 0.9)

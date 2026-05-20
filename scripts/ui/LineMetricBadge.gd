@@ -1,7 +1,7 @@
 extends Control
 class_name LineMetricBadge
 
-@export_enum("color", "type", "level") var badge_mode: String = "color":
+@export_enum("color", "type", "level", "best") var badge_mode: String = "color":
 	set(value):
 		badge_mode = value
 		queue_redraw()
@@ -35,7 +35,7 @@ func apply_theme(theme_data):
 		theme_data.green_piece_color,
 	]
 	tile_background_color = theme_data.metric_tile_background_color
-	icon_color = theme_data.hud_primary_text_color
+	icon_color = theme_data.hud_secondary_text_color if badge_mode == "best" else theme_data.hud_primary_text_color
 	knight_texture = theme_data.knight_texture
 	queue_redraw()
 
@@ -49,6 +49,9 @@ func _draw():
 		return
 	if badge_mode == "level":
 		_draw_level_badge(Rect2(Vector2.ZERO, size_px))
+		return
+	if badge_mode == "best":
+		_draw_best_badge(Rect2(Vector2.ZERO, size_px))
 		return
 
 	_draw_color_badge(Rect2(Vector2.ZERO, size_px))
@@ -119,6 +122,34 @@ func _draw_level_badge(rect: Rect2):
 	border_style.corner_radius_bottom_right = corner_radius
 	border_style.anti_aliasing = true
 	draw_style_box(border_style, box_rect)
+
+func _draw_best_badge(rect: Rect2):
+	var badge_rect := rect.grow(-5.0)
+	var bar_gap := maxf(2.0, badge_rect.size.x * 0.06)
+	var bar_width := (badge_rect.size.x - bar_gap * 2.0) / 3.0
+	var baseline := badge_rect.end.y
+	var heights := [
+		badge_rect.size.y * 0.60,
+		badge_rect.size.y * 0.74,
+		badge_rect.size.y * 0.66,
+	]
+	for i in range(3):
+		var bar_height: float = heights[i]
+		var bar_rect := Rect2(
+			Vector2(badge_rect.position.x + float(i) * (bar_width + bar_gap), baseline - bar_height),
+			Vector2(bar_width, bar_height)
+		)
+		var style := StyleBoxFlat.new()
+		style.bg_color = tile_background_color
+		style.border_color = icon_color
+		style.border_width_left = 2
+		style.border_width_top = 2
+		style.border_width_right = 2
+		style.border_width_bottom = 2
+		style.corner_radius_top_left = 3
+		style.corner_radius_top_right = 3
+		style.anti_aliasing = true
+		draw_style_box(style, bar_rect)
 
 func _draw_knight_icon(rect: Rect2, tint: Color):
 	if knight_texture == null:

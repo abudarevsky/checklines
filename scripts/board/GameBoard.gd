@@ -23,8 +23,9 @@ const PuzzleTileCover = preload("res://scripts/ui/PuzzleTileCover.gd")
 @onready var score_clip: Control = $CanvasLayer/ScoreClip
 @onready var message_panel: ColorRect = $CanvasLayer/ScoreClip/MessagePanel
 @onready var message_label: Label = $CanvasLayer/ScoreClip/MessageLabel
-@onready var score_label: Label = $CanvasLayer/ScoreClip/ScoreHBox/ScoreLabel
-@onready var high_score_label: Label = $CanvasLayer/ScoreClip/ScoreHBox/HighScoreLabel
+@onready var current_score_digits: HBoxContainer = $CanvasLayer/ScoreClip/ScoreHBox/CurrentScoreStat/DigitCounter
+@onready var high_score_badge: LineMetricBadge = $CanvasLayer/ScoreClip/ScoreHBox/BestScoreStat/Badge
+@onready var high_score_label: Label = $CanvasLayer/ScoreClip/ScoreHBox/BestScoreStat/ValueLabel
 @onready var score_hbox: HBoxContainer = $CanvasLayer/ScoreClip/ScoreHBox
 @onready var color_lines_badge: LineMetricBadge = $CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat/Badge
 @onready var color_lines_value_label: Label = $CanvasLayer/ScoreClip/ScoreHBox/StatsPanel/StatsHBox/ColorLinesStat/ValueLabel
@@ -140,7 +141,7 @@ func apply_theme(theme: ThemeData):
 	board_background.texture = theme.gameplay_background_texture
 	board_background.visible = theme.gameplay_background_texture != null
 	board_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	score_panel.color = Color(0.03, 0.07, 0.12, 0.0)
+	score_panel.color = theme.hud_panel_color
 	score_shadow.color = theme.hud_shadow_color
 	puzzle_panel.color = Color(0.06, 0.09, 0.13, 1.0)
 	move_hint_panel.add_theme_stylebox_override("panel", _build_move_hint_panel_style(theme))
@@ -159,8 +160,7 @@ func apply_theme(theme: ThemeData):
 	if theme.checklines_badge_texture != null:
 		puzzle_badge.texture = theme.checklines_badge_texture
 
-	score_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
-	score_label.add_theme_color_override("font_outline_color", theme.hud_outline_color)
+	_apply_current_score_digit_theme(theme)
 	high_score_label.add_theme_color_override("font_color", theme.hud_secondary_text_color)
 	high_score_label.add_theme_color_override("font_outline_color", theme.hud_secondary_outline_color)
 	color_lines_value_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
@@ -174,6 +174,7 @@ func apply_theme(theme: ThemeData):
 	color_lines_badge.apply_theme(theme)
 	type_lines_badge.apply_theme(theme)
 	level_badge.apply_theme(theme)
+	high_score_badge.apply_theme(theme)
 	_apply_dialog_theme(theme)
 	if _has_puzzle_levels():
 		puzzle_image.texture = _get_puzzle_level_texture(current_puzzle_level)
@@ -374,6 +375,59 @@ func _build_move_hint_panel_style(theme: ThemeData) -> StyleBoxFlat:
 	style.content_margin_right = 16.0
 	style.content_margin_bottom = 10.0
 	return style
+
+func _build_inverse_score_value_style(theme: ThemeData) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = theme.hud_primary_text_color
+	style.corner_radius_top_left = 5
+	style.corner_radius_top_right = 5
+	style.corner_radius_bottom_left = 5
+	style.corner_radius_bottom_right = 5
+	style.content_margin_left = 6.0
+	style.content_margin_top = 0.0
+	style.content_margin_right = 6.0
+	style.content_margin_bottom = 0.0
+	return style
+
+func _apply_current_score_digit_theme(theme: ThemeData):
+	for child in current_score_digits.get_children():
+		if child is PanelContainer:
+			child.add_theme_stylebox_override("panel", _build_inverse_score_value_style(theme))
+			var digit_label := child.get_node_or_null("DigitLabel") as Label
+			if digit_label != null:
+				digit_label.add_theme_color_override("font_color", theme.hud_panel_color)
+				digit_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
+				digit_label.add_theme_font_size_override("font_size", 36)
+
+func _update_current_score_digits(value: int):
+	var theme := _get_theme()
+	for child in current_score_digits.get_children():
+		current_score_digits.remove_child(child)
+		child.queue_free()
+
+	var score_text := str(value)
+	for i in range(score_text.length()):
+		var character := score_text.substr(i, 1)
+		var digit_panel := PanelContainer.new()
+		digit_panel.name = "DigitPlate"
+		digit_panel.custom_minimum_size = Vector2(22.0, 22.0)
+		digit_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		if theme != null:
+			digit_panel.add_theme_stylebox_override("panel", _build_inverse_score_value_style(theme))
+
+		var digit_label := Label.new()
+		digit_label.name = "DigitLabel"
+		digit_label.text = character
+		digit_label.custom_minimum_size = Vector2(10.0, 0.0)
+		digit_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		digit_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		digit_label.add_theme_constant_override("outline_size", 0)
+		digit_label.add_theme_font_size_override("font_size", 26)
+		if theme != null:
+			digit_label.add_theme_color_override("font_color", theme.hud_panel_color)
+			digit_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
+		digit_panel.add_child(digit_label)
+		current_score_digits.add_child(digit_panel)
 
 func _apply_icon_button_style(
 	button: Button,
@@ -1208,9 +1262,9 @@ func _on_theme_changed(theme_data, _theme_id: String):
 	apply_theme(theme_data as ThemeData)
 
 func _update_ui():
-	score_label.text = "%s: %d" % [_t("score"), GameManager.current_score]
+	_update_current_score_digits(GameManager.current_score)
 	var best_level_display := Settings.get_kingdom_best_level_display(Settings.theme_id)
-	high_score_label.text = "%s: %d | L: %d" % [_t("best"), GameManager.high_score, best_level_display]
+	high_score_label.text = "%d | L %d" % [GameManager.high_score, best_level_display]
 	_update_line_metrics_ui()
 
 func _update_line_metrics_ui():

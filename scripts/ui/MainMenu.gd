@@ -82,7 +82,9 @@ var kingdom_play_button_nodes: Array[Button] = []
 var has_user_selected_kingdom := false
 var pending_play_button_animation_index := -1
 var kingdom_coming_soon_label: Label
+var best_score_container: HBoxContainer
 var best_score_label: Label
+var best_score_value_label: Label
 var kingdom_frame_material: ShaderMaterial
 var selected_kingdom_index := 0
 var kingdom_drag_active := false
@@ -182,7 +184,11 @@ func apply_theme(theme_data):
 	if best_score_label != null:
 		best_score_label.add_theme_font_override("font", title_font)
 		best_score_label.add_theme_font_size_override("font_size", 42)
-		best_score_label.add_theme_color_override("font_color", Color(0.97, 0.78, 0.36, 1.0))
+		best_score_label.add_theme_color_override("font_color", theme_data.menu_best_score_label_color)
+	if best_score_value_label != null:
+		best_score_value_label.add_theme_font_override("font", title_font)
+		best_score_value_label.add_theme_font_size_override("font_size", 42)
+		best_score_value_label.add_theme_color_override("font_color", theme_data.menu_best_score_value_color)
 	settings_panel.add_theme_stylebox_override("panel", dialog_panel_style)
 	_apply_dialog_button_style(
 		settings_sound_button,
@@ -303,14 +309,28 @@ func _build_kingdom_screen():
 	main_frame_node = _create_texture_rect("MainFrame", MAIN_SCREEN_FRAME_TEXTURE, Rect2(Vector2.ZERO, DESIGN_SIZE))
 	kingdom_design_root.add_child(main_frame_node)
 
+	best_score_container = HBoxContainer.new()
+	best_score_container.name = "BestScoreContainer"
+	best_score_container.position = BEST_SCORE_RECT.position
+	best_score_container.size = BEST_SCORE_RECT.size
+	best_score_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	best_score_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	best_score_container.add_theme_constant_override("separation", 12)
+	kingdom_design_root.add_child(best_score_container)
+
 	best_score_label = Label.new()
 	best_score_label.name = "BestScoreLabel"
-	best_score_label.position = BEST_SCORE_RECT.position
-	best_score_label.size = BEST_SCORE_RECT.size
-	best_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	best_score_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	best_score_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	best_score_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	kingdom_design_root.add_child(best_score_label)
+	best_score_container.add_child(best_score_label)
+
+	best_score_value_label = Label.new()
+	best_score_value_label.name = "BestScoreValueLabel"
+	best_score_value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	best_score_value_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	best_score_value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	best_score_container.add_child(best_score_value_label)
 
 	kingdom_scroll = ScrollContainer.new()
 	kingdom_scroll.name = "KingdomScroll"
@@ -683,7 +703,9 @@ func _build_how_to_play_badge_guide(body_font: Font, theme_data: ThemeData):
 
 func _update_best_score_label():
 	if best_score_label != null:
-		best_score_label.text = "%s: %d" % [Localization.t("your_best"), GameManager.high_score]
+		best_score_label.text = "%s:" % Localization.t("your_best")
+	if best_score_value_label != null:
+		best_score_value_label.text = str(GameManager.high_score)
 
 func _update_kingdom_badges():
 	for i in range(kingdom_badge_nodes.size()):

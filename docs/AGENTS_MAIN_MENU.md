@@ -22,7 +22,7 @@ The intended presentation is a theme-driven art menu with a stable layout:
 Main screen background images, kingdom card frames, and other menu art may vary by theme.
 The main-screen backdrop should follow the active theme background texture when selection changes, while kingdom-specific art such as the neon frame and card-frame variants may switch with the selected kingdom.
 Playable kingdom cards should use that kingdom's recorded best progression to choose the displayed puzzle image.
-The global best-score label should use the localized `"Your best: $score"` presentation in large gold text on transparent background.
+The global best-score row should use localized `"Your best"` text plus the numeric value on a transparent background; both label and value colors are theme-driven.
 Kingdom badges should use compact matte-glass overlays arranged horizontally from the former lowest vertical-badge position, keeping that lower badge location as the baseline while all three fit inside the card footprint. Use a waving ribbon for progression, a Maltese-style cross for tactical mastery, and a crown for campaigns.
 Explain badge meaning and achievement thresholds in the localized How To Play content.
 The progression badge maps maximum completed kingdom level `1/2/3` to bronze/silver/gold; Level 4 prestige will use a separate future overlay.
