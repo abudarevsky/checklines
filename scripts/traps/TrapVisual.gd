@@ -4,6 +4,7 @@ class_name TrapVisual
 const TRAP_SHADER := preload("res://shaders/trap_cell_waves.gdshader")
 const SPARKLE_COUNT := 5
 const SPARKLE_COLOR := Color(1.0, 0.78, 0.25, 0.95)
+const ROTATION_EFFECT_DURATION := 1.24
 
 class TrapCornerMarks:
 	extends Node2D
@@ -59,6 +60,34 @@ class TrapSparkleStar:
 			points.append(Vector2(cos(angle), sin(angle)) * radius)
 		draw_colored_polygon(points, star_color)
 
+class BigSwampTubeSlick:
+	extends Node2D
+
+	var cell_size: float = GameManager.CELL_SIZE
+	var slick_color := Color(0.16, 0.42, 0.54, 0.46)
+	var tube_color := Color(0.02, 0.09, 0.13, 0.86)
+	var progress: float = 0.0:
+		set(value):
+			progress = clampf(value, 0.0, 1.0)
+			queue_redraw()
+
+	func setup(size: float, trap: Resource):
+		cell_size = size
+		if trap != null:
+			slick_color = Color(trap.base_color.r, trap.base_color.g, trap.base_color.b, 0.48)
+			tube_color = Color(trap.wave_color.r * 0.45, trap.wave_color.g * 0.55, trap.wave_color.b * 0.7, 0.88)
+		queue_redraw()
+
+	func _draw():
+		var center := Vector2(cell_size, cell_size) * 0.5
+		var slick_radius := lerpf(cell_size * 0.46, cell_size * 0.08, progress)
+		var tube_radius := lerpf(cell_size * 0.07, cell_size * 0.17, progress)
+		var alpha := 1.0 - smoothstep(0.82, 1.0, progress)
+		draw_circle(center, slick_radius, Color(slick_color.r, slick_color.g, slick_color.b, slick_color.a * alpha))
+		draw_arc(center, slick_radius * 0.76, progress * TAU * 1.4, progress * TAU * 1.4 + PI * 1.35, 28, Color(0.82, 0.96, 1.0, 0.32 * alpha), maxf(2.0, cell_size * 0.035))
+		draw_circle(center, tube_radius, Color(tube_color.r, tube_color.g, tube_color.b, tube_color.a * alpha))
+		draw_circle(center, tube_radius * 0.46, Color(0.0, 0.018, 0.03, 0.92 * alpha))
+
 var cell_size: float = GameManager.CELL_SIZE
 var trap_data: Resource
 var theme_data: Resource
@@ -89,6 +118,30 @@ func set_selected(selected: bool):
 	for star in sparkle_stars:
 		if is_instance_valid(star):
 			star.visible = is_selected
+
+func play_rotation_disappear():
+	var tween := create_tween()
+	tween.set_parallel()
+	tween.tween_property(self, "scale", Vector2.ONE * 0.18, ROTATION_EFFECT_DURATION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tween.tween_property(self, "modulate:a", 0.0, ROTATION_EFFECT_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	if _is_big_swamp_trap():
+		var tube_slick := BigSwampTubeSlick.new()
+		tube_slick.z_index = 8
+		tube_slick.setup(cell_size, trap_data)
+		add_child(tube_slick)
+		tween.tween_property(tube_slick, "progress", 1.0, ROTATION_EFFECT_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.chain().tween_callback(queue_free)
+
+func play_rotation_reveal():
+	modulate.a = 0.0
+	scale = Vector2.ONE * 0.92
+	var tween := create_tween()
+	tween.set_parallel()
+	tween.tween_property(self, "modulate:a", 1.0, ROTATION_EFFECT_DURATION * 0.72).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "scale", Vector2.ONE, ROTATION_EFFECT_DURATION * 0.72).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _is_big_swamp_trap() -> bool:
+	return trap_data != null and str(trap_data.get("id")) == "swallow"
 
 func _ready():
 	_setup_material()

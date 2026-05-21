@@ -67,6 +67,7 @@ var forced_sacrifice_spawn_count: int = 0
 var session_total_turns: int = 0
 var session_clean_turns: int = 0
 var current_turn_had_take: bool = false
+var trap_rotations_used_current_level: int = 0
 
 const TOP_BAR_SHADOW_HEIGHT: float = 5.0
 const BOARD_TOP_GAP: float = 2.0
@@ -103,7 +104,8 @@ const PUZZLE_MESSAGE_BANNER_MAX_HEIGHT: float = 112.0
 const PUZZLE_MESSAGE_BANNER_FLIGHT_DURATION: float = 0.96
 const PUZZLE_MESSAGE_BANNER_HOLD_DURATION: float = 1.0
 const TRAP_COUNTS_BY_LEVEL: Array[int] = [0, 1, 2, 3]
-const TRAP_KING_TRIGGER_LEVEL: int = 3
+const TRAP_ROTATION_LIMITS_BY_LEVEL: Array[int] = [0, 1, 2, -1]
+const TRAP_ROTATION_CHANCES_BY_LEVEL: Array[float] = [0, 0.18, 0.18, 0.3]
 const DEBUG_HUD_LAYOUT: bool = false
 
 func _ready():
@@ -856,6 +858,7 @@ func _load_puzzle_level(level_index: int):
 	puzzle_panel.visible = true
 	current_puzzle_level = maxi(level_index, 0)
 	revealed_puzzle_tiles = 0
+	trap_rotations_used_current_level = 0
 	puzzle_image.texture = _get_puzzle_level_texture(current_puzzle_level)
 	puzzle_image.modulate.a = 1.0
 	_update_line_metrics_ui()
@@ -883,6 +886,13 @@ static func _get_trap_count_for_level(level_index: int) -> int:
 		return TRAP_COUNTS_BY_LEVEL[level_index]
 	return TRAP_COUNTS_BY_LEVEL[TRAP_COUNTS_BY_LEVEL.size() - 1]
 
+static func _get_trap_rotation_limit_for_level(level_index: int) -> int:
+	if level_index < 0:
+		return 0
+	if level_index < TRAP_ROTATION_LIMITS_BY_LEVEL.size():
+		return TRAP_ROTATION_LIMITS_BY_LEVEL[level_index]
+	return TRAP_ROTATION_LIMITS_BY_LEVEL[TRAP_ROTATION_LIMITS_BY_LEVEL.size() - 1]
+
 func _generate_traps_for_level(level_index: int):
 	board_manager.set_traps([])
 
@@ -899,30 +909,66 @@ func _generate_traps_for_level(level_index: int):
 	for i in range(mini(trap_count, candidate_cells.size())):
 		selected_cells.append(candidate_cells[i])
 
-	if _should_relocate_level_four_trap(level_index) and selected_cells.size() > 0 and candidate_cells.size() > selected_cells.size():
-		var replacement_cells: Array[Vector2i] = []
-		for cell in candidate_cells:
-			if not (cell in selected_cells):
-				replacement_cells.append(cell)
-		if not replacement_cells.is_empty():
-			selected_cells[randi() % selected_cells.size()] = replacement_cells[0]
-
 	var theme := _get_theme()
 	var trap_type_id := ""
 	if theme != null:
 		trap_type_id = theme.trap_type_id
 	board_manager.set_traps(selected_cells, trap_type_id)
 
-func _should_relocate_level_four_trap(level_index: int) -> bool:
-	if level_index < TRAP_KING_TRIGGER_LEVEL:
+func _should_rotate_traps(level_index: int) -> bool:
+	if not _can_rotate_traps_for_level(level_index):
 		return false
-	return randf() < _get_trap_king_probability()
+	return randf() < _get_trap_rotation_chance_for_level(level_index)
 
-func _get_trap_king_probability() -> float:
-	var weights := GameManager.get_piece_spawn_weights()
-	if GameManager.PieceType.KING < weights.size():
-		return clampf(weights[GameManager.PieceType.KING], 0.0, 1.0)
-	return 0.0
+func _can_rotate_traps_for_level(level_index: int) -> bool:
+	var rotation_limit := _get_trap_rotation_limit_for_level(level_index)
+	if rotation_limit == 0:
+		return false
+	if rotation_limit < 0:
+		return true
+	return trap_rotations_used_current_level < rotation_limit
+
+static func _get_trap_rotation_chance_for_level(level_index: int) -> float:
+	if level_index < 0:
+		return 0.0
+	if level_index < TRAP_ROTATION_CHANCES_BY_LEVEL.size():
+		return clampf(TRAP_ROTATION_CHANCES_BY_LEVEL[level_index], 0.0, 1.0)
+	return clampf(TRAP_ROTATION_CHANCES_BY_LEVEL[TRAP_ROTATION_CHANCES_BY_LEVEL.size() - 1], 0.0, 1.0)
+
+func _maybe_rotate_traps():
+	if not _should_rotate_traps(current_puzzle_level):
+		return
+	if _rotate_traps_to_empty_cells():
+		trap_rotations_used_current_level += 1
+
+func _rotate_traps_to_empty_cells() -> bool:
+	var current_traps: Array = board_manager.traps.duplicate()
+	if current_traps.is_empty():
+		return false
+
+	var candidate_cells: Array = board_manager.get_empty_cells()
+	var selected_cells := _select_rotated_trap_cells(current_traps, candidate_cells)
+	if selected_cells.is_empty():
+		return false
+
+	var trap_type_id := ""
+	if current_traps.size() > 0:
+		trap_type_id = board_manager.get_trap_type_id(current_traps[0])
+	board_manager.set_traps_with_rotation(selected_cells, trap_type_id)
+	return true
+
+static func _select_rotated_trap_cells(current_traps: Array, candidate_cells: Array) -> Array[Vector2i]:
+	if current_traps.is_empty() or candidate_cells.size() < current_traps.size():
+		return []
+
+	var shuffled_cells := candidate_cells.duplicate()
+	shuffled_cells.shuffle()
+	var selected_cells: Array[Vector2i] = []
+	for cell in shuffled_cells:
+		selected_cells.append(cell)
+		if selected_cells.size() >= current_traps.size():
+			break
+	return selected_cells
 
 func _build_puzzle_tile_order():
 	puzzle_tile_order.clear()
@@ -1379,6 +1425,7 @@ func _resolve_turn():
 
 	await get_tree().create_timer(0.3).timeout
 	_record_completed_turn()
+	_maybe_rotate_traps()
 	_check_game_over()
 
 	_flush_score_message_batch()
@@ -1405,6 +1452,7 @@ func _resolve_sacrifice_turn(spawn_count: int):
 	await _resolve_chain_waves()
 	await get_tree().create_timer(0.3).timeout
 	_record_completed_turn()
+	_maybe_rotate_traps()
 	_check_game_over()
 
 	_flush_score_message_batch()

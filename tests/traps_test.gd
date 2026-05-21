@@ -4,6 +4,9 @@ func _initialize():
 	var failures: Array[String] = []
 
 	_run_test("uses configured trap count by level", _test_trap_count_by_level, failures)
+	_run_test("uses configured trap rotation limits by level", _test_trap_rotation_limits_by_level, failures)
+	_run_test("uses independent trap rotation frequency", _test_trap_rotation_frequency, failures)
+	_run_test("rotates every trap to a new empty cell", _test_trap_rotation_selects_new_empty_cells, failures)
 	_run_test("uses common trap library definition", _test_common_trap_library, failures)
 	_run_test("board stores trap type references", _test_board_trap_type_reference, failures)
 	_run_test("board selects trap details", _test_board_selects_trap_details, failures)
@@ -26,16 +29,50 @@ func _run_test(name: String, test_callable: Callable, failures: Array[String]):
 
 func _test_trap_count_by_level() -> String:
 	var game_board_script = load("res://scripts/board/GameBoard.gd")
-	if game_board_script._get_trap_count_for_level(0) != 0:
-		return "expected level 0 to have no traps"
-	if game_board_script._get_trap_count_for_level(1) != 1:
-		return "expected level 1 to have one trap"
-	if game_board_script._get_trap_count_for_level(2) != 2:
-		return "expected level 2 to have two traps"
-	if game_board_script._get_trap_count_for_level(3) != 3:
-		return "expected level 3 to have three traps"
-	if game_board_script._get_trap_count_for_level(6) != 3:
-		return "expected later levels to keep three traps"
+	if game_board_script._get_trap_count_for_level(-1) != 0:
+		return "expected negative levels to have no traps"
+	for level_index in range(4):
+		if game_board_script._get_trap_count_for_level(level_index) < 0:
+			return "expected configured trap counts to stay non-negative"
+	if game_board_script._get_trap_count_for_level(6) != game_board_script._get_trap_count_for_level(3):
+		return "expected later levels to reuse the last configured trap count"
+	return ""
+
+func _test_trap_rotation_limits_by_level() -> String:
+	var game_board_script = load("res://scripts/board/GameBoard.gd")
+	if game_board_script._get_trap_rotation_limit_for_level(-1) != 0:
+		return "expected negative levels to have no trap rotations"
+	for level_index in range(4):
+		if game_board_script._get_trap_rotation_limit_for_level(level_index) < -1:
+			return "expected trap rotation limits to be -1 or greater"
+	if game_board_script._get_trap_rotation_limit_for_level(6) != game_board_script._get_trap_rotation_limit_for_level(3):
+		return "expected later levels to reuse the last configured trap rotation limit"
+	return ""
+
+func _test_trap_rotation_frequency() -> String:
+	var game_board_script = load("res://scripts/board/GameBoard.gd")
+	if game_board_script._get_trap_rotation_chance_for_level(-1) != 0.0:
+		return "expected negative levels to have no trap rotation chance"
+	for level_index in range(4):
+		var chance: float = game_board_script._get_trap_rotation_chance_for_level(level_index)
+		if chance < 0.0 or chance > 1.0:
+			return "expected trap rotation chances to stay in probability range"
+	if game_board_script._get_trap_rotation_chance_for_level(6) != game_board_script._get_trap_rotation_chance_for_level(3):
+		return "expected later levels to reuse the last configured trap rotation chance"
+	return ""
+
+func _test_trap_rotation_selects_new_empty_cells() -> String:
+	var game_board_script = load("res://scripts/board/GameBoard.gd")
+	var current_traps: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 1), Vector2i(2, 2)]
+	var candidate_cells: Array[Vector2i] = [Vector2i(3, 3), Vector2i(4, 4), Vector2i(5, 5), Vector2i(6, 6)]
+	var selected_cells: Array[Vector2i] = game_board_script._select_rotated_trap_cells(current_traps, candidate_cells)
+	if selected_cells.size() != current_traps.size():
+		return "expected one new cell per trap"
+	for cell in selected_cells:
+		if cell in current_traps:
+			return "rotation reused an old trap cell"
+		if not (cell in candidate_cells):
+			return "rotation selected a non-empty cell"
 	return ""
 
 func _test_common_trap_library() -> String:

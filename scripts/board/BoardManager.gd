@@ -5,6 +5,7 @@ const SpawnPlannerScript = preload("res://scripts/board/SpawnPlanner.gd")
 const TrapLibraryScript = preload("res://scripts/traps/TrapLibrary.gd")
 const TrapVisualScript = preload("res://scripts/traps/TrapVisual.gd")
 const TrapMessageCloudScript = preload("res://scripts/effects/TrapMessageCloud.gd")
+const TRAP_ROTATION_FOG_DURATION := 1.64
 
 signal piece_selected(piece)
 signal piece_deselected
@@ -13,6 +14,76 @@ signal trap_deselected
 signal piece_moved(from, to)
 signal capture_made(piece, target, captured_piece_type)
 signal piece_sacrificed(from, to, piece_type)
+
+class BoardRotationFog:
+	extends Node2D
+
+	var board_pixel_size: float = GameManager.BOARD_PIXEL_SIZE
+	var wind_direction: Vector2 = Vector2.RIGHT
+	var cloud_lobe_radii: Array = []
+	var cloud_lobe_offsets: Array = []
+	var cloud_lobe_rotations: Array = []
+	var progress: float = 0.0:
+		set(value):
+			progress = clampf(value, 0.0, 1.0)
+			queue_redraw()
+
+	func setup(size: float, direction: Vector2):
+		board_pixel_size = size
+		wind_direction = direction.normalized()
+		if wind_direction == Vector2.ZERO:
+			wind_direction = Vector2.RIGHT
+		_build_cloud_lobes()
+		queue_redraw()
+
+	func _draw():
+		var drift := wind_direction * board_pixel_size * lerpf(0.0, 0.78, progress)
+		var alpha := 1.0 - smoothstep(0.28, 1.0, progress)
+		draw_rect(Rect2(Vector2.ZERO, Vector2(board_pixel_size, board_pixel_size)), Color(0.22, 0.34, 0.4, 0.62 * alpha))
+		for i in range(9):
+			var column := float(i % 3)
+			var row := float(i / 3)
+			var base := Vector2(
+				(column + 0.35) * board_pixel_size / 3.0,
+				(row + 0.28) * board_pixel_size / 3.0
+			)
+			var wave := Vector2(
+				sin(progress * TAU + float(i) * 1.7),
+				cos(progress * TAU * 0.8 + float(i))
+			) * board_pixel_size * 0.045
+			var growth := lerpf(1.0, 1.35, progress)
+			for lobe_index in range(3):
+				var radii: Vector2 = cloud_lobe_radii[i][lobe_index] * growth
+				var offset: Vector2 = cloud_lobe_offsets[i][lobe_index] * growth
+				var rotation: float = cloud_lobe_rotations[i][lobe_index]
+				draw_set_transform(base + drift + wave + offset, rotation, radii)
+				draw_circle(Vector2.ZERO, 1.0, Color(0.45, 0.6, 0.68, 0.42 * alpha))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+	func _build_cloud_lobes():
+		cloud_lobe_radii.clear()
+		cloud_lobe_offsets.clear()
+		cloud_lobe_rotations.clear()
+		for i in range(9):
+			var base_radius := board_pixel_size * randf_range(0.11, 0.18)
+			var lobe_radii := [
+				Vector2(base_radius * randf_range(1.15, 1.65), base_radius * randf_range(0.72, 1.02)),
+				Vector2(base_radius * randf_range(0.95, 1.35), base_radius * randf_range(0.72, 1.1)),
+				Vector2(base_radius * randf_range(0.9, 1.45), base_radius * randf_range(0.7, 1.0)),
+			]
+			var lobe_offsets := [
+				Vector2.ZERO,
+				Vector2(base_radius * randf_range(-0.82, -0.42), base_radius * randf_range(-0.2, 0.28)),
+				Vector2(base_radius * randf_range(0.42, 0.82), base_radius * randf_range(-0.24, 0.22)),
+			]
+			var lobe_rotations := [
+				randf_range(-0.45, 0.45),
+				randf_range(-0.55, 0.35),
+				randf_range(-0.35, 0.55),
+			]
+			cloud_lobe_radii.append(lobe_radii)
+			cloud_lobe_offsets.append(lobe_offsets)
+			cloud_lobe_rotations.append(lobe_rotations)
 
 var board: Dictionary = {}
 var board_size: int = GameManager.BOARD_SIZE
@@ -151,6 +222,14 @@ func set_traps(cells: Array, trap_type_id: String = ""):
 	_refresh_trap_visuals()
 	queue_redraw()
 
+func set_traps_with_rotation(cells: Array, trap_type_id: String = ""):
+	var old_traps := traps.duplicate()
+	var old_trap_type_by_cell := trap_type_by_cell.duplicate()
+	set_traps(cells, trap_type_id)
+	_play_trap_rotation_board_fog_effect()
+	_play_trap_rotation_reveal_effects()
+	_play_trap_rotation_disappear_effects(old_traps, old_trap_type_by_cell)
+
 func is_trap(grid_pos: Vector2i) -> bool:
 	return grid_pos in traps
 
@@ -179,7 +258,47 @@ func _clear_trap_visuals():
 	if trap_visuals_container == null:
 		return
 	for child in trap_visuals_container.get_children():
+		trap_visuals_container.remove_child(child)
 		child.queue_free()
+
+func _play_trap_rotation_disappear_effects(old_traps: Array, old_trap_type_by_cell: Dictionary):
+	if trap_visuals_container == null:
+		return
+	var theme: Resource = _get_theme()
+	if theme == null:
+		return
+	for trap_cell in old_traps:
+		var grid_pos: Vector2i = trap_cell
+		var visual = TrapVisualScript.new()
+		visual.position = Vector2(grid_pos.x * cell_size, grid_pos.y * cell_size)
+		trap_visuals_container.add_child(visual)
+		var trap_type_id := str(old_trap_type_by_cell.get(grid_pos, TrapLibraryScript.get_default_trap_id()))
+		var is_light_cell := (grid_pos.x + grid_pos.y) % 2 == 0
+		visual.setup(cell_size, TrapLibraryScript.get_trap(trap_type_id), theme, is_light_cell)
+		visual.play_rotation_disappear()
+
+func _play_trap_rotation_reveal_effects():
+	if trap_visuals_container == null:
+		return
+	for child in trap_visuals_container.get_children():
+		if child is TrapVisual:
+			child.play_rotation_reveal()
+
+func _play_trap_rotation_board_fog_effect():
+	if effects_container == null:
+		return
+	var fog := BoardRotationFog.new()
+	fog.z_index = 80
+	fog.setup(_get_board_pixel_size(), _get_random_fog_wind_direction())
+	effects_container.add_child(fog)
+	var tween := create_tween()
+	tween.tween_interval(0.08)
+	tween.tween_property(fog, "progress", 1.0, TRAP_ROTATION_FOG_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_callback(fog.queue_free)
+
+func _get_random_fog_wind_direction() -> Vector2:
+	var angle := randf_range(-PI, PI)
+	return Vector2(cos(angle), sin(angle))
 
 func _draw_borders():
 	if not show_borders:
