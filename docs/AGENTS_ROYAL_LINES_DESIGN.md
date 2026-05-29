@@ -36,7 +36,7 @@ Level structure:
 3. Tactical mastery
 4. Endless survival prestige mode
 
-Level 4 cannot truly be completed. Measure it through survival time, score, removed lines, and tactical mastery.
+Completing Level 4 wins the active kingdom run. Measure the run through session score, removed lines, campaigns, and tactical mastery.
 
 ## Mastery Badges
 

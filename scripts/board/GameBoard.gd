@@ -68,6 +68,10 @@ var session_total_turns: int = 0
 var session_clean_turns: int = 0
 var current_turn_had_take: bool = false
 var trap_rotations_used_current_level: int = 0
+var latest_game_result: String = GameManager.GAME_RESULT_LOSS
+var latest_best_score_achieved: bool = false
+var big_swamp_pulse_state = null
+var is_big_swamp_pulse_resolving: bool = false
 
 const TOP_BAR_SHADOW_HEIGHT: float = 5.0
 const BOARD_TOP_GAP: float = 2.0
@@ -85,9 +89,14 @@ const SCORE_FRAME_INSET_X: float = 5.0
 const SCORE_FRAME_INSET_Y: float = 4.0
 const SCORE_ROW_HEIGHT: float = 66.0
 const SCORE_FRAME_EXTRA_SPACE: float = 0.0
+const SCORE_DIGIT_SLOT_SIZE: Vector2 = Vector2(24.0, 30.0)
+const SCORE_DIGIT_FONT_SIZE: int = 26
+const SCORE_MIN_DIGITS: int = 5
 const PUZZLE_COLUMNS: int = 5
 const PUZZLE_ROWS: int = 5
 const PUZZLE_LEVEL_TILE_COUNTS: Array[int] = [25, 50, 75, 100]
+const WIN_LEVEL_NUMBER: int = 4
+const SESSION_CAMPAIGNS_PLAYED: int = 0
 const PUZZLE_TILE_MARGIN: float = -1.0
 const MESSAGE_SLIDE_DISTANCE: float = 120.0
 const MESSAGE_SLIDE_IN_DURATION: float = 0.42
@@ -108,7 +117,55 @@ const TRAP_ROTATION_LIMITS_BY_LEVEL: Array[int] = [0, 1, 2, -1]
 const TRAP_ROTATION_CHANCES_BY_LEVEL: Array[float] = [0, 0.18, 0.18, 0.3]
 const DEBUG_HUD_LAYOUT: bool = false
 
+@export var trap_rotation_enabled: bool = false
+@export var big_swamp_pulse_probability_by_level: Array[float] = [0, 0.10, 0.20, 0.35]
+@export var pulse_duration_seconds: float = 5.0
+@export var failed_pulse_spawn_count: int = 2
+@export var allow_king_target: bool = false
+@export var max_active_pulses: int = 1
+@export var big_swamp_max_target_distance_cells: int = 1
+
+class BigSwampPulseState:
+	var trap_cell: Vector2i = Vector2i(-1, -1)
+	var target_piece_cell: Vector2i = Vector2i(-1, -1)
+	var missing_line_cell: Vector2i = Vector2i(-1, -1)
+	var candidate_line_cells: Array[Vector2i] = []
+	var remaining_time: float = 0.0
+	var duration: float = 0.0
+	var is_active: bool = false
+
+	func start(candidate: Dictionary, pulse_duration: float):
+		trap_cell = candidate.get("trap_cell", Vector2i(-1, -1))
+		target_piece_cell = candidate.get("target_piece_cell", Vector2i(-1, -1))
+		missing_line_cell = candidate.get("missing_line_cell", Vector2i(-1, -1))
+		candidate_line_cells = []
+		for cell in candidate.get("candidate_line_cells", []):
+			candidate_line_cells.append(cell)
+		duration = maxf(pulse_duration, 0.01)
+		remaining_time = duration
+		is_active = true
+
+	func clear():
+		trap_cell = Vector2i(-1, -1)
+		target_piece_cell = Vector2i(-1, -1)
+		missing_line_cell = Vector2i(-1, -1)
+		candidate_line_cells.clear()
+		remaining_time = 0.0
+		duration = 0.0
+		is_active = false
+
+class TrapPredictionBlocker:
+	var piece_color: int = -1
+	var piece_type: int = GameManager.PieceType.KING
+	var grid_position: Vector2i = Vector2i(-1, -1)
+
+	func _init(color: int, pos: Vector2i):
+		piece_color = color
+		piece_type = GameManager.PieceType.KING
+		grid_position = pos
+
 func _ready():
+	big_swamp_pulse_state = BigSwampPulseState.new()
 	GameManager.reset_game()
 	_lock_mobile_orientation()
 	apply_theme(_get_theme())
@@ -377,28 +434,33 @@ func _build_move_hint_panel_style(theme: ThemeData) -> StyleBoxFlat:
 	style.content_margin_bottom = 10.0
 	return style
 
-func _build_inverse_score_value_style(theme: ThemeData) -> StyleBoxFlat:
+func _build_score_digit_slot_style(theme: ThemeData) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = theme.hud_primary_text_color
+	style.bg_color = Color.TRANSPARENT
+	style.border_color = theme.hud_primary_text_color
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
 	style.corner_radius_top_left = 5
 	style.corner_radius_top_right = 5
 	style.corner_radius_bottom_left = 5
 	style.corner_radius_bottom_right = 5
-	style.content_margin_left = 6.0
+	style.content_margin_left = 5.0
 	style.content_margin_top = 0.0
-	style.content_margin_right = 6.0
+	style.content_margin_right = 5.0
 	style.content_margin_bottom = 0.0
 	return style
 
 func _apply_current_score_digit_theme(theme: ThemeData):
 	for child in current_score_digits.get_children():
 		if child is PanelContainer:
-			child.add_theme_stylebox_override("panel", _build_inverse_score_value_style(theme))
+			child.add_theme_stylebox_override("panel", _build_score_digit_slot_style(theme))
 			var digit_label := child.get_node_or_null("DigitLabel") as Label
 			if digit_label != null:
-				digit_label.add_theme_color_override("font_color", theme.hud_panel_color)
+				digit_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
 				digit_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
-				digit_label.add_theme_font_size_override("font_size", 36)
+				digit_label.add_theme_font_size_override("font_size", SCORE_DIGIT_FONT_SIZE)
 
 func _update_current_score_digits(value: int):
 	var theme := _get_theme()
@@ -406,15 +468,15 @@ func _update_current_score_digits(value: int):
 		current_score_digits.remove_child(child)
 		child.queue_free()
 
-	var score_text := str(value)
+	var score_text := str(maxi(value, 0)).pad_zeros(SCORE_MIN_DIGITS)
 	for i in range(score_text.length()):
 		var character := score_text.substr(i, 1)
 		var digit_panel := PanelContainer.new()
 		digit_panel.name = "DigitPlate"
-		digit_panel.custom_minimum_size = Vector2(22.0, 22.0)
+		digit_panel.custom_minimum_size = SCORE_DIGIT_SLOT_SIZE
 		digit_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		if theme != null:
-			digit_panel.add_theme_stylebox_override("panel", _build_inverse_score_value_style(theme))
+			digit_panel.add_theme_stylebox_override("panel", _build_score_digit_slot_style(theme))
 
 		var digit_label := Label.new()
 		digit_label.name = "DigitLabel"
@@ -423,9 +485,9 @@ func _update_current_score_digits(value: int):
 		digit_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		digit_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		digit_label.add_theme_constant_override("outline_size", 0)
-		digit_label.add_theme_font_size_override("font_size", 26)
+		digit_label.add_theme_font_size_override("font_size", SCORE_DIGIT_FONT_SIZE)
 		if theme != null:
-			digit_label.add_theme_color_override("font_color", theme.hud_panel_color)
+			digit_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
 			digit_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
 		digit_panel.add_child(digit_label)
 		current_score_digits.add_child(digit_panel)
@@ -731,6 +793,10 @@ func _input(event):
 	if event.is_action_pressed("ui_cancel"):
 		return
 
+func _process(delta: float):
+	if big_swamp_pulse_state != null and big_swamp_pulse_state.is_active:
+		_update_big_swamp_pulse(delta)
+
 func _initialize_game():
 	board_manager.board_size = GameManager.board_size
 	board_manager.clear_board()
@@ -751,6 +817,7 @@ func _initialize_puzzle_progress():
 	is_message_queue_running = false
 	is_score_message_batch_open = false
 	hud_message_generation += 1
+	_cancel_big_swamp_pulse(false)
 	if message_tween:
 		message_tween.kill()
 		message_tween = null
@@ -859,6 +926,7 @@ func _load_puzzle_level(level_index: int):
 	current_puzzle_level = maxi(level_index, 0)
 	revealed_puzzle_tiles = 0
 	trap_rotations_used_current_level = 0
+	_cancel_big_swamp_pulse(false)
 	puzzle_image.texture = _get_puzzle_level_texture(current_puzzle_level)
 	puzzle_image.modulate.a = 1.0
 	_update_line_metrics_ui()
@@ -916,6 +984,8 @@ func _generate_traps_for_level(level_index: int):
 	board_manager.set_traps(selected_cells, trap_type_id)
 
 func _should_rotate_traps(level_index: int) -> bool:
+	if not trap_rotation_enabled:
+		return false
 	if not _can_rotate_traps_for_level(level_index):
 		return false
 	return randf() < _get_trap_rotation_chance_for_level(level_index)
@@ -935,8 +1005,19 @@ static func _get_trap_rotation_chance_for_level(level_index: int) -> float:
 		return clampf(TRAP_ROTATION_CHANCES_BY_LEVEL[level_index], 0.0, 1.0)
 	return clampf(TRAP_ROTATION_CHANCES_BY_LEVEL[TRAP_ROTATION_CHANCES_BY_LEVEL.size() - 1], 0.0, 1.0)
 
+func _get_big_swamp_pulse_probability_for_level(level_index: int) -> float:
+	if level_index < 0:
+		return 0.0
+	if level_index < big_swamp_pulse_probability_by_level.size():
+		return clampf(big_swamp_pulse_probability_by_level[level_index], 0.0, 1.0)
+	if big_swamp_pulse_probability_by_level.is_empty():
+		return 0.0
+	return clampf(big_swamp_pulse_probability_by_level[big_swamp_pulse_probability_by_level.size() - 1], 0.0, 1.0)
+
 func _maybe_rotate_traps():
 	if not _should_rotate_traps(current_puzzle_level):
+		return
+	if big_swamp_pulse_state.is_active:
 		return
 	if _rotate_traps_to_empty_cells():
 		trap_rotations_used_current_level += 1
@@ -969,6 +1050,468 @@ static func _select_rotated_trap_cells(current_traps: Array, candidate_cells: Ar
 		if selected_cells.size() >= current_traps.size():
 			break
 	return selected_cells
+
+func _maybe_start_big_swamp_pulse():
+	if max_active_pulses <= 0 or big_swamp_pulse_state.is_active or is_big_swamp_pulse_resolving:
+		return
+	if board_manager.traps.is_empty():
+		return
+	var pulse_probability := _get_big_swamp_pulse_probability_for_level(current_puzzle_level)
+	if pulse_probability <= 0.0 or randf() >= pulse_probability:
+		return
+	var swamp_traps := _get_big_swamp_trap_cells()
+	if swamp_traps.is_empty():
+		return
+	var candidates := _find_big_swamp_pulse_candidates(
+		board_manager.board,
+		swamp_traps,
+		allow_king_target,
+		board_manager.traps,
+		big_swamp_max_target_distance_cells
+	)
+	if candidates.is_empty():
+		return
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary): return int(a.get("score", 0)) > int(b.get("score", 0)))
+	var top_score := int(candidates[0].get("score", 0))
+	var best_candidates: Array = []
+	for candidate in candidates:
+		if int(candidate.get("score", 0)) == top_score:
+			best_candidates.append(candidate)
+	best_candidates.shuffle()
+	_start_big_swamp_pulse(best_candidates[0])
+
+func _get_big_swamp_trap_cells() -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	for trap_cell in board_manager.traps:
+		if board_manager.get_trap_type_id(trap_cell) == "swallow":
+			cells.append(trap_cell)
+	return cells
+
+func _start_big_swamp_pulse(candidate: Dictionary):
+	big_swamp_pulse_state.start(candidate, pulse_duration_seconds)
+	var target_piece_color: int = -1
+	if board_manager.board.has(big_swamp_pulse_state.target_piece_cell):
+		target_piece_color = int(board_manager.board[big_swamp_pulse_state.target_piece_cell].piece_color)
+	board_manager.start_big_swamp_pulse_visual(
+		big_swamp_pulse_state.trap_cell,
+		big_swamp_pulse_state.target_piece_cell,
+		target_piece_color
+	)
+
+func _update_big_swamp_pulse(delta: float):
+	if is_big_swamp_pulse_resolving:
+		return
+	if _is_big_swamp_pulse_line_completed():
+		_cancel_big_swamp_pulse(true)
+		return
+	if not _is_big_swamp_pulse_state_valid():
+		_cancel_big_swamp_pulse(true)
+		return
+	big_swamp_pulse_state.remaining_time = maxf(big_swamp_pulse_state.remaining_time - delta, 0.0)
+	var progress: float = 1.0 - (big_swamp_pulse_state.remaining_time / maxf(big_swamp_pulse_state.duration, 0.01))
+	board_manager.update_big_swamp_pulse_visual(progress)
+	if big_swamp_pulse_state.remaining_time <= 0.0 and not is_processing_move:
+		_expire_big_swamp_pulse()
+
+func _cancel_big_swamp_pulse(animate_retract: bool):
+	if not big_swamp_pulse_state.is_active:
+		return
+	if animate_retract:
+		board_manager.cancel_big_swamp_pulse_visual()
+	else:
+		board_manager.finish_big_swamp_pulse_visual()
+	big_swamp_pulse_state.clear()
+
+func _expire_big_swamp_pulse():
+	if is_big_swamp_pulse_resolving or not big_swamp_pulse_state.is_active:
+		return
+	is_big_swamp_pulse_resolving = true
+	if _is_big_swamp_pulse_line_completed() or not _is_big_swamp_pulse_state_valid():
+		is_big_swamp_pulse_resolving = false
+		_cancel_big_swamp_pulse(true)
+		return
+	is_processing_move = true
+	board_manager.set_input_enabled(false)
+	var trap_cell: Vector2i = big_swamp_pulse_state.trap_cell
+	var target_cell: Vector2i = big_swamp_pulse_state.target_piece_cell
+	var captured_piece_type: int = -1
+	var captured_piece_color: int = -1
+	if board_manager.board.has(target_cell):
+		captured_piece_type = int(board_manager.board[target_cell].piece_type)
+		captured_piece_color = int(board_manager.board[target_cell].piece_color)
+	await board_manager.animate_big_swamp_capture(trap_cell, target_cell)
+	if board_manager.board.has(target_cell):
+		board_manager.remove_piece(target_cell)
+		board_manager.finish_big_swamp_pulse_visual()
+		var trap_data: Resource = board_manager.get_trap_data(trap_cell)
+		var trap_name := _get_trap_display_name(trap_data)
+		var trap_message := _build_trap_disappearance_message(captured_piece_type, trap_name)
+		board_manager.show_trap_message_cloud(trap_cell, trap_message, _get_theme(), captured_piece_type, captured_piece_color)
+		_spawn_new_pieces(failed_pulse_spawn_count)
+		await get_tree().create_timer(0.2).timeout
+		await _resolve_chain_waves()
+	else:
+		board_manager.finish_big_swamp_pulse_visual()
+	big_swamp_pulse_state.clear()
+	is_big_swamp_pulse_resolving = false
+	is_processing_move = false
+	if not game_over_overlay.visible:
+		_check_game_over()
+	if not game_over_overlay.visible and not pause_overlay.visible:
+		board_manager.set_input_enabled(true)
+
+func _is_big_swamp_pulse_state_valid() -> bool:
+	if not big_swamp_pulse_state.is_active:
+		return false
+	if not (big_swamp_pulse_state.trap_cell in board_manager.traps):
+		return false
+	if board_manager.get_trap_type_id(big_swamp_pulse_state.trap_cell) != "swallow":
+		return false
+	if not board_manager.board.has(big_swamp_pulse_state.target_piece_cell):
+		return false
+	if not _is_candidate_almost_line_still_present(
+		board_manager.board,
+		big_swamp_pulse_state.candidate_line_cells,
+		big_swamp_pulse_state.missing_line_cell,
+		board_manager.traps
+	):
+		return false
+	return true
+
+func _is_big_swamp_pulse_line_completed() -> bool:
+	if not big_swamp_pulse_state.is_active:
+		return false
+	return _is_candidate_line_completed(
+		board_manager.board,
+		big_swamp_pulse_state.candidate_line_cells
+	)
+
+static func _find_big_swamp_pulse_candidates(board: Dictionary, trap_cells: Array, allow_king_capture: bool, blocked_trap_cells: Array = [], max_target_distance_cells: int = 1) -> Array:
+	var candidates: Array = []
+	if board.size() < ChainDetector.MIN_LINE_LENGTH - 1 or trap_cells.is_empty():
+		return candidates
+	var blocked_cells: Array = blocked_trap_cells
+	if blocked_cells.is_empty():
+		blocked_cells = trap_cells
+	for direction in ChainDetector.DIRECTIONS:
+		for line_cells in _get_five_cell_windows(direction):
+			var line_candidates: Array = _build_big_swamp_pulse_candidates_for_line(board, trap_cells, blocked_cells, line_cells, direction, allow_king_capture, max_target_distance_cells)
+			for candidate in line_candidates:
+				candidates.append(candidate)
+	return candidates
+
+static func _get_five_cell_windows(direction: Vector2i) -> Array:
+	var windows: Array = []
+	for y in range(GameManager.BOARD_SIZE):
+		for x in range(GameManager.BOARD_SIZE):
+			var start := Vector2i(x, y)
+			var end := start + direction * (ChainDetector.MIN_LINE_LENGTH - 1)
+			if not _is_grid_cell_in_bounds(end):
+				continue
+			var cells: Array[Vector2i] = []
+			for i in range(ChainDetector.MIN_LINE_LENGTH):
+				cells.append(start + direction * i)
+			windows.append(cells)
+	return windows
+
+static func _build_big_swamp_pulse_candidates_for_line(board: Dictionary, trap_cells: Array, blocked_trap_cells: Array, line_cells: Array, direction: Vector2i, allow_king_capture: bool, max_target_distance_cells: int) -> Array:
+	var candidates: Array = []
+	if _is_candidate_line_completed(board, line_cells):
+		return candidates
+
+	for completion_cell in line_cells:
+		var candidate_cell: Vector2i = completion_cell
+		if candidate_cell in blocked_trap_cells:
+			continue
+		var occupied_pieces: Array = []
+		var has_gap_outside_candidate := false
+		for line_cell in line_cells:
+			var current_cell: Vector2i = line_cell
+			if current_cell == candidate_cell:
+				continue
+			if current_cell in blocked_trap_cells:
+				has_gap_outside_candidate = true
+				break
+			if not board.has(current_cell):
+				has_gap_outside_candidate = true
+				break
+			occupied_pieces.append(board[current_cell])
+		if has_gap_outside_candidate or occupied_pieces.size() != ChainDetector.MIN_LINE_LENGTH - 1:
+			continue
+		var completion: Dictionary = _get_almost_line_completion(board, occupied_pieces, candidate_cell, line_cells, blocked_trap_cells)
+		if completion.is_empty():
+			continue
+		var target_cell: Vector2i = _select_big_swamp_pulse_target(board, line_cells, candidate_cell, direction, trap_cells, allow_king_capture, max_target_distance_cells)
+		if target_cell == Vector2i(-1, -1):
+			continue
+		var trap_cell: Vector2i = _select_big_swamp_pulse_trap(trap_cells, target_cell, max_target_distance_cells)
+		if trap_cell == Vector2i(-1, -1):
+			continue
+		candidates.append({
+			"trap_cell": trap_cell,
+			"target_piece_cell": target_cell,
+			"missing_line_cell": candidate_cell,
+			"candidate_line_cells": line_cells.duplicate(),
+			"score": _score_big_swamp_pulse_target(line_cells, candidate_cell, target_cell, direction, trap_cell)
+		})
+
+	return candidates
+
+static func _get_almost_line_completion(board: Dictionary, occupied_pieces: Array, missing_cell: Vector2i, candidate_line_cells: Array, blocked_trap_cells: Array = []) -> Dictionary:
+	var color_completer := _get_color_almost_line_completer(board, occupied_pieces, missing_cell, candidate_line_cells, blocked_trap_cells)
+	if color_completer != Vector2i(-1, -1):
+		return {"kind": "color"}
+	var type_match: int = _get_almost_type_match(occupied_pieces)
+	var type_completer := _get_type_almost_line_completer(board, occupied_pieces, missing_cell, candidate_line_cells, blocked_trap_cells, type_match, _has_king_piece(occupied_pieces))
+	if type_completer != Vector2i(-1, -1):
+		return {
+			"kind": "type",
+			"matched_type": type_match
+		}
+	return {}
+
+static func _can_complete_color_almost_line(board: Dictionary, occupied_pieces: Array, missing_cell: Vector2i, candidate_line_cells: Array, blocked_trap_cells: Array) -> bool:
+	var color: int = occupied_pieces[0].piece_color
+	var occupied_line_cells: Dictionary = {}
+	for piece in occupied_pieces:
+		occupied_line_cells[piece.grid_position] = true
+		if piece.piece_color != color:
+			return false
+	for piece in board.values():
+		if occupied_line_cells.has(piece.grid_position):
+			continue
+		if piece.piece_color == color and _can_piece_complete_almost_line_cell(piece, board, missing_cell, candidate_line_cells, blocked_trap_cells):
+			return true
+	return false
+
+static func _get_color_almost_line_completer(board: Dictionary, occupied_pieces: Array, missing_cell: Vector2i, candidate_line_cells: Array, blocked_trap_cells: Array) -> Vector2i:
+	var color: int = occupied_pieces[0].piece_color
+	var occupied_line_cells: Dictionary = {}
+	for piece in occupied_pieces:
+		occupied_line_cells[piece.grid_position] = true
+		if piece.piece_color != color:
+			return Vector2i(-1, -1)
+	for piece in board.values():
+		if occupied_line_cells.has(piece.grid_position):
+			continue
+		if piece.piece_color == color and _can_piece_complete_almost_line_cell(piece, board, missing_cell, candidate_line_cells, blocked_trap_cells):
+			return piece.grid_position
+	return Vector2i(-1, -1)
+
+static func _get_almost_type_match(occupied_pieces: Array) -> int:
+	var matched_type: int = -1
+	for piece in occupied_pieces:
+		if piece.piece_type == GameManager.PieceType.KING:
+			continue
+		if matched_type == -1:
+			matched_type = piece.piece_type
+			continue
+		if piece.piece_type != matched_type:
+			return -1
+	return matched_type
+
+static func _can_complete_type_almost_line(board: Dictionary, occupied_pieces: Array, missing_cell: Vector2i, candidate_line_cells: Array, blocked_trap_cells: Array, matched_type: int, line_has_king: bool) -> bool:
+	if matched_type == -1:
+		return false
+	var occupied_line_cells: Dictionary = {}
+	for piece in occupied_pieces:
+		occupied_line_cells[piece.grid_position] = true
+	for piece in board.values():
+		if occupied_line_cells.has(piece.grid_position):
+			continue
+		if piece.piece_type == matched_type and _can_piece_complete_almost_line_cell(piece, board, missing_cell, candidate_line_cells, blocked_trap_cells):
+			return true
+		if not line_has_king and piece.piece_type == GameManager.PieceType.KING and _can_piece_complete_almost_line_cell(piece, board, missing_cell, candidate_line_cells, blocked_trap_cells):
+			return true
+	return false
+
+static func _get_type_almost_line_completer(board: Dictionary, occupied_pieces: Array, missing_cell: Vector2i, candidate_line_cells: Array, blocked_trap_cells: Array, matched_type: int, line_has_king: bool) -> Vector2i:
+	if matched_type == -1:
+		return Vector2i(-1, -1)
+	var occupied_line_cells: Dictionary = {}
+	for piece in occupied_pieces:
+		occupied_line_cells[piece.grid_position] = true
+	for piece in board.values():
+		if occupied_line_cells.has(piece.grid_position):
+			continue
+		if piece.piece_type == matched_type and _can_piece_complete_almost_line_cell(piece, board, missing_cell, candidate_line_cells, blocked_trap_cells):
+			return piece.grid_position
+		if not line_has_king and piece.piece_type == GameManager.PieceType.KING and _can_piece_complete_almost_line_cell(piece, board, missing_cell, candidate_line_cells, blocked_trap_cells):
+			return piece.grid_position
+	return Vector2i(-1, -1)
+
+static func _can_piece_complete_almost_line_cell(piece, board: Dictionary, completion_cell: Vector2i, candidate_line_cells: Array, blocked_trap_cells: Array) -> bool:
+	if completion_cell in blocked_trap_cells:
+		return false
+	var can_reach_completion: bool = false
+	if board.has(completion_cell):
+		can_reach_completion = completion_cell in piece.get_legal_captures(board)
+	else:
+		can_reach_completion = completion_cell in piece.get_legal_moves(board)
+	if not can_reach_completion:
+		return false
+	return _simulated_completion_creates_candidate_line(piece, board, completion_cell, candidate_line_cells)
+
+static func _build_prediction_movement_board(board: Dictionary, blocked_trap_cells: Array, completion_cell: Vector2i, blocker_color: int) -> Dictionary:
+	var prediction_board := board.duplicate()
+	for trap_cell in blocked_trap_cells:
+		var blocked_cell: Vector2i = trap_cell
+		if blocked_cell == completion_cell or prediction_board.has(blocked_cell):
+			continue
+		prediction_board[blocked_cell] = TrapPredictionBlocker.new(blocker_color, blocked_cell)
+	return prediction_board
+
+static func _free_prediction_movement_blockers(prediction_board: Dictionary, board: Dictionary, blocked_trap_cells: Array):
+	for trap_cell in blocked_trap_cells:
+		var blocked_cell: Vector2i = trap_cell
+		if board.has(blocked_cell) or not prediction_board.has(blocked_cell):
+			continue
+		var blocker = prediction_board[blocked_cell]
+		if blocker is Node and is_instance_valid(blocker):
+			blocker.free()
+
+static func _simulated_completion_creates_candidate_line(piece, board: Dictionary, completion_cell: Vector2i, candidate_line_cells: Array) -> bool:
+	var original_cell: Vector2i = piece.grid_position
+	var simulation_board := board.duplicate()
+	simulation_board.erase(original_cell)
+	simulation_board.erase(completion_cell)
+	piece.grid_position = completion_cell
+	simulation_board[completion_cell] = piece
+	var completed := _is_candidate_line_completed(simulation_board, candidate_line_cells)
+	piece.grid_position = original_cell
+	return completed
+
+static func _select_big_swamp_pulse_target(board: Dictionary, line_cells: Array, missing_cell: Vector2i, direction: Vector2i, trap_cells: Array, allow_king_capture: bool, max_target_distance_cells: int = 1) -> Vector2i:
+	var best_cell: Vector2i = Vector2i(-1, -1)
+	var best_score: int = -999999
+	var best_trap_distance: int = 999999
+	var reachable_targets: Array[Vector2i] = []
+	for cell in line_cells:
+		if cell == missing_cell or not board.has(cell):
+			continue
+		var piece = board[cell]
+		if not allow_king_capture and piece.piece_type == GameManager.PieceType.KING:
+			continue
+		var target_cell: Vector2i = cell
+		var trap_cell: Vector2i = _select_big_swamp_pulse_trap(trap_cells, target_cell, max_target_distance_cells)
+		if trap_cell == Vector2i(-1, -1):
+			continue
+		if _is_valid_big_swamp_pulse_target_position(line_cells, missing_cell, target_cell, direction, board.has(missing_cell), trap_cell):
+			reachable_targets.append(target_cell)
+
+	for target_cell in reachable_targets:
+		var trap_cell: Vector2i = _select_big_swamp_pulse_trap(trap_cells, target_cell, max_target_distance_cells)
+		if trap_cell == Vector2i(-1, -1):
+			continue
+		var trap_distance: int = int(target_cell.distance_squared_to(trap_cell)) if trap_cell != Vector2i(-1, -1) else 999999
+		var score: int = _score_big_swamp_pulse_target(line_cells, missing_cell, target_cell, direction, trap_cell)
+		if trap_distance < best_trap_distance or (trap_distance == best_trap_distance and score > best_score):
+			best_trap_distance = trap_distance
+			best_score = score
+			best_cell = target_cell
+	return best_cell
+
+static func _is_cell_adjacent_to_line_gap(cell: Vector2i, gap_cell: Vector2i, direction: Vector2i) -> bool:
+	return cell == gap_cell - direction or cell == gap_cell + direction
+
+static func _is_valid_big_swamp_pulse_target_position(line_cells: Array, missing_cell: Vector2i, target_cell: Vector2i, direction: Vector2i, completion_cell_is_occupied: bool, trap_cell: Vector2i = Vector2i(-1, -1)) -> bool:
+	if _is_cell_adjacent_to_line_gap(target_cell, missing_cell, direction):
+		return true
+	var first_cell: Vector2i = line_cells[0]
+	var last_cell: Vector2i = line_cells[line_cells.size() - 1]
+	if target_cell != first_cell and target_cell != last_cell:
+		return false
+	if completion_cell_is_occupied:
+		return _is_cell_orthogonally_adjacent(target_cell, trap_cell) or _is_trap_attached_to_line_edge(trap_cell, target_cell, direction, target_cell == first_cell)
+	if target_cell == first_cell:
+		return _is_trap_on_line_edge_extension(trap_cell, first_cell, direction, true)
+	return _is_trap_on_line_edge_extension(trap_cell, last_cell, direction, false)
+
+static func _is_cell_orthogonally_adjacent(cell: Vector2i, other_cell: Vector2i) -> bool:
+	return absi(cell.x - other_cell.x) + absi(cell.y - other_cell.y) == 1
+
+static func _is_trap_attached_to_line_edge(trap_cell: Vector2i, edge_cell: Vector2i, direction: Vector2i, is_first_edge: bool) -> bool:
+	if trap_cell == Vector2i(-1, -1):
+		return false
+	if _is_trap_on_line_edge_extension(trap_cell, edge_cell, direction, is_first_edge):
+		return true
+	for perpendicular_offset in _get_line_perpendicular_offsets(direction):
+		if trap_cell == edge_cell + perpendicular_offset:
+			return true
+	return false
+
+static func _is_trap_on_line_edge_extension(trap_cell: Vector2i, edge_cell: Vector2i, direction: Vector2i, is_first_edge: bool) -> bool:
+	if trap_cell == Vector2i(-1, -1):
+		return false
+	var edge_offset: Vector2i = edge_cell - direction if is_first_edge else edge_cell + direction
+	return trap_cell == edge_offset
+
+static func _get_line_perpendicular_offsets(direction: Vector2i) -> Array[Vector2i]:
+	if direction.x != 0 and direction.y != 0:
+		return [Vector2i(direction.x, -direction.y), Vector2i(-direction.x, direction.y)]
+	if direction.x != 0:
+		return [Vector2i(0, 1), Vector2i(0, -1)]
+	return [Vector2i(1, 0), Vector2i(-1, 0)]
+
+static func _score_big_swamp_pulse_target(line_cells: Array, missing_cell: Vector2i, target_cell: Vector2i, direction: Vector2i, trap_cell: Vector2i) -> int:
+	var score: int = 0
+	if _is_cell_adjacent_to_line_gap(target_cell, missing_cell, direction):
+		score += 70
+	if target_cell == line_cells[0] or target_cell == line_cells[line_cells.size() - 1]:
+		score += 45
+	score -= int(target_cell.distance_squared_to(missing_cell)) * 2
+	if trap_cell != Vector2i(-1, -1):
+		score -= int(target_cell.distance_squared_to(trap_cell))
+	return score
+
+static func _select_big_swamp_pulse_trap(trap_cells: Array, target_cell: Vector2i, max_target_distance_cells: int = 1) -> Vector2i:
+	var selected: Vector2i = Vector2i(-1, -1)
+	var best_distance: int = 999999
+	for trap_cell in trap_cells:
+		if not _is_cell_within_big_swamp_reach(target_cell, trap_cell, max_target_distance_cells):
+			continue
+		var distance: int = int(target_cell.distance_squared_to(trap_cell))
+		if distance < best_distance:
+			best_distance = distance
+			selected = trap_cell
+	return selected
+
+static func _is_cell_within_big_swamp_reach(target_cell: Vector2i, trap_cell: Vector2i, max_target_distance_cells: int) -> bool:
+	var max_distance: int = maxi(max_target_distance_cells, 0)
+	return maxi(absi(target_cell.x - trap_cell.x), absi(target_cell.y - trap_cell.y)) <= max_distance
+
+static func _is_candidate_line_completed(board: Dictionary, candidate_line_cells: Array) -> bool:
+	var pieces: Array = []
+	for cell in candidate_line_cells:
+		if not board.has(cell):
+			return false
+		pieces.append(board[cell])
+	if pieces.size() != ChainDetector.MIN_LINE_LENGTH:
+		return false
+	return ChainDetector._build_line_result(pieces).size() > 0
+
+static func _is_candidate_almost_line_still_present(board: Dictionary, candidate_line_cells: Array, missing_cell: Vector2i, blocked_trap_cells: Array = []) -> bool:
+	if missing_cell in blocked_trap_cells:
+		return false
+	var occupied_pieces: Array = []
+	for cell in candidate_line_cells:
+		if cell == missing_cell:
+			continue
+		if cell in blocked_trap_cells:
+			return false
+		if not board.has(cell):
+			return false
+		occupied_pieces.append(board[cell])
+	return not _get_almost_line_completion(board, occupied_pieces, missing_cell, candidate_line_cells, blocked_trap_cells).is_empty()
+
+static func _has_king_piece(pieces: Array) -> bool:
+	for piece in pieces:
+		if piece.piece_type == GameManager.PieceType.KING:
+			return true
+	return false
+
+static func _is_grid_cell_in_bounds(cell: Vector2i) -> bool:
+	return cell.x >= 0 and cell.x < GameManager.BOARD_SIZE and cell.y >= 0 and cell.y < GameManager.BOARD_SIZE
 
 func _build_puzzle_tile_order():
 	puzzle_tile_order.clear()
@@ -1094,6 +1637,9 @@ func _apply_puzzle_progress(removed_pieces: int):
 		var level_complete_message := _tf("level_complete", {"number": completed_level_number})
 		_queue_scoring_event(GameManager.build_level_complete_event(completed_level_number))
 		await _show_puzzle_overlay_message(level_complete_message, PUZZLE_LEVEL_COMPLETE_HOLD)
+		if completed_level_number >= WIN_LEVEL_NUMBER:
+			GameManager.end_game(GameManager.GAME_RESULT_WIN)
+			return
 		await _fade_puzzle_image_out()
 
 		await _load_puzzle_level(current_puzzle_level + 1)
@@ -1227,8 +1773,10 @@ func _clear_hud_message_log_after_slide(generation: int, slide_distance: float):
 	message_tween = null
 
 func _check_game_over():
-	if not board_manager.has_legal_moves() or not board_manager.can_spawn_any_piece():
-		GameManager.end_game()
+	if game_over_overlay.visible:
+		return
+	if not board_manager.has_legal_moves():
+		GameManager.end_game(GameManager.GAME_RESULT_LOSS)
 
 func _on_piece_selected(piece):
 	var moves: Array = piece.get_legal_moves(board_manager.board)
@@ -1368,13 +1916,33 @@ func _update_line_metrics_ui():
 	type_lines_value_label.text = str(GameManager.type_lines_cleared)
 	level_value_label.text = str(current_puzzle_level + 1)
 
-func _on_game_over(final_score: int):
+func _on_game_over(final_score: int, result: String, achieved_best_score: bool):
+	latest_game_result = result
+	latest_best_score_achieved = achieved_best_score
 	_save_clean_turn_mastery()
 	board_manager.set_input_enabled(false)
 	pause_overlay.visible = false
 	game_over_overlay.visible = true
-	game_over_score_label.text = "%s: %d" % [_t("final_score"), final_score]
+	_update_game_over_dialog(final_score, result, achieved_best_score)
 	AudioManager.play_sound("game_over")
+
+func _update_game_over_dialog(final_score: int, result: String, achieved_best_score: bool):
+	if result == GameManager.GAME_RESULT_WIN:
+		game_over_title_label.text = _t("game_won")
+	else:
+		game_over_title_label.text = _t("game_lost")
+
+	if achieved_best_score:
+		game_over_summary_label.text = _t("new_best_score")
+	else:
+		game_over_summary_label.text = _t("session_complete")
+
+	game_over_score_label.text = "\n".join([
+		"%s: %d" % [_t("session_score"), final_score],
+		"%s: %d" % [_t("removed_color_lines"), GameManager.color_lines_cleared],
+		"%s: %d" % [_t("removed_type_lines"), GameManager.type_lines_cleared],
+		"%s: %d" % [_t("played_campaigns"), SESSION_CAMPAIGNS_PLAYED]
+	])
 
 func _on_gear_pressed():
 	if game_over_overlay.visible:
@@ -1395,6 +1963,8 @@ func _on_restart_pressed():
 	session_total_turns = 0
 	session_clean_turns = 0
 	current_turn_had_take = false
+	latest_game_result = GameManager.GAME_RESULT_LOSS
+	latest_best_score_achieved = false
 	GameManager.reset_game()
 	_initialize_game()
 	_update_layout()
@@ -1426,6 +1996,7 @@ func _resolve_turn():
 	await get_tree().create_timer(0.3).timeout
 	_record_completed_turn()
 	_maybe_rotate_traps()
+	_maybe_start_big_swamp_pulse()
 	_check_game_over()
 
 	_flush_score_message_batch()
@@ -1453,6 +2024,7 @@ func _resolve_sacrifice_turn(spawn_count: int):
 	await get_tree().create_timer(0.3).timeout
 	_record_completed_turn()
 	_maybe_rotate_traps()
+	_maybe_start_big_swamp_pulse()
 	_check_game_over()
 
 	_flush_score_message_batch()
@@ -1541,7 +2113,7 @@ func _apply_localized_text():
 	restart_button.text = _t("play_again")
 	main_menu_button.text = _t("main_menu")
 	if game_over_overlay.visible:
-		game_over_score_label.text = "%s: %d" % [_t("final_score"), GameManager.current_score]
+		_update_game_over_dialog(GameManager.current_score, latest_game_result, latest_best_score_achieved)
 
 func _t(key: String) -> String:
 	var localization := _get_localization()

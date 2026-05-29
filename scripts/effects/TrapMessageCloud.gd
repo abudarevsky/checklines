@@ -57,11 +57,11 @@ func _build_cloud(message: String, theme: Resource, piece_type: int, _piece_colo
 	message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	message_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	message_label.position = cloud_rect.position + Vector2(100.0, 8.0)
-	message_label.size = cloud_size - Vector2(126.0, 16.0)
+	message_label.position = cloud_rect.position + Vector2(96.0, 5.0)
+	message_label.size = cloud_size - Vector2(118.0, 10.0)
 	message_label.add_theme_color_override("font_color", _get_text_color(theme))
-	message_label.add_theme_color_override("font_outline_color", _get_border_color(theme))
-	message_label.add_theme_constant_override("outline_size", 5)
+	message_label.add_theme_color_override("font_outline_color", _get_text_outline_color(theme))
+	message_label.add_theme_constant_override("outline_size", 9)
 	message_label.add_theme_font_size_override("font_size", _get_font_size(theme))
 	add_child(message_label)
 
@@ -78,23 +78,29 @@ func _build_cloud_rect(size: Vector2, offset: Vector2, color: Color) -> ColorRec
 	return rect
 
 func _get_cloud_size(message: String) -> Vector2:
-	var width := clampf(float(message.length()) * 16.0 + 150.0, 380.0, 760.0)
-	return Vector2(width, 102.0)
+	var width := clampf(float(message.length()) * 19.0 + 176.0, 430.0, 840.0)
+	return Vector2(width, 120.0)
 
 func _get_cloud_color(theme: Resource) -> Color:
 	if theme != null:
 		var color: Color = theme.board_cell_dark_color
-		color.a = 0.95
+		color = color.darkened(0.18)
+		color.a = 0.92
 		return color
-	return Color(0.1, 0.12, 0.16, 0.95)
+	return Color(0.08, 0.1, 0.13, 0.92)
 
 func _get_text_color(theme: Resource) -> Color:
 	if theme != null:
 		var color: Color = theme.board_cell_light_color
-		color = color.lightened(0.45)
+		color = color.lightened(0.62)
 		color.a = 1.0
 		return color
 	return Color.WHITE
+
+func _get_text_outline_color(theme: Resource) -> Color:
+	var color := _get_cloud_color(theme).darkened(0.72)
+	color.a = 1.0
+	return color
 
 func _get_border_color(theme: Resource) -> Color:
 	var color := _get_cloud_color(theme).darkened(0.55)
@@ -106,11 +112,11 @@ func _get_shadow_color() -> Color:
 
 func _get_font_size(theme: Resource) -> int:
 	if theme != null:
-		return clampi(theme.puzzle_message_font_size + 2, 28, 34)
-	return 30
+		return clampi(theme.puzzle_message_font_size + 8, 36, 44)
+	return 38
 
 func _play(to: Vector2):
-	z_index = 80
+	z_index = 120
 	scale = Vector2(0.82, 0.82)
 	modulate.a = 0.0
 

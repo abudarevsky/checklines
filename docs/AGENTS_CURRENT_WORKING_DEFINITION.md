@@ -8,7 +8,7 @@ The player builds:
 - type lines
 - Royal Lines made from 4 same-type pieces plus the only King on the board
 
-The player aims to survive, optimize score, adapt tactically, and play elegantly across themed kingdoms with distinct traps and four difficulty levels. Level 4 is an endless prestige mode rather than a truly completable level.
+The player aims to survive, optimize score, adapt tactically, and play elegantly across themed kingdoms with distinct traps and four difficulty levels. A kingdom run is won by completing Level 4 and lost when no eligible move or capture remains.
 
 Mastery is expressed through persistent kingdom badges for progression, tactical efficiency, and campaign success. Optional short campaigns are generated from board state when they are likely achievable, and rewards stay cosmetic, prestige-oriented, mastery-oriented, and non-grindy.
 

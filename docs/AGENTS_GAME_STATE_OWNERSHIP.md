@@ -35,7 +35,7 @@ Owns or coordinates:
 - line detection call
 - score updates
 - UI updates
-- game-over condition
+- win/loss condition
 - exhausted-spawn terminal fallback to a king-filled board ending
 
 ### `SpawnPlanner.gd`

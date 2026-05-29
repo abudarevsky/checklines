@@ -140,7 +140,7 @@ func _get_attack_directions():
 					 Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 	return []
 
-func _can_capture_piece(other_piece: Piece) -> bool:
+func _can_capture_piece(other_piece) -> bool:
 	return other_piece.piece_color != piece_color and other_piece.piece_type != GameManager.PieceType.KING
 
 func _get_sliding_captures(board: Dictionary, directions):

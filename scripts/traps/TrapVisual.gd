@@ -98,6 +98,8 @@ var sparkle_stars: Array[TrapSparkleStar] = []
 var shadow_sprites: Array[Sprite2D] = []
 var shadow_color_cursor: int = 0
 var is_selected: bool = false
+var is_pulsing: bool = false
+var pulse_tween: Tween
 
 func setup(size: float, trap: Resource, theme: Resource, light_cell: bool = true):
 	cell_size = size
@@ -118,6 +120,22 @@ func set_selected(selected: bool):
 	for star in sparkle_stars:
 		if is_instance_valid(star):
 			star.visible = is_selected
+
+func set_pulsing(pulsing: bool):
+	if is_pulsing == pulsing:
+		return
+	is_pulsing = pulsing
+	_setup_material()
+	if pulse_tween:
+		pulse_tween.kill()
+		pulse_tween = null
+	scale = Vector2.ONE
+	if not is_pulsing:
+		return
+	pulse_tween = create_tween()
+	pulse_tween.set_loops()
+	pulse_tween.tween_property(self, "scale", Vector2.ONE * 1.08, 0.38).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	pulse_tween.tween_property(self, "scale", Vector2.ONE * 0.98, 0.34).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 func play_rotation_disappear():
 	var tween := create_tween()
@@ -159,11 +177,21 @@ func _setup_material():
 	material = shader_material
 	var tint: Color = trap_data.light_cell_tint if is_light_cell else trap_data.dark_cell_tint
 	var selected_boost := 1.35 if is_selected else 1.0
+	if is_pulsing:
+		selected_boost = maxf(selected_boost, 1.58)
+	var cell_color := Color(0.7, 0.7, 0.7, 1.0)
+	var stripe_color := Color(0.3, 0.3, 0.3, 0.42)
+	if theme_data != null:
+		cell_color = theme_data.board_cell_light_color if is_light_cell else theme_data.board_cell_dark_color
+		stripe_color = theme_data.board_cell_dark_color if is_light_cell else theme_data.board_cell_light_color
+		stripe_color.a = 0.42
 	shader_material.set_shader_parameter("base_color", _boost_color(_tint_color(trap_data.base_color, tint), selected_boost))
 	shader_material.set_shader_parameter("wave_color", _boost_color(_tint_color(trap_data.wave_color, tint), selected_boost))
 	shader_material.set_shader_parameter("border_color", _boost_color(_tint_color(trap_data.border_color, tint), 1.75 if is_selected else 1.0))
-	shader_material.set_shader_parameter("wave_strength", trap_data.wave_strength * (1.45 if is_selected else 1.0))
-	shader_material.set_shader_parameter("wave_speed", trap_data.wave_speed * (1.25 if is_selected else 1.0))
+	shader_material.set_shader_parameter("cell_color", cell_color)
+	shader_material.set_shader_parameter("stripe_color", stripe_color)
+	shader_material.set_shader_parameter("wave_strength", trap_data.wave_strength * (1.9 if is_pulsing else (1.45 if is_selected else 1.0)))
+	shader_material.set_shader_parameter("wave_speed", trap_data.wave_speed * (2.1 if is_pulsing else (1.25 if is_selected else 1.0)))
 	shader_material.set_shader_parameter("wave_frequency", trap_data.wave_frequency)
 
 func _setup_corner_marks():

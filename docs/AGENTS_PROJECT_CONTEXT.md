@@ -61,4 +61,4 @@ Each kingdom has:
 - unique traps
 - 4 difficulty levels
 
-Level 4 is an endless prestige mode measured by survival time, score, removed lines, and tactical mastery rather than true completion.
+Completing Level 4 wins the active kingdom run. Measure finished runs by session score, removed lines, campaigns, and tactical mastery.

@@ -2,7 +2,7 @@
 
 Current modal/dialog presentation includes:
 
-- a large centered game-over card
+- a large centered win/loss card
 - a settings dialog in the main menu
 - dark overlay backdrop
 - brisk modern dialog typography
@@ -16,3 +16,10 @@ When adding or refactoring dialogs:
 - preserve the current centered card style for game over unless explicitly redesigned
 - keep settings dialog popup/dropdown text readable in the neon theme
 
+Session-end dialogs should:
+
+- show win copy when the player completes Level 4
+- show loss copy when no eligible move or capture remains
+- congratulate the player when a new best score is achieved
+- display session score, removed color lines, removed type lines, and played campaigns
+- keep played campaigns at `0` until the campaign system is implemented

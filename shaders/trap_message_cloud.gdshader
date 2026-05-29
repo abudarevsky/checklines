@@ -10,18 +10,23 @@ float ellipse(vec2 point, vec2 center, vec2 radius) {
 
 void fragment() {
 	vec2 uv = UV;
-	float pulse = sin(TIME * 2.4 + uv.x * 8.0) * 0.015;
+	float pulse = sin(TIME * 2.1 + uv.x * 8.0) * 0.018;
+	float breathe = sin(TIME * 1.35) * 0.035;
 	float cloud = 0.0;
-	cloud = max(cloud, ellipse(uv, vec2(0.18, 0.55 + pulse), vec2(0.22, 0.34)));
-	cloud = max(cloud, ellipse(uv, vec2(0.34, 0.43 - pulse), vec2(0.25, 0.37)));
-	cloud = max(cloud, ellipse(uv, vec2(0.52, 0.50 + pulse), vec2(0.29, 0.42)));
-	cloud = max(cloud, ellipse(uv, vec2(0.70, 0.46 - pulse), vec2(0.24, 0.36)));
-	cloud = max(cloud, ellipse(uv, vec2(0.84, 0.55 + pulse), vec2(0.20, 0.31)));
+	cloud = max(cloud, ellipse(uv, vec2(0.13, 0.56 + pulse), vec2(0.24 + breathe, 0.34)));
+	cloud = max(cloud, ellipse(uv, vec2(0.28, 0.41 - pulse), vec2(0.27, 0.39 + breathe)));
+	cloud = max(cloud, ellipse(uv, vec2(0.46, 0.53 + pulse), vec2(0.31 + breathe, 0.44)));
+	cloud = max(cloud, ellipse(uv, vec2(0.63, 0.40 - pulse), vec2(0.3, 0.4 + breathe)));
+	cloud = max(cloud, ellipse(uv, vec2(0.78, 0.53 + pulse), vec2(0.25 + breathe, 0.35)));
+	cloud = max(cloud, ellipse(uv, vec2(0.9, 0.58 - pulse), vec2(0.18, 0.28)));
 
-	float soft_body = ellipse(uv, vec2(0.50, 0.57), vec2(0.53, 0.31));
-	cloud = max(cloud, soft_body * 0.92);
+	float soft_body = ellipse(uv, vec2(0.50, 0.56), vec2(0.57, 0.35));
+	float dense_core = ellipse(uv, vec2(0.53, 0.55), vec2(0.45, 0.24));
+	cloud = max(cloud, soft_body * 0.95);
 
 	float wisps = sin((uv.x + TIME * 0.55) * 34.0) * sin((uv.y - TIME * 0.25) * 18.0);
-	float alpha = clamp(cloud + wisps * 0.035 * cloud, 0.0, 1.0) * cloud_color.a;
-	COLOR = vec4(cloud_color.rgb, alpha);
+	float fog = clamp(cloud * 1.08 + dense_core * 0.42 + wisps * 0.05 * cloud, 0.0, 1.0);
+	float alpha = fog * cloud_color.a;
+	vec3 fog_color = mix(cloud_color.rgb, vec3(0.86, 0.9, 0.92), dense_core * 0.18);
+	COLOR = vec4(fog_color, alpha);
 }

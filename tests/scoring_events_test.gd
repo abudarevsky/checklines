@@ -25,6 +25,7 @@ func _initialize():
 	_run_test("builds zero-score sacrifice as display-only event", _test_zero_score_sacrifice_event, failures)
 	_run_test("formats trap disappearance event", _test_trap_disappearance_event, failures)
 	_run_test("scores level completion", _test_level_complete_event, failures)
+	_run_test("defers best score until session end", _test_best_score_updates_only_on_session_end, failures)
 
 	if failures.is_empty():
 		print("All scoring event tests passed")
@@ -149,6 +150,24 @@ func _test_level_complete_event() -> String:
 		return "wrong level complete message"
 	if event["value"] != 500:
 		return "expected 500, got %d" % event["value"]
+	return ""
+
+func _test_best_score_updates_only_on_session_end() -> String:
+	_game_manager().current_score = 0
+	_game_manager().high_score = 10
+	_game_manager().add_score(25)
+	if _game_manager().high_score != 10:
+		return "expected best score to stay unchanged before session end"
+	_game_manager().end_game(GameManager.GAME_RESULT_LOSS)
+	if _game_manager().high_score != 25:
+		return "expected best score to update after loss"
+
+	_game_manager().reset_game()
+	_game_manager().high_score = 30
+	_game_manager().add_score(20)
+	_game_manager().reset_game()
+	if _game_manager().high_score != 30:
+		return "expected reset to leave best score unchanged"
 	return ""
 
 func _line(pieces: Array) -> Dictionary:

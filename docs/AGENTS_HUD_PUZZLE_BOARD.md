@@ -11,14 +11,13 @@ Current gameplay HUD includes:
 Puzzle board rules:
 
 - one removed piece reveals one puzzle tile
-- fully revealing one picture completes a progression level before Level 4
+- fully revealing one picture completes a progression level
 - level-complete score/HUD and puzzle overlay messages use one-based numbering: `"Level $number complete!"`
 - record the maximum completed progression level per kingdom only when that level is actually completed
-- the current score value should render as individual inverted digit plates, like a mechanical counter, while preserving visible spacing between digits
+- the current score value should render as individual bordered digit slots, like a mechanical counter, with at least five zero-padded digits while preserving visible spacing between digits
 - the best-score HUD uses a compact three-level pedestal icon plus `"$score | L $number"` and never displays a level lower than `1`; do not show a `"Best"` text prefix in the score row
-- Levels 1-3 are progression levels; Level 4 is endless prestige survival and is measured by performance rather than true completion
-- gameplay may keep advancing puzzle-image presentation after Level 4, but that must not imply additional kingdom progression levels
-- puzzle tile counts are 25, 50, 75, then 100 for Level 4 prestige presentation and any later visual cycles
+- completing Level 4 wins the active kingdom run
+- puzzle tile counts are 25, 50, 75, then 100 for Level 4
 - level images come from the active `ThemeData`
 - the default puzzle image sequence comes from `assets/ui/themes/default/level0.png`, `level1.png`, and `level2.png`
 - when a theme has no puzzle image at the current level index, reuse the last available prior image

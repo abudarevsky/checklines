@@ -37,6 +37,8 @@ const PIECE_VALUES: Dictionary = {
 	PieceType.KING: 10
 }
 const LEVEL_COMPLETE_SCORE: int = 500
+const GAME_RESULT_LOSS: String = "loss"
+const GAME_RESULT_WIN: String = "win"
 
 var board_size: int = BOARD_SIZE
 var cell_size: float = CELL_SIZE
@@ -47,7 +49,7 @@ var color_lines_cleared: int = 0
 var type_lines_cleared: int = 0
 
 signal score_updated(new_score: int)
-signal game_over(final_score: int)
+signal game_over(final_score: int, result: String, achieved_best_score: bool)
 signal line_metrics_updated(color_lines: int, type_lines: int)
 
 func _ready():
@@ -75,11 +77,6 @@ func save_high_score():
 
 func add_score(points: int):
 	current_score = maxi(current_score + points, 0)
-
-	if current_score > high_score:
-		high_score = current_score
-		save_high_score()
-
 	score_updated.emit(current_score)
 
 func add_scoring_event(event: Dictionary):
@@ -338,11 +335,12 @@ func reset_game():
 	score_updated.emit(0)
 	line_metrics_updated.emit(color_lines_cleared, type_lines_cleared)
 
-func end_game():
-	if current_score >= high_score:
+func end_game(result: String = GAME_RESULT_LOSS):
+	var achieved_best_score := current_score > high_score
+	if achieved_best_score:
 		high_score = current_score
 		save_game_state()
-	game_over.emit(current_score)
+	game_over.emit(current_score, result, achieved_best_score)
 
 func get_piece_spawn_weights() -> Array[float]:
 	return [0.37, 0.23, 0.16, 0.12, 0.10, 0.02]
