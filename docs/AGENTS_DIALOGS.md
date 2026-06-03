@@ -5,8 +5,8 @@ Current modal/dialog presentation includes:
 - a large centered win/loss card
 - a settings dialog in the main menu
 - dark overlay backdrop
-- brisk modern dialog typography
-- shared font family for menu, HUD messages, and game-over text
+- Cormorant Garamond dialog typography from `ThemeData`
+- shared menu font resources for HUD messages and game-over text
 
 When adding or refactoring dialogs:
 
@@ -18,8 +18,13 @@ When adding or refactoring dialogs:
 
 Session-end dialogs should:
 
-- show win copy when the player completes Level 4
-- show loss copy when no eligible move or capture remains
+- show win copy when the player completes Level 4 and the required post-turn spawn validation succeeds
+- show loss copy when fewer than 3 playable empty spawn cells remain
+- show a `Survive!` action on the Level 4 win dialog
+- hide `Survive!` on normal losses and final survival summaries
+- after a survival loss, show win copy and the number of survived rounds
 - congratulate the player when a new best score is achieved
 - display session score, removed color lines, removed type lines, and played campaigns
 - keep played campaigns at `0` until the campaign system is implemented
+
+The game-over `Play Again` action starts a fresh run from the saved kingdom start level. The pause dialog `Reset` action clears that saved start level back to Level 1 before restarting.

@@ -86,6 +86,72 @@ class BoardRotationFog:
 			cloud_lobe_offsets.append(lobe_offsets)
 			cloud_lobe_rotations.append(lobe_rotations)
 
+class BigSwampLineFog:
+	extends Node2D
+
+	var cell_size: float = GameManager.CELL_SIZE
+	var line_cells: Array[Vector2i] = []
+	var fog_color: Color = Color(0.72, 0.84, 0.78, 0.50)
+	var progress: float = 0.0:
+		set(value):
+			progress = clampf(value, 0.0, 1.0)
+			queue_redraw()
+
+	func setup(size: float, affected_cells: Array, theme: Resource):
+		cell_size = size
+		line_cells.clear()
+		for cell in affected_cells:
+			if cell is Vector2i:
+				line_cells.append(cell)
+		if theme != null:
+			var base: Color = theme.hud_panel_color
+			fog_color = Color(
+				clampf(base.r + 0.42, 0.0, 1.0),
+				clampf(base.g + 0.42, 0.0, 1.0),
+				clampf(base.b + 0.42, 0.0, 1.0),
+				0.52
+			)
+		z_index = 88
+		queue_redraw()
+
+	func _process(_delta: float):
+		queue_redraw()
+
+	func _draw():
+		var time := Time.get_ticks_msec() * 0.001
+		var readiness := lerpf(0.55, 1.0, smoothstep(0.0, 0.35, progress))
+		var travel := fposmod(time * 0.42, 1.0)
+		var line_direction := Vector2.RIGHT
+		if line_cells.size() > 1:
+			var first := line_cells[0]
+			var last := line_cells[line_cells.size() - 1]
+			var delta := Vector2(last.x - first.x, last.y - first.y)
+			if delta.length() > 0.01:
+				line_direction = delta.normalized()
+		var line_normal := Vector2(-line_direction.y, line_direction.x)
+		for i in range(line_cells.size()):
+			var cell := line_cells[i]
+			var center := Vector2(cell.x * cell_size + cell_size * 0.5, cell.y * cell_size + cell_size * 0.5)
+			var cell_t := 0.0
+			if line_cells.size() > 1:
+				cell_t = float(i) / float(line_cells.size() - 1)
+			var wave_distance: float = abs(cell_t - travel)
+			wave_distance = minf(wave_distance, 1.0 - wave_distance)
+			var wave := 1.0 - smoothstep(0.0, 0.34, wave_distance)
+			var pulse := 0.78 + sin(time * 4.4 + float(i) * 0.8) * 0.12
+			var alpha := clampf(fog_color.a * readiness * pulse * (0.48 + wave * 0.78), 0.0, 0.62)
+			var drift := (
+				line_direction * sin(time * 2.5 + float(i) * 1.2) +
+				line_normal * cos(time * 3.1 + float(i) * 0.9)
+			) * cell_size * 0.08
+			var trailing_offset := -line_direction * cell_size * (0.10 + wave * 0.08)
+			draw_circle(center + drift, cell_size * (0.43 + wave * 0.10), Color(fog_color.r, fog_color.g, fog_color.b, alpha))
+			draw_circle(center + trailing_offset - drift * 0.45, cell_size * (0.31 + wave * 0.06), Color(fog_color.r, fog_color.g, fog_color.b, alpha * 0.58))
+			if i > 0:
+				var previous := line_cells[i - 1]
+				var previous_center := Vector2(previous.x * cell_size + cell_size * 0.5, previous.y * cell_size + cell_size * 0.5)
+				draw_line(previous_center, center, Color(fog_color.r, fog_color.g, fog_color.b, alpha * 0.24), cell_size * 0.16, true)
+
 class BigSwampGeyserEffect:
 	extends Node2D
 
@@ -175,8 +241,10 @@ var trap_type_by_cell: Dictionary = {}
 var selected_trap_cell: Vector2i = Vector2i(-1, -1)
 var pulsing_trap_cells: Dictionary = {}
 var active_big_swamp_pulse_effect: Node2D = null
+var active_big_swamp_line_fog: Node2D = null
 var active_big_swamp_target_sprite: Sprite2D = null
 var active_big_swamp_target_alpha: float = 1.0
+var active_big_swamp_target_position: Vector2 = Vector2.ZERO
 var last_sacrificed_piece_color: int = -1
 var input_enabled: bool = true
 var show_borders: bool = true
@@ -228,6 +296,7 @@ func clear_board():
 	trap_type_by_cell.clear()
 	pulsing_trap_cells.clear()
 	_clear_big_swamp_pulse_effect(false)
+	_clear_big_swamp_line_fog(false)
 	selected_trap_cell = Vector2i(-1, -1)
 	last_sacrificed_piece_color = -1
 	_clear_trap_visuals()
@@ -386,10 +455,11 @@ func _get_random_fog_wind_direction() -> Vector2:
 	var angle := randf_range(-PI, PI)
 	return Vector2(cos(angle), sin(angle))
 
-func start_big_swamp_pulse_visual(trap_cell: Vector2i, target_cell: Vector2i, piece_color: int = -1):
+func start_big_swamp_pulse_visual(trap_cell: Vector2i, target_cell: Vector2i, piece_color: int = -1, affected_line_cells: Array = []):
 	if effects_container == null:
 		return
 	_clear_big_swamp_pulse_effect(false)
+	_clear_big_swamp_line_fog(false)
 	_clear_big_swamp_target_fade(false)
 	pulsing_trap_cells.clear()
 	pulsing_trap_cells[trap_cell] = true
@@ -399,12 +469,15 @@ func start_big_swamp_pulse_visual(trap_cell: Vector2i, target_cell: Vector2i, pi
 	effect.setup(cell_size, _get_cell_local_position(trap_cell), _get_cell_local_position(target_cell), theme, piece_color)
 	effects_container.add_child(effect)
 	active_big_swamp_pulse_effect = effect
+	_start_big_swamp_line_fog(affected_line_cells)
 	_start_big_swamp_target_fade(target_cell)
 
 func update_big_swamp_pulse_visual(progress: float):
 	var clamped_progress := clampf(progress, 0.0, 1.0)
 	if is_instance_valid(active_big_swamp_pulse_effect):
 		active_big_swamp_pulse_effect.set("progress", clamped_progress)
+	if is_instance_valid(active_big_swamp_line_fog):
+		active_big_swamp_line_fog.set("progress", clamped_progress)
 	_update_big_swamp_target_fade(clamped_progress)
 
 func cancel_big_swamp_pulse_visual():
@@ -412,12 +485,41 @@ func cancel_big_swamp_pulse_visual():
 	_refresh_trap_visuals()
 	_clear_big_swamp_target_fade(true)
 	_clear_big_swamp_pulse_effect(true)
+	_clear_big_swamp_line_fog(true)
 
 func finish_big_swamp_pulse_visual():
 	pulsing_trap_cells.clear()
 	_refresh_trap_visuals()
 	_clear_big_swamp_target_fade(false)
 	_clear_big_swamp_pulse_effect(false)
+	_clear_big_swamp_line_fog(false)
+
+func _start_big_swamp_line_fog(affected_line_cells: Array):
+	if effects_container == null:
+		return
+	var occupied_cells: Array[Vector2i] = []
+	for cell in affected_line_cells:
+		if cell is Vector2i and board.has(cell):
+			occupied_cells.append(cell)
+	if occupied_cells.is_empty():
+		return
+	var fog := BigSwampLineFog.new()
+	fog.setup(cell_size, occupied_cells, _get_theme())
+	effects_container.add_child(fog)
+	active_big_swamp_line_fog = fog
+
+func _clear_big_swamp_line_fog(animate_out: bool):
+	if not is_instance_valid(active_big_swamp_line_fog):
+		active_big_swamp_line_fog = null
+		return
+	var fog := active_big_swamp_line_fog
+	active_big_swamp_line_fog = null
+	if animate_out:
+		var tween := create_tween()
+		tween.tween_property(fog, "modulate:a", 0.0, 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		tween.tween_callback(fog.queue_free)
+	else:
+		fog.queue_free()
 
 func _start_big_swamp_target_fade(target_cell: Vector2i):
 	active_big_swamp_target_sprite = null
@@ -432,23 +534,48 @@ func _start_big_swamp_target_fade(target_cell: Vector2i):
 		return
 	active_big_swamp_target_sprite = sprite
 	active_big_swamp_target_alpha = sprite.modulate.a
+	active_big_swamp_target_position = sprite.position
 	_update_big_swamp_target_fade(0.0)
 
 func _update_big_swamp_target_fade(progress: float):
 	if not is_instance_valid(active_big_swamp_target_sprite):
 		active_big_swamp_target_sprite = null
 		return
+	var clamped_progress := clampf(progress, 0.0, 1.0)
 	var color := active_big_swamp_target_sprite.modulate
-	color.a = lerpf(active_big_swamp_target_alpha, 0.0, clampf(progress, 0.0, 1.0))
+	color.a = lerpf(active_big_swamp_target_alpha, active_big_swamp_target_alpha * 0.42, clamped_progress)
 	active_big_swamp_target_sprite.modulate = color
+	active_big_swamp_target_sprite.position = active_big_swamp_target_position + _get_big_swamp_target_tremble_offset(clamped_progress, false)
+
+func _get_big_swamp_target_tremble_offset(progress: float, capture: bool) -> Vector2:
+	var time := Time.get_ticks_msec() * 0.001
+	var intensity := lerpf(1.0, 4.5, smoothstep(0.0, 1.0, progress))
+	if capture:
+		intensity = lerpf(4.0, 8.0, 1.0 - progress)
+	return Vector2(
+		sin(time * 42.0) * intensity + sin(time * 23.0) * intensity * 0.35,
+		cos(time * 37.0) * intensity * 0.72
+	)
+
+func _set_big_swamp_target_capture_progress(progress: float):
+	if not is_instance_valid(active_big_swamp_target_sprite):
+		active_big_swamp_target_sprite = null
+		return
+	var clamped_progress := clampf(progress, 0.0, 1.0)
+	var color := active_big_swamp_target_sprite.modulate
+	color.a = lerpf(active_big_swamp_target_alpha * 0.42, 0.0, clamped_progress)
+	active_big_swamp_target_sprite.modulate = color
+	active_big_swamp_target_sprite.position = active_big_swamp_target_position + _get_big_swamp_target_tremble_offset(clamped_progress, true)
 
 func _clear_big_swamp_target_fade(restore_alpha: bool):
 	if is_instance_valid(active_big_swamp_target_sprite) and restore_alpha:
 		var color := active_big_swamp_target_sprite.modulate
 		color.a = active_big_swamp_target_alpha
 		active_big_swamp_target_sprite.modulate = color
+		active_big_swamp_target_sprite.position = active_big_swamp_target_position
 	active_big_swamp_target_sprite = null
 	active_big_swamp_target_alpha = 1.0
+	active_big_swamp_target_position = Vector2.ZERO
 
 func _clear_big_swamp_pulse_effect(animate_retract: bool):
 	if not is_instance_valid(active_big_swamp_pulse_effect):
@@ -473,11 +600,13 @@ func animate_big_swamp_capture(_trap_cell: Vector2i, target_cell: Vector2i):
 		return
 	if is_instance_valid(active_big_swamp_pulse_effect):
 		active_big_swamp_pulse_effect.set("progress", 1.0)
-	_update_big_swamp_target_fade(1.0)
+	var capture_tween := create_tween()
+	capture_tween.set_parallel()
+	if is_instance_valid(active_big_swamp_target_sprite):
+		capture_tween.tween_method(_set_big_swamp_target_capture_progress, 0.0, 1.0, 0.24).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	if is_instance_valid(active_big_swamp_pulse_effect):
-		var steam_tween := create_tween()
-		steam_tween.tween_property(active_big_swamp_pulse_effect, "alpha", 0.0, 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-		await steam_tween.finished
+		capture_tween.tween_property(active_big_swamp_pulse_effect, "alpha", 0.0, 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await capture_tween.finished
 
 func _draw_borders():
 	if not show_borders:
@@ -836,11 +965,18 @@ func move_piece(piece, target: Vector2i):
 
 func has_legal_moves() -> bool:
 	for piece in board.values():
-		var moves = piece.get_legal_moves(board)
+		var moves = _get_playable_legal_moves(piece)
 		var captures = piece.get_legal_captures(board)
 		if moves.size() > 0 or captures.size() > 0:
 			return true
 	return false
+
+func _get_playable_legal_moves(piece) -> Array:
+	var playable_moves := []
+	for move in piece.get_legal_moves(board):
+		if not is_trap(move):
+			playable_moves.append(move)
+	return playable_moves
 
 func get_piece_count() -> int:
 	return board.size()
@@ -874,6 +1010,32 @@ func get_available_colors_for_spawn() -> Array:
 func can_spawn_any_piece() -> bool:
 	return not get_available_colors_for_spawn().is_empty()
 
+func can_spawn_piece_count(count: int) -> bool:
+	return SpawnPlannerScript.can_spawn_count(board, get_empty_cells(), count)
+
+func _has_king_on_board() -> bool:
+	for piece in board.values():
+		if piece.piece_type == GameManager.PieceType.KING:
+			return true
+	return false
+
+func get_fallback_spawn_piece_data() -> Dictionary:
+	var available_types: Array = GameManager.PieceType.values()
+	if _has_king_on_board():
+		available_types.erase(GameManager.PieceType.KING)
+	if available_types.is_empty():
+		available_types.append(GameManager.PieceType.PAWN)
+	available_types.shuffle()
+
+	var colors: Array = GameManager.PieceColor.values()
+	colors.shuffle()
+
+	return {
+		"piece_type": available_types[0],
+		"color": colors[0],
+		"ignore_inventory": true
+	}
+
 func get_weighted_random_piece_type(available_types: Array) -> int:
 	var weights := GameManager.get_piece_spawn_weights()
 	var total_weight := 0.0
@@ -906,7 +1068,9 @@ func resolve_spawn_piece_data(piece_type, color) -> Dictionary:
 func get_random_spawn_piece_data() -> Dictionary:
 	var available_colors := get_available_colors_for_spawn()
 	if available_colors.is_empty():
-		return {}
+		if get_empty_cells().is_empty():
+			return {}
+		return get_fallback_spawn_piece_data()
 
 	available_colors.shuffle()
 	var color = available_colors[0]
@@ -921,7 +1085,15 @@ func spawn_piece_with_preferred_placement(spawn_data: Dictionary) -> bool:
 	if spawn_data.is_empty():
 		return false
 
-	var grid_pos: Vector2i = get_preferred_spawn_cell(spawn_data["piece_type"], spawn_data["color"])
+	var grid_pos: Vector2i
+	if bool(spawn_data.get("ignore_inventory", false)):
+		var empty_cells: Array = get_empty_cells()
+		if empty_cells.is_empty():
+			return false
+		empty_cells.shuffle()
+		grid_pos = empty_cells[0]
+	else:
+		grid_pos = get_preferred_spawn_cell(spawn_data["piece_type"], spawn_data["color"])
 	if grid_pos == Vector2i(-1, -1):
 		return false
 
@@ -929,10 +1101,14 @@ func spawn_piece_with_preferred_placement(spawn_data: Dictionary) -> bool:
 	return true
 
 func spawn_random_pieces(count: int) -> int:
-	var spawn_count: int = mini(count, get_empty_cells().size())
+	if count <= 0:
+		return 0
+	if get_empty_cells().size() < count:
+		return 0
+
 	var spawned_count := 0
 
-	for i in range(spawn_count):
+	for i in range(count):
 		var spawn_data: Dictionary = get_random_spawn_piece_data()
 		if spawn_data.is_empty():
 			return spawned_count
@@ -941,16 +1117,3 @@ func spawn_random_pieces(count: int) -> int:
 		spawned_count += 1
 
 	return spawned_count
-
-func fill_empty_cells_with_kings():
-	var empty_cells: Array = get_empty_cells()
-	if empty_cells.is_empty():
-		return
-
-	var king_colors: Array = GameManager.PieceColor.values()
-	king_colors.shuffle()
-
-	for i in range(empty_cells.size()):
-		var grid_pos: Vector2i = empty_cells[i]
-		var king_color: int = king_colors[i % king_colors.size()]
-		add_piece(GameManager.PieceType.KING, king_color, grid_pos)

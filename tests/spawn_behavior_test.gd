@@ -1,5 +1,6 @@
 extends SceneTree
 
+const BoardStateRulesScript = preload("res://scripts/board/BoardStateRules.gd")
 const SpawnPlannerScript = preload("res://scripts/board/SpawnPlanner.gd")
 const PIECE_LIMITS := {
 	0: 8,
@@ -13,11 +14,19 @@ class MockPiece:
 	var piece_type: int
 	var piece_color: int
 	var grid_position: Vector2i
+	var legal_moves: Array = []
+	var legal_captures: Array = []
 
 	func _init(type: int, color: int, pos: Vector2i):
 		piece_type = type
 		piece_color = color
 		grid_position = pos
+
+	func get_legal_moves(_board: Dictionary) -> Array:
+		return legal_moves
+
+	func get_legal_captures(_board: Dictionary) -> Array:
+		return legal_captures
 
 func _initialize():
 	var failures: Array[String] = []
@@ -28,7 +37,9 @@ func _initialize():
 	_run_test("keeps duplicate pieces on opposite board colors", _test_duplicate_piece_board_color_preference, failures)
 	_run_test("blocks duplicate spawn when only exhausted board color remains", _test_duplicate_piece_board_color_capacity, failures)
 	_run_test("detects lines after filling the last three cells", _test_detects_lines_after_last_three_spawns, failures)
-	_run_test("reports no spawn capacity when one-king rule exhausts inventory", _test_detects_spawn_inventory_exhaustion, failures)
+	_run_test("full non-king inventory is not loss with four empty cells", _test_non_king_inventory_limit_is_not_loss_with_four_open_cells, failures)
+	_run_test("empty board can spawn a full batch", _test_empty_board_can_spawn_full_batch, failures)
+	_run_test("fewer than required spawn cells is a loss", _test_fewer_than_required_spawn_cells_is_loss, failures)
 
 	if failures.is_empty():
 		print("All spawn behavior tests passed")
@@ -72,6 +83,8 @@ func _test_fills_last_three_empty_cells() -> String:
 
 	if _get_empty_cells(board).size() != 0:
 		return "expected all three empty cells to be consumed"
+	if not BoardStateRulesScript.is_loss_board_state(_get_empty_cells(board)):
+		return "expected filled board after the last three spawns to be a loss"
 
 	return ""
 
@@ -180,7 +193,46 @@ func _test_detects_lines_after_last_three_spawns() -> String:
 
 	return ""
 
-func _test_detects_spawn_inventory_exhaustion() -> String:
+func _test_non_king_inventory_limit_is_not_loss_with_four_open_cells() -> String:
+	var board: Dictionary = _make_non_king_inventory_full_board()
+	var empty_cells: Array = _get_empty_cells(board)
+
+	if SpawnPlannerScript.can_spawn_count(board, _get_empty_cells(board), 3):
+		return "expected old inventory-aware 3-piece capacity to fail"
+	if empty_cells.size() != 4:
+		return "expected four empty cells, got %d" % empty_cells.size()
+	if BoardStateRulesScript.is_loss_board_state(empty_cells):
+		return "expected four open cells to keep game active despite inventory limits"
+
+	return ""
+
+func _test_empty_board_can_spawn_full_batch() -> String:
+	if not SpawnPlannerScript.can_spawn_count({}, _get_empty_cells({}), 3):
+		return "expected empty board to support a 3-piece spawn"
+	return ""
+
+func _test_fewer_than_required_spawn_cells_is_loss() -> String:
+	if not BoardStateRulesScript.is_loss_board_state([]):
+		return "expected full board to be a loss"
+	if not BoardStateRulesScript.is_loss_board_state([Vector2i(0, 0)]):
+		return "expected one empty cell to be a loss"
+	if not BoardStateRulesScript.is_loss_board_state([Vector2i(0, 0), Vector2i(1, 0)]):
+		return "expected two empty cells to be a loss"
+	if BoardStateRulesScript.is_loss_board_state([Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0)]):
+		return "expected three empty cells to keep game active"
+
+	return ""
+
+func _piece(type: int, color: int, pos: Vector2i) -> MockPiece:
+	return MockPiece.new(type, color, pos)
+
+func _make_board(pieces: Array) -> Dictionary:
+	var board: Dictionary = {}
+	for piece in pieces:
+		board[piece.grid_position] = piece
+	return board
+
+func _make_spawn_inventory_exhausted_board() -> Dictionary:
 	var board: Dictionary = {}
 	for color in GameManager.PieceColor.values():
 		for i in range(PIECE_LIMITS[GameManager.PieceType.PAWN]):
@@ -201,19 +253,26 @@ func _test_detects_spawn_inventory_exhaustion() -> String:
 
 	var king_pos := _next_free_cell(board)
 	board[king_pos] = _piece(GameManager.PieceType.KING, GameManager.PieceColor.RED, king_pos)
+	return board
 
-	if SpawnPlannerScript.has_spawn_capacity(board):
-		return "expected spawn capacity to be exhausted with one king already on the board"
-
-	return ""
-
-func _piece(type: int, color: int, pos: Vector2i) -> MockPiece:
-	return MockPiece.new(type, color, pos)
-
-func _make_board(pieces: Array) -> Dictionary:
+func _make_non_king_inventory_full_board() -> Dictionary:
 	var board: Dictionary = {}
-	for piece in pieces:
-		board[piece.grid_position] = piece
+	for color in GameManager.PieceColor.values():
+		for i in range(PIECE_LIMITS[GameManager.PieceType.PAWN]):
+			var pawn_pos := _next_free_cell(board)
+			board[pawn_pos] = _piece(GameManager.PieceType.PAWN, color, pawn_pos)
+		for i in range(PIECE_LIMITS[GameManager.PieceType.KNIGHT]):
+			var knight_pos := _next_free_cell(board)
+			board[knight_pos] = _piece(GameManager.PieceType.KNIGHT, color, knight_pos)
+		for i in range(PIECE_LIMITS[GameManager.PieceType.BISHOP]):
+			var bishop_pos := _next_free_cell(board)
+			board[bishop_pos] = _piece(GameManager.PieceType.BISHOP, color, bishop_pos)
+		for i in range(PIECE_LIMITS[GameManager.PieceType.ROOK]):
+			var rook_pos := _next_free_cell(board)
+			board[rook_pos] = _piece(GameManager.PieceType.ROOK, color, rook_pos)
+		for i in range(PIECE_LIMITS[GameManager.PieceType.QUEEN]):
+			var queen_pos := _next_free_cell(board)
+			board[queen_pos] = _piece(GameManager.PieceType.QUEEN, color, queen_pos)
 	return board
 
 func _get_empty_cells(board: Dictionary) -> Array:

@@ -47,11 +47,11 @@ Core functionality:
 8. Type lines score more than color lines
 9. 3 new pieces spawn after a move
 10. Board state remains consistent
-11. Game-over condition still works
+11. Game-over condition triggers only when fewer than 3 playable empty spawn cells remain
 12. At most one king exists on the board at any time
 13. No color exceeds chess-style inventory limits for any piece type
 14. Spawn placement avoids immediate line clears when another empty cell exists
-15. If normal spawn inventory is exhausted, remaining empty cells are filled with Kings before game over
+15. A full board ends the game as a loss without adding extra Kings
 
 Attack highlighting:
 
@@ -77,4 +77,4 @@ UI:
 30. Puzzle board reveals tiles as pieces are removed
 31. Message display shows line-clear and level-complete messages with the expected wording
 32. HUD messages use an opaque backing panel inside the score row, wipe in from the left, wipe out to the right, and temporarily push score/best text away
-33. Game-over dialog uses a large centered card with brisk modern typography
+33. Game-over dialog uses a large centered card with Cormorant Garamond typography

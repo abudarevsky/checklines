@@ -36,7 +36,7 @@ Level structure:
 3. Tactical mastery
 4. Endless survival prestige mode
 
-Completing Level 4 wins the active kingdom run. Measure the run through session score, removed lines, campaigns, and tactical mastery.
+Completing Level 4 wins the active kingdom run after the required post-turn spawn validation succeeds. Measure the run through session score, removed lines, campaigns, and tactical mastery.
 
 ## Mastery Badges
 
@@ -70,7 +70,7 @@ Calculate mainly from:
 
 Gold represents highly efficient elegant gameplay.
 
-Current initial tier thresholds use best clean-turn percentage per kingdom:
+Current tactical badge tiers use the last winning session's clean-turn percentage per kingdom. Losing sessions do not change the tactical badge color:
 
 - Bronze: at least 5%
 - Silver: at least 15%

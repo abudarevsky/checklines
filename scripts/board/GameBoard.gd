@@ -1,5 +1,9 @@
 extends Node2D
 
+const BoardStateRulesScript = preload("res://scripts/board/BoardStateRules.gd")
+const TrapLineDetectorScript = preload("res://scripts/traps/TrapLineDetector.gd")
+const SurvivalBloodOverlayScript = preload("res://scripts/effects/SurvivalBloodOverlay.gd")
+
 @onready var board_manager = $BoardManager
 @onready var screen_background: ColorRect = $ScreenBackground
 @onready var screen_gradient: TextureRect = $ScreenGradient
@@ -45,6 +49,7 @@ extends Node2D
 @onready var game_over_summary_label: Label = $CanvasLayer/UI/GameOverOverlay/CenterContainer/GameOverPanel/VBox/SummaryLabel
 @onready var game_over_score_label: Label = $CanvasLayer/UI/GameOverOverlay/CenterContainer/GameOverPanel/VBox/FinalScoreLabel
 @onready var restart_button: Button = $CanvasLayer/UI/GameOverOverlay/CenterContainer/GameOverPanel/VBox/ButtonsRow/RestartButton
+@onready var survive_button: Button = $CanvasLayer/UI/GameOverOverlay/CenterContainer/GameOverPanel/VBox/ButtonsRow/SurviveButton
 @onready var main_menu_button: Button = $CanvasLayer/UI/GameOverOverlay/CenterContainer/GameOverPanel/VBox/ButtonsRow/MainMenuButton
 
 var is_processing_move: bool = false
@@ -72,6 +77,15 @@ var latest_game_result: String = GameManager.GAME_RESULT_LOSS
 var latest_best_score_achieved: bool = false
 var big_swamp_pulse_state = null
 var is_big_swamp_pulse_resolving: bool = false
+var is_game_state_ready: bool = false
+var is_survival_mode: bool = false
+var survival_round_index: int = 0
+var survived_rounds: int = 0
+var is_final_survival_dialog: bool = false
+var survival_round_started_this_turn: bool = false
+var survival_blood_overlay: Control = null
+var pending_kingdom_completion_win: bool = false
+var pending_survival_round_completion: bool = false
 
 const TOP_BAR_SHADOW_HEIGHT: float = 5.0
 const BOARD_TOP_GAP: float = 2.0
@@ -97,6 +111,7 @@ const PUZZLE_ROWS: int = 5
 const PUZZLE_LEVEL_TILE_COUNTS: Array[int] = [25, 50, 75, 100]
 const WIN_LEVEL_NUMBER: int = 4
 const SESSION_CAMPAIGNS_PLAYED: int = 0
+const SURVIVAL_LEVEL_INDEX: int = WIN_LEVEL_NUMBER - 1
 const PUZZLE_TILE_MARGIN: float = -1.0
 const MESSAGE_SLIDE_DISTANCE: float = 120.0
 const MESSAGE_SLIDE_IN_DURATION: float = 0.42
@@ -112,35 +127,42 @@ const PUZZLE_MESSAGE_BANNER_MIN_HEIGHT: float = 76.0
 const PUZZLE_MESSAGE_BANNER_MAX_HEIGHT: float = 112.0
 const PUZZLE_MESSAGE_BANNER_FLIGHT_DURATION: float = 0.96
 const PUZZLE_MESSAGE_BANNER_HOLD_DURATION: float = 1.0
-const TRAP_COUNTS_BY_LEVEL: Array[int] = [0, 1, 2, 3]
-const TRAP_ROTATION_LIMITS_BY_LEVEL: Array[int] = [0, 1, 2, -1]
-const TRAP_ROTATION_CHANCES_BY_LEVEL: Array[float] = [0, 0.18, 0.18, 0.3]
+const DEFAULT_TRAP_PROFILE: Dictionary = {
+	"trap_counts_by_level": [0, 1, 2, 3],
+	"trap_rotation_enabled": false,
+	"trap_rotation_limits_by_level": [0, 1, 2, -1],
+	"trap_rotation_chances_by_level": [0, 0.18, 0.18, 0.3],
+	"big_swamp_pulse_probabilities_by_level": [0, 0.20, 0.40, 1],
+	"pulse_duration_seconds": 5.0,
+	"failed_pulse_spawn_count": 2,
+	"allow_king_target": false,
+	"max_active_pulses": 1,
+	"big_swamp_max_target_distance_cells": 1,
+}
+const TRAP_PROFILES_BY_KINGDOM: Dictionary = {
+	"default": DEFAULT_TRAP_PROFILE,
+	"neon": DEFAULT_TRAP_PROFILE,
+}
 const DEBUG_HUD_LAYOUT: bool = false
-
-@export var trap_rotation_enabled: bool = false
-@export var big_swamp_pulse_probability_by_level: Array[float] = [0, 0.10, 0.20, 0.35]
-@export var pulse_duration_seconds: float = 5.0
-@export var failed_pulse_spawn_count: int = 2
-@export var allow_king_target: bool = false
-@export var max_active_pulses: int = 1
-@export var big_swamp_max_target_distance_cells: int = 1
 
 class BigSwampPulseState:
 	var trap_cell: Vector2i = Vector2i(-1, -1)
 	var target_piece_cell: Vector2i = Vector2i(-1, -1)
 	var missing_line_cell: Vector2i = Vector2i(-1, -1)
 	var candidate_line_cells: Array[Vector2i] = []
+	var candidate: Dictionary = {}
 	var remaining_time: float = 0.0
 	var duration: float = 0.0
 	var is_active: bool = false
 
-	func start(candidate: Dictionary, pulse_duration: float):
-		trap_cell = candidate.get("trap_cell", Vector2i(-1, -1))
-		target_piece_cell = candidate.get("target_piece_cell", Vector2i(-1, -1))
-		missing_line_cell = candidate.get("missing_line_cell", Vector2i(-1, -1))
+	func start(pulse_candidate: Dictionary, pulse_duration: float):
+		trap_cell = pulse_candidate.get("trap_cell", Vector2i(-1, -1))
+		target_piece_cell = pulse_candidate.get("target_piece_cell", Vector2i(-1, -1))
+		missing_line_cell = pulse_candidate.get("missing_line_cell", Vector2i(-1, -1))
 		candidate_line_cells = []
-		for cell in candidate.get("candidate_line_cells", []):
+		for cell in pulse_candidate.get("candidate_line_cells", []):
 			candidate_line_cells.append(cell)
+		candidate = pulse_candidate.duplicate(true)
 		duration = maxf(pulse_duration, 0.01)
 		remaining_time = duration
 		is_active = true
@@ -150,6 +172,7 @@ class BigSwampPulseState:
 		target_piece_cell = Vector2i(-1, -1)
 		missing_line_cell = Vector2i(-1, -1)
 		candidate_line_cells.clear()
+		candidate.clear()
 		remaining_time = 0.0
 		duration = 0.0
 		is_active = false
@@ -168,6 +191,7 @@ func _ready():
 	big_swamp_pulse_state = BigSwampPulseState.new()
 	GameManager.reset_game()
 	_lock_mobile_orientation()
+	_ensure_survival_blood_overlay()
 	apply_theme(_get_theme())
 	_setup_signals()
 	_apply_localized_text()
@@ -187,6 +211,17 @@ func _get_theme() -> ThemeData:
 		if theme_manager != null:
 			return theme_manager.get_active_theme()
 	return null
+
+func _ensure_survival_blood_overlay():
+	if survival_blood_overlay != null:
+		return
+	survival_blood_overlay = SurvivalBloodOverlayScript.new()
+	survival_blood_overlay.name = "SurvivalBloodOverlay"
+	survival_blood_overlay.visible = false
+	survival_blood_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	survival_blood_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	puzzle_panel.add_child(survival_blood_overlay)
+	puzzle_panel.move_child(survival_blood_overlay, puzzle_panel.get_child_count() - 1)
 
 func apply_theme(theme: ThemeData):
 	if theme == null:
@@ -210,7 +245,7 @@ func apply_theme(theme: ThemeData):
 	message_panel.color = theme.hud_panel_color
 	message_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
 	message_label.add_theme_color_override("font_outline_color", theme.hud_outline_color)
-	message_label.add_theme_font_override("font", _build_dialog_font(theme.dialog_font_names, theme.puzzle_message_font_weight))
+	message_label.add_theme_font_override("font", _build_dialog_font(theme.menu_body_font_path, theme.dialog_font_names, theme.puzzle_message_font_weight))
 	message_label.add_theme_font_size_override("font_size", mini(theme.puzzle_message_font_size, 24))
 	_apply_puzzle_banner_theme(theme)
 	score_frame.add_theme_stylebox_override("panel", _build_gameplay_frame_style(theme))
@@ -246,6 +281,7 @@ func _apply_puzzle_banner_theme(theme: ThemeData):
 	puzzle_flying_banner.banner_text_color = theme.puzzle_message_text_color
 	puzzle_flying_banner.banner_text_outline_color = theme.puzzle_message_outline_color
 	puzzle_flying_banner.banner_border_color = theme.gameplay_frame_color
+	puzzle_flying_banner.banner_font = _build_dialog_font(theme.banner_font_path, theme.dialog_font_names, theme.puzzle_message_font_weight)
 	puzzle_flying_banner.render_scale = 2.5
 	puzzle_flying_banner.font_height_ratio = 0.35
 	puzzle_flying_banner.wind_strength = 15.0
@@ -269,9 +305,9 @@ func _apply_dialog_theme(theme):
 		_build_dialog_panel_style(theme.dialog_panel_background_color, theme.dialog_panel_border_color)
 	)
 
-	var title_font: SystemFont = _build_dialog_font(theme.dialog_font_names, theme.dialog_title_font_weight)
-	var body_font: SystemFont = _build_dialog_font(theme.dialog_font_names, theme.dialog_body_font_weight)
-	var button_font: SystemFont = _build_dialog_font(theme.dialog_font_names, theme.dialog_button_font_weight)
+	var title_font: Font = _build_dialog_font(theme.menu_title_font_path, theme.dialog_font_names, theme.dialog_title_font_weight)
+	var body_font: Font = _build_dialog_font(theme.menu_body_font_path, theme.dialog_font_names, theme.dialog_body_font_weight)
+	var button_font: Font = _build_dialog_font(theme.menu_button_font_path, theme.dialog_font_names, theme.dialog_button_font_weight)
 
 	_apply_dialog_label_style(
 		pause_title_label,
@@ -342,6 +378,14 @@ func _apply_dialog_theme(theme):
 		theme.dialog_button_text_color
 	)
 	_apply_dialog_button_style(
+		survive_button,
+		button_font,
+		theme.dialog_button_font_size,
+		theme.dialog_button_primary_color,
+		theme.dialog_button_primary_hover_color,
+		theme.dialog_button_text_color
+	)
+	_apply_dialog_button_style(
 		main_menu_button,
 		button_font,
 		theme.dialog_button_font_size,
@@ -351,10 +395,21 @@ func _apply_dialog_theme(theme):
 		theme.dialog_button_secondary_border_color,
 		theme.dialog_button_secondary_border_hover_color
 	)
-func _build_dialog_font(font_names: PackedStringArray, font_weight: int) -> SystemFont:
+func _build_dialog_font(theme_font_path: String, font_names: PackedStringArray, font_weight: int) -> Font:
+	var theme_font := _load_font_file(theme_font_path)
+	if theme_font != null:
+		return theme_font
 	var font := SystemFont.new()
 	font.font_names = font_names
 	font.font_weight = font_weight
+	return font
+
+func _load_font_file(font_path: String) -> FontFile:
+	if font_path.strip_edges().is_empty():
+		return null
+	var font := FontFile.new()
+	if font.load_dynamic_font(font_path) != OK:
+		return null
 	return font
 
 func _apply_dialog_label_style(label: Label, font: Font, font_size: int, font_color: Color):
@@ -528,9 +583,10 @@ func _setup_signals():
 		Settings.settings_changed.connect(_on_settings_changed)
 	gear_button.pressed.connect(_on_gear_pressed)
 	resume_button.pressed.connect(_on_resume_pressed)
-	pause_reset_button.pressed.connect(_on_restart_pressed)
+	pause_reset_button.pressed.connect(_on_reset_pressed)
 	pause_main_menu_button.pressed.connect(_on_main_menu_pressed)
 	restart_button.pressed.connect(_on_restart_pressed)
+	survive_button.pressed.connect(_on_survive_pressed)
 	main_menu_button.pressed.connect(_on_main_menu_pressed)
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 
@@ -796,8 +852,11 @@ func _input(event):
 func _process(delta: float):
 	if big_swamp_pulse_state != null and big_swamp_pulse_state.is_active:
 		_update_big_swamp_pulse(delta)
+	elif is_game_state_ready and not is_processing_move and not game_over_overlay.visible and not pause_overlay.visible:
+		_check_game_over()
 
 func _initialize_game():
+	is_game_state_ready = false
 	board_manager.board_size = GameManager.board_size
 	board_manager.clear_board()
 	_on_piece_deselected()
@@ -805,11 +864,13 @@ func _initialize_game():
 	board_manager.set_input_enabled(false)
 	await _initialize_puzzle_progress()
 	_spawn_initial_pieces()
+	is_game_state_ready = true
+	_check_game_over()
 	if not game_over_overlay.visible and not pause_overlay.visible and not is_processing_move:
 		board_manager.set_input_enabled(true)
 
 func _initialize_puzzle_progress():
-	current_puzzle_level = 0
+	current_puzzle_level = Settings.get_kingdom_start_level_index(Settings.theme_id)
 	revealed_puzzle_tiles = 0
 	puzzle_tile_order.clear()
 	hud_message_log.clear()
@@ -947,24 +1008,46 @@ func _get_level_start_message(level_number: int) -> String:
 		return _t("level_start_neon_theme")
 	return template.replace("{number}", str(level_number))
 
-static func _get_trap_count_for_level(level_index: int) -> int:
-	if level_index < 0:
-		return 0
-	if level_index < TRAP_COUNTS_BY_LEVEL.size():
-		return TRAP_COUNTS_BY_LEVEL[level_index]
-	return TRAP_COUNTS_BY_LEVEL[TRAP_COUNTS_BY_LEVEL.size() - 1]
+static func _get_trap_profile(kingdom_id: String = "") -> Dictionary:
+	var resolved_kingdom_id := kingdom_id.strip_edges()
+	if resolved_kingdom_id.is_empty():
+		resolved_kingdom_id = Settings.theme_id
+	if TRAP_PROFILES_BY_KINGDOM.has(resolved_kingdom_id):
+		return TRAP_PROFILES_BY_KINGDOM[resolved_kingdom_id]
+	return DEFAULT_TRAP_PROFILE
 
-static func _get_trap_rotation_limit_for_level(level_index: int) -> int:
+static func _get_profile_level_int(profile: Dictionary, key: String, level_index: int, fallback: int = 0) -> int:
 	if level_index < 0:
-		return 0
-	if level_index < TRAP_ROTATION_LIMITS_BY_LEVEL.size():
-		return TRAP_ROTATION_LIMITS_BY_LEVEL[level_index]
-	return TRAP_ROTATION_LIMITS_BY_LEVEL[TRAP_ROTATION_LIMITS_BY_LEVEL.size() - 1]
+		return fallback
+	var values: Array = profile.get(key, [])
+	if values.is_empty():
+		return fallback
+	if level_index < values.size():
+		return int(values[level_index])
+	return int(values[values.size() - 1])
 
-func _generate_traps_for_level(level_index: int):
+static func _get_profile_level_float(profile: Dictionary, key: String, level_index: int, fallback: float = 0.0) -> float:
+	if level_index < 0:
+		return fallback
+	var values: Array = profile.get(key, [])
+	if values.is_empty():
+		return fallback
+	var raw_value = values[level_index] if level_index < values.size() else values[values.size() - 1]
+	return clampf(float(raw_value), 0.0, 1.0)
+
+static func _get_trap_count_for_level(level_index: int, kingdom_id: String = "") -> int:
+	return _get_profile_level_int(_get_trap_profile(kingdom_id), "trap_counts_by_level", level_index, 0)
+
+static func _get_trap_rotation_limit_for_level(level_index: int, kingdom_id: String = "") -> int:
+	return _get_profile_level_int(_get_trap_profile(kingdom_id), "trap_rotation_limits_by_level", level_index, 0)
+
+static func _is_trap_rotation_enabled_for_kingdom(kingdom_id: String = "") -> bool:
+	return bool(_get_trap_profile(kingdom_id).get("trap_rotation_enabled", false))
+
+func _generate_traps_for_level(level_index: int, trap_count_override: int = -1):
 	board_manager.set_traps([])
 
-	var trap_count := _get_trap_count_for_level(level_index)
+	var trap_count := trap_count_override if trap_count_override >= 0 else _get_trap_count_for_level(level_index)
 	if trap_count <= 0:
 		return
 
@@ -983,8 +1066,44 @@ func _generate_traps_for_level(level_index: int):
 		trap_type_id = theme.trap_type_id
 	board_manager.set_traps(selected_cells, trap_type_id)
 
+func _get_survival_trap_count() -> int:
+	return _get_trap_count_for_level(SURVIVAL_LEVEL_INDEX) + maxi(survival_round_index, 1)
+
+func _get_survival_banner_text() -> String:
+	var stars := ""
+	for i in range(maxi(survival_round_index, 1)):
+		stars += "*"
+	return _tf("survival_banner", {"stars": stars})
+
+func _start_survival_round():
+	is_processing_move = true
+	board_manager.set_input_enabled(false)
+	game_over_overlay.visible = false
+	is_final_survival_dialog = false
+	is_survival_mode = true
+	current_puzzle_level = SURVIVAL_LEVEL_INDEX
+	revealed_puzzle_tiles = 0
+	trap_rotations_used_current_level = 0
+	_cancel_big_swamp_pulse(false)
+	if survival_blood_overlay != null and survival_blood_overlay.has_method("start"):
+		survival_blood_overlay.start()
+	puzzle_panel.visible = true
+	puzzle_image.texture = _get_puzzle_level_texture(current_puzzle_level)
+	puzzle_image.modulate.a = 1.0
+	_update_line_metrics_ui()
+	_generate_traps_for_level(current_puzzle_level, _get_survival_trap_count())
+	_build_puzzle_tile_order()
+	_clear_puzzle_tiles()
+	_update_layout()
+	await _show_puzzle_overlay_message(_get_survival_banner_text(), PUZZLE_IMAGE_PREVIEW_DURATION)
+	await _refresh_puzzle_tiles(true)
+	is_processing_move = false
+	_check_game_over()
+	if not game_over_overlay.visible and not pause_overlay.visible:
+		board_manager.set_input_enabled(true)
+
 func _should_rotate_traps(level_index: int) -> bool:
-	if not trap_rotation_enabled:
+	if not _is_trap_rotation_enabled_for_kingdom(Settings.theme_id):
 		return false
 	if not _can_rotate_traps_for_level(level_index):
 		return false
@@ -998,21 +1117,26 @@ func _can_rotate_traps_for_level(level_index: int) -> bool:
 		return true
 	return trap_rotations_used_current_level < rotation_limit
 
-static func _get_trap_rotation_chance_for_level(level_index: int) -> float:
-	if level_index < 0:
-		return 0.0
-	if level_index < TRAP_ROTATION_CHANCES_BY_LEVEL.size():
-		return clampf(TRAP_ROTATION_CHANCES_BY_LEVEL[level_index], 0.0, 1.0)
-	return clampf(TRAP_ROTATION_CHANCES_BY_LEVEL[TRAP_ROTATION_CHANCES_BY_LEVEL.size() - 1], 0.0, 1.0)
+static func _get_trap_rotation_chance_for_level(level_index: int, kingdom_id: String = "") -> float:
+	return _get_profile_level_float(_get_trap_profile(kingdom_id), "trap_rotation_chances_by_level", level_index, 0.0)
 
-func _get_big_swamp_pulse_probability_for_level(level_index: int) -> float:
-	if level_index < 0:
-		return 0.0
-	if level_index < big_swamp_pulse_probability_by_level.size():
-		return clampf(big_swamp_pulse_probability_by_level[level_index], 0.0, 1.0)
-	if big_swamp_pulse_probability_by_level.is_empty():
-		return 0.0
-	return clampf(big_swamp_pulse_probability_by_level[big_swamp_pulse_probability_by_level.size() - 1], 0.0, 1.0)
+static func _get_big_swamp_pulse_probability_for_level(level_index: int, kingdom_id: String = "") -> float:
+	return _get_profile_level_float(_get_trap_profile(kingdom_id), "big_swamp_pulse_probabilities_by_level", level_index, 0.0)
+
+static func _get_big_swamp_pulse_duration_seconds(kingdom_id: String = "") -> float:
+	return maxf(float(_get_trap_profile(kingdom_id).get("pulse_duration_seconds", 5.0)), 0.01)
+
+static func _get_failed_pulse_spawn_count(kingdom_id: String = "") -> int:
+	return maxi(int(_get_trap_profile(kingdom_id).get("failed_pulse_spawn_count", 2)), 0)
+
+static func _get_allow_king_target(kingdom_id: String = "") -> bool:
+	return bool(_get_trap_profile(kingdom_id).get("allow_king_target", false))
+
+static func _get_max_active_pulses(kingdom_id: String = "") -> int:
+	return maxi(int(_get_trap_profile(kingdom_id).get("max_active_pulses", 1)), 0)
+
+static func _get_big_swamp_max_target_distance_cells(kingdom_id: String = "") -> int:
+	return maxi(int(_get_trap_profile(kingdom_id).get("big_swamp_max_target_distance_cells", 1)), 0)
 
 func _maybe_rotate_traps():
 	if not _should_rotate_traps(current_puzzle_level):
@@ -1052,11 +1176,12 @@ static func _select_rotated_trap_cells(current_traps: Array, candidate_cells: Ar
 	return selected_cells
 
 func _maybe_start_big_swamp_pulse():
-	if max_active_pulses <= 0 or big_swamp_pulse_state.is_active or is_big_swamp_pulse_resolving:
+	var kingdom_id := Settings.theme_id
+	if _get_max_active_pulses(kingdom_id) <= 0 or big_swamp_pulse_state.is_active or is_big_swamp_pulse_resolving:
 		return
 	if board_manager.traps.is_empty():
 		return
-	var pulse_probability := _get_big_swamp_pulse_probability_for_level(current_puzzle_level)
+	var pulse_probability := _get_big_swamp_pulse_probability_for_level(current_puzzle_level, kingdom_id)
 	if pulse_probability <= 0.0 or randf() >= pulse_probability:
 		return
 	var swamp_traps := _get_big_swamp_trap_cells()
@@ -1065,9 +1190,9 @@ func _maybe_start_big_swamp_pulse():
 	var candidates := _find_big_swamp_pulse_candidates(
 		board_manager.board,
 		swamp_traps,
-		allow_king_target,
+		_get_allow_king_target(kingdom_id),
 		board_manager.traps,
-		big_swamp_max_target_distance_cells
+		_get_big_swamp_max_target_distance_cells(kingdom_id)
 	)
 	if candidates.is_empty():
 		return
@@ -1088,14 +1213,15 @@ func _get_big_swamp_trap_cells() -> Array[Vector2i]:
 	return cells
 
 func _start_big_swamp_pulse(candidate: Dictionary):
-	big_swamp_pulse_state.start(candidate, pulse_duration_seconds)
+	big_swamp_pulse_state.start(candidate, _get_big_swamp_pulse_duration_seconds(Settings.theme_id))
 	var target_piece_color: int = -1
 	if board_manager.board.has(big_swamp_pulse_state.target_piece_cell):
 		target_piece_color = int(board_manager.board[big_swamp_pulse_state.target_piece_cell].piece_color)
 	board_manager.start_big_swamp_pulse_visual(
 		big_swamp_pulse_state.trap_cell,
 		big_swamp_pulse_state.target_piece_cell,
-		target_piece_color
+		target_piece_color,
+		big_swamp_pulse_state.candidate_line_cells
 	)
 
 func _update_big_swamp_pulse(delta: float):
@@ -1134,20 +1260,29 @@ func _expire_big_swamp_pulse():
 	board_manager.set_input_enabled(false)
 	var trap_cell: Vector2i = big_swamp_pulse_state.trap_cell
 	var target_cell: Vector2i = big_swamp_pulse_state.target_piece_cell
-	var captured_piece_type: int = -1
-	var captured_piece_color: int = -1
-	if board_manager.board.has(target_cell):
-		captured_piece_type = int(board_manager.board[target_cell].piece_type)
-		captured_piece_color = int(board_manager.board[target_cell].piece_color)
+	var target_piece = _get_valid_big_swamp_target_piece()
+	if target_piece == null:
+		board_manager.finish_big_swamp_pulse_visual()
+		big_swamp_pulse_state.clear()
+		is_big_swamp_pulse_resolving = false
+		is_processing_move = false
+		if not game_over_overlay.visible and not pause_overlay.visible:
+			board_manager.set_input_enabled(true)
+		return
+	var captured_piece_type: int = int(target_piece.piece_type)
+	var captured_piece_color: int = int(target_piece.piece_color)
 	await board_manager.animate_big_swamp_capture(trap_cell, target_cell)
-	if board_manager.board.has(target_cell):
+	target_piece = _get_valid_big_swamp_target_piece()
+	if target_piece != null:
+		captured_piece_type = int(target_piece.piece_type)
+		captured_piece_color = int(target_piece.piece_color)
 		board_manager.remove_piece(target_cell)
 		board_manager.finish_big_swamp_pulse_visual()
 		var trap_data: Resource = board_manager.get_trap_data(trap_cell)
 		var trap_name := _get_trap_display_name(trap_data)
 		var trap_message := _build_trap_disappearance_message(captured_piece_type, trap_name)
 		board_manager.show_trap_message_cloud(trap_cell, trap_message, _get_theme(), captured_piece_type, captured_piece_color)
-		_spawn_new_pieces(failed_pulse_spawn_count)
+		_spawn_new_pieces(_get_failed_pulse_spawn_count(Settings.theme_id))
 		await get_tree().create_timer(0.2).timeout
 		await _resolve_chain_waves()
 	else:
@@ -1160,6 +1295,23 @@ func _expire_big_swamp_pulse():
 	if not game_over_overlay.visible and not pause_overlay.visible:
 		board_manager.set_input_enabled(true)
 
+func _get_valid_big_swamp_target_piece():
+	if not big_swamp_pulse_state.is_active:
+		return null
+	var target_cell: Vector2i = big_swamp_pulse_state.target_piece_cell
+	if not board_manager.board.has(target_cell):
+		return null
+	var piece = board_manager.board[target_cell]
+	if not is_instance_valid(piece):
+		return null
+	var expected_type: int = int(big_swamp_pulse_state.candidate.get("target_piece_type", -1))
+	var expected_color: int = int(big_swamp_pulse_state.candidate.get("target_piece_color", -1))
+	if expected_type >= 0 and int(piece.piece_type) != expected_type:
+		return null
+	if expected_color >= 0 and int(piece.piece_color) != expected_color:
+		return null
+	return piece
+
 func _is_big_swamp_pulse_state_valid() -> bool:
 	if not big_swamp_pulse_state.is_active:
 		return false
@@ -1167,13 +1319,12 @@ func _is_big_swamp_pulse_state_valid() -> bool:
 		return false
 	if board_manager.get_trap_type_id(big_swamp_pulse_state.trap_cell) != "swallow":
 		return false
-	if not board_manager.board.has(big_swamp_pulse_state.target_piece_cell):
+	if _get_valid_big_swamp_target_piece() == null:
 		return false
-	if not _is_candidate_almost_line_still_present(
+	if not TrapLineDetectorScript.is_candidate_still_present(
 		board_manager.board,
-		big_swamp_pulse_state.candidate_line_cells,
-		big_swamp_pulse_state.missing_line_cell,
-		board_manager.traps
+		_get_big_swamp_trap_cells(),
+		big_swamp_pulse_state.candidate
 	):
 		return false
 	return true
@@ -1181,24 +1332,16 @@ func _is_big_swamp_pulse_state_valid() -> bool:
 func _is_big_swamp_pulse_line_completed() -> bool:
 	if not big_swamp_pulse_state.is_active:
 		return false
+	var completion_target: Vector2i = big_swamp_pulse_state.candidate.get("completion_target_cell", Vector2i(-1, -1))
+	if completion_target == big_swamp_pulse_state.trap_cell:
+		return false
 	return _is_candidate_line_completed(
 		board_manager.board,
 		big_swamp_pulse_state.candidate_line_cells
 	)
 
 static func _find_big_swamp_pulse_candidates(board: Dictionary, trap_cells: Array, allow_king_capture: bool, blocked_trap_cells: Array = [], max_target_distance_cells: int = 1) -> Array:
-	var candidates: Array = []
-	if board.size() < ChainDetector.MIN_LINE_LENGTH - 1 or trap_cells.is_empty():
-		return candidates
-	var blocked_cells: Array = blocked_trap_cells
-	if blocked_cells.is_empty():
-		blocked_cells = trap_cells
-	for direction in ChainDetector.DIRECTIONS:
-		for line_cells in _get_five_cell_windows(direction):
-			var line_candidates: Array = _build_big_swamp_pulse_candidates_for_line(board, trap_cells, blocked_cells, line_cells, direction, allow_king_capture, max_target_distance_cells)
-			for candidate in line_candidates:
-				candidates.append(candidate)
-	return candidates
+	return TrapLineDetectorScript.detect_trap_lines(board, trap_cells, max_target_distance_cells, blocked_trap_cells)
 
 static func _get_five_cell_windows(direction: Vector2i) -> Array:
 	var windows: Array = []
@@ -1634,11 +1777,15 @@ func _apply_puzzle_progress(removed_pieces: int):
 		_refresh_puzzle_tiles()
 		var completed_level_number := current_puzzle_level + 1
 		Settings.record_kingdom_completed_level(Settings.theme_id, completed_level_number)
+		Settings.record_kingdom_start_level(Settings.theme_id, mini(completed_level_number, SURVIVAL_LEVEL_INDEX))
 		var level_complete_message := _tf("level_complete", {"number": completed_level_number})
 		_queue_scoring_event(GameManager.build_level_complete_event(completed_level_number))
 		await _show_puzzle_overlay_message(level_complete_message, PUZZLE_LEVEL_COMPLETE_HOLD)
 		if completed_level_number >= WIN_LEVEL_NUMBER:
-			GameManager.end_game(GameManager.GAME_RESULT_WIN)
+			if is_survival_mode:
+				pending_survival_round_completion = true
+				return
+			pending_kingdom_completion_win = true
 			return
 		await _fade_puzzle_image_out()
 
@@ -1775,8 +1922,21 @@ func _clear_hud_message_log_after_slide(generation: int, slide_distance: float):
 func _check_game_over():
 	if game_over_overlay.visible:
 		return
-	if not board_manager.has_legal_moves():
+	if BoardStateRulesScript.is_loss_board_state(
+		board_manager.get_empty_cells(),
+		BoardStateRulesScript.NORMAL_SPAWN_COUNT
+	):
+		if is_survival_mode:
+			_finish_survival_run()
+			return
 		GameManager.end_game(GameManager.GAME_RESULT_LOSS)
+
+func _finish_survival_run():
+	is_final_survival_dialog = true
+	is_survival_mode = false
+	if survival_blood_overlay != null and survival_blood_overlay.has_method("stop"):
+		survival_blood_overlay.stop()
+	GameManager.end_game(GameManager.GAME_RESULT_WIN)
 
 func _on_piece_selected(piece):
 	var moves: Array = piece.get_legal_moves(board_manager.board)
@@ -1864,7 +2024,7 @@ func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
 
 func _build_trap_disappearance_message(piece_type: int, trap_name: String) -> String:
 	var sacrifice_cost := mini(GameManager.get_piece_value(piece_type), GameManager.current_score)
-	return _tf("trap_disappeared", {
+	return _tf("trap_cloud_disappeared", {
 		"trap": trap_name,
 		"cost": maxi(sacrifice_cost, 0)
 	})
@@ -1919,7 +2079,7 @@ func _update_line_metrics_ui():
 func _on_game_over(final_score: int, result: String, achieved_best_score: bool):
 	latest_game_result = result
 	latest_best_score_achieved = achieved_best_score
-	_save_clean_turn_mastery()
+	_save_clean_turn_mastery(result)
 	board_manager.set_input_enabled(false)
 	pause_overlay.visible = false
 	game_over_overlay.visible = true
@@ -1927,22 +2087,31 @@ func _on_game_over(final_score: int, result: String, achieved_best_score: bool):
 	AudioManager.play_sound("game_over")
 
 func _update_game_over_dialog(final_score: int, result: String, achieved_best_score: bool):
-	if result == GameManager.GAME_RESULT_WIN:
+	if is_final_survival_dialog:
+		game_over_title_label.text = _t("survival_win_title")
+	elif result == GameManager.GAME_RESULT_WIN:
 		game_over_title_label.text = _t("game_won")
 	else:
 		game_over_title_label.text = _t("game_lost")
 
-	if achieved_best_score:
+	survive_button.visible = result == GameManager.GAME_RESULT_WIN and not is_final_survival_dialog
+
+	if is_final_survival_dialog:
+		game_over_summary_label.text = _tf("survival_win_summary", {"count": survived_rounds})
+	elif achieved_best_score:
 		game_over_summary_label.text = _t("new_best_score")
 	else:
 		game_over_summary_label.text = _t("session_complete")
 
-	game_over_score_label.text = "\n".join([
+	var score_lines: Array[String] = [
 		"%s: %d" % [_t("session_score"), final_score],
 		"%s: %d" % [_t("removed_color_lines"), GameManager.color_lines_cleared],
 		"%s: %d" % [_t("removed_type_lines"), GameManager.type_lines_cleared],
 		"%s: %d" % [_t("played_campaigns"), SESSION_CAMPAIGNS_PLAYED]
-	])
+	]
+	if is_final_survival_dialog:
+		score_lines.append("%s: %d" % [_t("survived_rounds"), survived_rounds])
+	game_over_score_label.text = "\n".join(score_lines)
 
 func _on_gear_pressed():
 	if game_over_overlay.visible:
@@ -1960,6 +2129,15 @@ func _on_restart_pressed():
 	pause_overlay.visible = false
 	game_over_overlay.visible = false
 	is_processing_move = false
+	is_survival_mode = false
+	survival_round_index = 0
+	survived_rounds = 0
+	is_final_survival_dialog = false
+	survival_round_started_this_turn = false
+	pending_kingdom_completion_win = false
+	pending_survival_round_completion = false
+	if survival_blood_overlay != null and survival_blood_overlay.has_method("stop"):
+		survival_blood_overlay.stop()
 	session_total_turns = 0
 	session_clean_turns = 0
 	current_turn_had_take = false
@@ -1969,6 +2147,16 @@ func _on_restart_pressed():
 	_initialize_game()
 	_update_layout()
 	_update_ui()
+
+func _on_reset_pressed():
+	Settings.reset_kingdom_start_level(Settings.theme_id)
+	_on_restart_pressed()
+
+func _on_survive_pressed():
+	survival_round_index = 1
+	survived_rounds = 0
+	is_final_survival_dialog = false
+	_start_survival_round()
 
 func _on_main_menu_pressed():
 	get_tree().paused = false
@@ -1980,18 +2168,51 @@ func _resolve_turn():
 	_begin_score_message_batch()
 	await get_tree().create_timer(0.3).timeout
 
-	var cleared_from_move := await _resolve_chain_waves()
-	if not cleared_from_move:
-		var spawned_count: int = _spawn_new_pieces()
-		if spawned_count == 0:
-			board_manager.fill_empty_cells_with_kings()
-			_record_completed_turn()
-			_check_game_over()
-			_flush_score_message_batch()
-			is_processing_move = false
-			return
-		await get_tree().create_timer(0.3).timeout
-		await _resolve_chain_waves()
+	await _resolve_chain_waves()
+	if survival_round_started_this_turn:
+		survival_round_started_this_turn = false
+		_flush_score_message_batch()
+		is_processing_move = false
+		return
+	if game_over_overlay.visible:
+		_flush_score_message_batch()
+		is_processing_move = false
+		return
+
+	var spawned_count: int = _spawn_new_pieces()
+	if spawned_count == 0:
+		_record_completed_turn()
+		_check_game_over()
+		_flush_score_message_batch()
+		is_processing_move = false
+		if not game_over_overlay.visible and not pause_overlay.visible:
+			board_manager.set_input_enabled(true)
+		return
+
+	if await _finish_pending_completion_after_successful_spawn():
+		_record_completed_turn()
+		_flush_score_message_batch()
+		is_processing_move = false
+		return
+
+	_check_game_over()
+	if game_over_overlay.visible:
+		_record_completed_turn()
+		_flush_score_message_batch()
+		is_processing_move = false
+		return
+
+	await get_tree().create_timer(0.3).timeout
+	await _resolve_chain_waves()
+	if survival_round_started_this_turn:
+		survival_round_started_this_turn = false
+		_flush_score_message_batch()
+		is_processing_move = false
+		return
+	if game_over_overlay.visible:
+		_flush_score_message_batch()
+		is_processing_move = false
+		return
 
 	await get_tree().create_timer(0.3).timeout
 	_record_completed_turn()
@@ -2012,15 +2233,27 @@ func _resolve_sacrifice_turn(spawn_count: int):
 
 	var spawned_count: int = _spawn_new_pieces(spawn_count)
 	if spawned_count == 0:
-		board_manager.fill_empty_cells_with_kings()
 		_record_completed_turn()
 		_check_game_over()
+		_flush_score_message_batch()
+		is_processing_move = false
+		if not game_over_overlay.visible and not pause_overlay.visible:
+			board_manager.set_input_enabled(true)
+		return
+
+	if await _finish_pending_completion_after_successful_spawn():
+		_record_completed_turn()
 		_flush_score_message_batch()
 		is_processing_move = false
 		return
 
 	await get_tree().create_timer(0.3).timeout
 	await _resolve_chain_waves()
+	if survival_round_started_this_turn:
+		survival_round_started_this_turn = false
+		_flush_score_message_batch()
+		is_processing_move = false
+		return
 	await get_tree().create_timer(0.3).timeout
 	_record_completed_turn()
 	_maybe_rotate_traps()
@@ -2038,8 +2271,35 @@ func _record_completed_turn():
 		session_clean_turns += 1
 	current_turn_had_take = false
 
-func _save_clean_turn_mastery():
-	Settings.record_kingdom_clean_turn_session(Settings.theme_id, session_clean_turns, session_total_turns)
+func _has_pending_completion() -> bool:
+	return pending_kingdom_completion_win or pending_survival_round_completion
+
+func _finish_pending_completion_after_successful_spawn() -> bool:
+	if not _has_pending_completion():
+		return false
+	if game_over_overlay.visible:
+		return false
+	if pending_survival_round_completion:
+		pending_survival_round_completion = false
+		survived_rounds += 1
+		survival_round_index += 1
+		survival_round_started_this_turn = true
+		await _fade_puzzle_image_out()
+		await _start_survival_round()
+		return true
+	if pending_kingdom_completion_win:
+		pending_kingdom_completion_win = false
+		GameManager.end_game(GameManager.GAME_RESULT_WIN)
+		return true
+	return false
+
+func _save_clean_turn_mastery(result: String):
+	Settings.record_kingdom_clean_turn_session(
+		Settings.theme_id,
+		session_clean_turns,
+		session_total_turns,
+		result == GameManager.GAME_RESULT_WIN
+	)
 
 func _resolve_chain_waves() -> bool:
 	var cleared_any := false
@@ -2111,6 +2371,7 @@ func _apply_localized_text():
 	game_over_title_label.text = _t("game_over")
 	game_over_summary_label.text = _t("session_complete")
 	restart_button.text = _t("play_again")
+	survive_button.text = _t("survive")
 	main_menu_button.text = _t("main_menu")
 	if game_over_overlay.visible:
 		_update_game_over_dialog(GameManager.current_score, latest_game_result, latest_best_score_achieved)

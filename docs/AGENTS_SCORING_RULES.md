@@ -26,8 +26,8 @@ Best scores should come from:
 
 Best score persistence happens only when a session ends in a real result:
 
-- win: the player completes Level 4 of the active kingdom
-- loss: no eligible move or capture remains
+- win: the player completes Level 4 of the active kingdom and the required post-turn spawn validation succeeds
+- loss: fewer than 3 playable empty spawn cells remain before the next normal spawn
 
 Do not accrue best score when the player resets, pauses, or returns to the main menu before win/loss.
 
