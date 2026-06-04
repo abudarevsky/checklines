@@ -7,6 +7,16 @@ GODOT_BIN=${GODOT_BIN:-godot}
 "$GODOT_BIN" --path . --script-check
 ```
 
+Focused architecture tests:
+
+```bash
+"$GODOT_BIN" --headless --path . -s tests/persistence_store_test.gd
+"$GODOT_BIN" --headless --path . -s tests/trap_profile_test.gd
+"$GODOT_BIN" --headless --path . -s tests/session_models_test.gd
+"$GODOT_BIN" --headless --path . -s tests/turn_session_state_test.gd
+"$GODOT_BIN" --headless --path . -s tests/kingdom_catalog_test.gd
+```
+
 ### Headless Run with Output Capture
 
 ```bash

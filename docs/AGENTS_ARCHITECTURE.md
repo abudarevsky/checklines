@@ -26,6 +26,8 @@
   - line detection
   - supporting systems
   - `scripts/traps/` contains the common reusable trap library, trap definitions, and trap visuals
+  - `scripts/session/` contains reusable per-session state and history models
+  - `scripts/persistence/` contains merged config-file persistence helpers
 
 - `assets/sprites/`
   - chess piece SVG sources

@@ -1,5 +1,48 @@
-node_modules
+# Godot
+.godot/
+*.import
+import_presets.cfg
+project.binary
+*.4orm
+*.gdext
+
+# Build outputs
+.gradle/
+android/build/
+build/
+dist/
+export/
+exports/
+*.pck
+*.zip
+*.exe
+*.dmg
+*.app
+*.html
+*.wasm
+*.js
+
+# Local tools and caches
+.opencode/
+node_modules/
+tmp/
+__pycache__/
+*.pyc
+TASK_STATE.md
+
+# Package-manager files not used by the Godot project
 package.json
 package-lock.json
 bun.lock
-.gitignore
+
+# OS and editors
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
+*.code-workspace
+
+# Logs
+*.log

@@ -19,10 +19,6 @@ class FakeLegalMovePiece:
 func _initialize():
 	var failures: Array[String] = []
 
-	_run_test("uses configured trap count by level", _test_trap_count_by_level, failures)
-	_run_test("uses configured trap rotation limits by level", _test_trap_rotation_limits_by_level, failures)
-	_run_test("uses independent trap rotation frequency", _test_trap_rotation_frequency, failures)
-	_run_test("uses kingdom trap profile values", _test_kingdom_trap_profile_values, failures)
 	_run_test("rotates every trap to a new empty cell", _test_trap_rotation_selects_new_empty_cells, failures)
 	_run_test("uses common trap library definition", _test_common_trap_library, failures)
 	_run_test("board stores trap type references", _test_board_trap_type_reference, failures)
@@ -67,54 +63,6 @@ func _run_test(name: String, test_callable: Callable, failures: Array[String]):
 	var error_message: String = test_callable.call()
 	if error_message != "":
 		failures.append(name + ": " + error_message)
-
-func _test_trap_count_by_level() -> String:
-	var game_board_script = load("res://scripts/board/GameBoard.gd")
-	if game_board_script._get_trap_count_for_level(-1) != 0:
-		return "expected negative levels to have no traps"
-	for level_index in range(4):
-		if game_board_script._get_trap_count_for_level(level_index) < 0:
-			return "expected configured trap counts to stay non-negative"
-	if game_board_script._get_trap_count_for_level(6) != game_board_script._get_trap_count_for_level(3):
-		return "expected later levels to reuse the last configured trap count"
-	return ""
-
-func _test_trap_rotation_limits_by_level() -> String:
-	var game_board_script = load("res://scripts/board/GameBoard.gd")
-	if game_board_script._get_trap_rotation_limit_for_level(-1) != 0:
-		return "expected negative levels to have no trap rotations"
-	for level_index in range(4):
-		if game_board_script._get_trap_rotation_limit_for_level(level_index) < -1:
-			return "expected trap rotation limits to be -1 or greater"
-	if game_board_script._get_trap_rotation_limit_for_level(6) != game_board_script._get_trap_rotation_limit_for_level(3):
-		return "expected later levels to reuse the last configured trap rotation limit"
-	return ""
-
-func _test_trap_rotation_frequency() -> String:
-	var game_board_script = load("res://scripts/board/GameBoard.gd")
-	if game_board_script._get_trap_rotation_chance_for_level(-1) != 0.0:
-		return "expected negative levels to have no trap rotation chance"
-	for level_index in range(4):
-		var chance: float = game_board_script._get_trap_rotation_chance_for_level(level_index)
-		if chance < 0.0 or chance > 1.0:
-			return "expected trap rotation chances to stay in probability range"
-	if game_board_script._get_trap_rotation_chance_for_level(6) != game_board_script._get_trap_rotation_chance_for_level(3):
-		return "expected later levels to reuse the last configured trap rotation chance"
-	return ""
-
-func _test_kingdom_trap_profile_values() -> String:
-	var game_board_script = load("res://scripts/board/GameBoard.gd")
-	if game_board_script._get_trap_count_for_level(0, "default") != 10:
-		return "expected default kingdom trap count profile"
-	if game_board_script._get_trap_count_for_level(0, "neon") != 10:
-		return "expected neon kingdom trap count profile"
-	if game_board_script._get_trap_count_for_level(0, "missing") != 10:
-		return "expected missing kingdom to use default trap profile"
-	if not is_equal_approx(game_board_script._get_big_swamp_pulse_probability_for_level(1, "default"), 0.20):
-		return "expected default Big Swamp pulse profile"
-	if game_board_script._is_trap_rotation_enabled_for_kingdom("default"):
-		return "expected default trap rotation profile to be disabled"
-	return ""
 
 func _test_trap_rotation_selects_new_empty_cells() -> String:
 	var game_board_script = load("res://scripts/board/GameBoard.gd")
@@ -963,7 +911,7 @@ func _test_big_swamp_pulse_detects_queen_completion_between_traps() -> String:
 	return error_message
 
 func _test_big_swamp_pulse_prefers_adjacent_target() -> String:
-	var GameBoardScript = load("res://scripts/board/GameBoard.gd")
+	var Detector = load("res://scripts/traps/TrapLineDetector.gd")
 	var board: Dictionary = {}
 	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(0, 0))
 	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(1, 0))
@@ -971,14 +919,8 @@ func _test_big_swamp_pulse_prefers_adjacent_target() -> String:
 	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(4, 0))
 	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(3, 3))
 
-	var target: Vector2i = GameBoardScript._select_big_swamp_pulse_target(
-		board,
-		[Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0), Vector2i(4, 0)],
-		Vector2i(3, 0),
-		Vector2i(1, 0),
-		[Vector2i(3, 1)],
-		false
-	)
+	var candidates: Array = Detector.detect_trap_lines(board, [Vector2i(3, 1)])
+	var target: Vector2i = candidates[0].get("target_piece_cell", Vector2i(-1, -1)) if not candidates.is_empty() else Vector2i(-1, -1)
 	_free_test_board(board)
 
 	if target != Vector2i(2, 0) and target != Vector2i(4, 0):
@@ -986,7 +928,7 @@ func _test_big_swamp_pulse_prefers_adjacent_target() -> String:
 	return ""
 
 func _test_big_swamp_pulse_targets_nearest_adjacent_to_trap() -> String:
-	var GameBoardScript = load("res://scripts/board/GameBoard.gd")
+	var Detector = load("res://scripts/traps/TrapLineDetector.gd")
 	var board: Dictionary = {}
 	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(3, 1))
 	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(3, 2))
@@ -994,14 +936,8 @@ func _test_big_swamp_pulse_targets_nearest_adjacent_to_trap() -> String:
 	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(3, 5))
 	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(0, 3))
 
-	var target: Vector2i = GameBoardScript._select_big_swamp_pulse_target(
-		board,
-		[Vector2i(3, 1), Vector2i(3, 2), Vector2i(3, 3), Vector2i(3, 4), Vector2i(3, 5)],
-		Vector2i(3, 3),
-		Vector2i(0, 1),
-		[Vector2i(4, 4)],
-		false
-	)
+	var candidates: Array = Detector.detect_trap_lines(board, [Vector2i(4, 4)])
+	var target: Vector2i = candidates[0].get("target_piece_cell", Vector2i(-1, -1)) if not candidates.is_empty() else Vector2i(-1, -1)
 	_free_test_board(board)
 
 	if target != Vector2i(3, 4):

@@ -38,6 +38,28 @@ Owns or coordinates:
 - win/loss condition
 - next-spawn-capacity loss handling
 
+`GameBoard.gd` coordinates scene-bound sequencing. Reusable state and rules should remain in focused modules rather than being added inline.
+
+### `ConfigStore.gd`
+
+Owns merged `ConfigFile` reads and writes shared by settings and game-state persistence.
+
+### `TurnSessionState.gd`
+
+Owns per-session turn counters, clean-turn tracking, pending completion flags, and per-turn spawn exclusions.
+
+### `SessionHistory.gd` and `HudMessageLog.gd`
+
+Own rewind-history retention and recent HUD-message retention. `GameBoard.gd` owns their scene presentation.
+
+### `TrapProfile.gd` and `TrapLineDetector.gd`
+
+Own kingdom trap tuning and reusable trap-line candidate detection. `GameBoard.gd` owns runtime pulse sequencing.
+
+### `KingdomCatalog.gd`
+
+Owns main-menu kingdom IDs, themes, frame assets, and fallback card art.
+
 ### `SpawnPlanner.gd`
 
 Owns:

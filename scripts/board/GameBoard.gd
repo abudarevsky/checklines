@@ -2,7 +2,11 @@ extends Node2D
 
 const BoardStateRulesScript = preload("res://scripts/board/BoardStateRules.gd")
 const TrapLineDetectorScript = preload("res://scripts/traps/TrapLineDetector.gd")
+const TrapProfileScript = preload("res://scripts/traps/TrapProfile.gd")
 const SurvivalBloodOverlayScript = preload("res://scripts/effects/SurvivalBloodOverlay.gd")
+const HudMessageLogScript = preload("res://scripts/ui/HudMessageLog.gd")
+const SessionHistoryScript = preload("res://scripts/session/SessionHistory.gd")
+const TurnSessionStateScript = preload("res://scripts/session/TurnSessionState.gd")
 
 @onready var board_manager = $BoardManager
 @onready var screen_background: ColorRect = $ScreenBackground
@@ -58,7 +62,7 @@ var chain_animation_tween: Tween
 var current_puzzle_level: int = 0
 var revealed_puzzle_tiles: int = 0
 var puzzle_tile_order: Array[int] = []
-var hud_message_log: Array[Dictionary] = []
+var hud_message_log = HudMessageLogScript.new(MESSAGE_RECENT_WINDOW, 2)
 var score_message_batch: Array[String] = []
 var is_message_queue_running: bool = false
 var is_score_message_batch_open: bool = false
@@ -71,9 +75,7 @@ var base_message_position: Vector2 = Vector2.ZERO
 var puzzle_overlay_area_size: Vector2 = Vector2.ZERO
 var default_theme_cache: ThemeData = null
 var forced_sacrifice_spawn_count: int = 0
-var session_total_turns: int = 0
-var session_clean_turns: int = 0
-var current_turn_had_take: bool = false
+var turn_state = TurnSessionStateScript.new()
 var trap_rotations_used_current_level: int = 0
 var latest_game_result: String = GameManager.GAME_RESULT_LOSS
 var latest_best_score_achieved: bool = false
@@ -86,11 +88,8 @@ var survived_rounds: int = 0
 var is_final_survival_dialog: bool = false
 var survival_round_started_this_turn: bool = false
 var survival_blood_overlay: Control = null
-var pending_kingdom_completion_win: bool = false
-var pending_survival_round_completion: bool = false
-var session_event_history: Array[Dictionary] = []
+var session_event_history = SessionHistoryScript.new(GameManager.SESSION_HISTORY_DEPTH)
 var pending_event_snapshot: Dictionary = {}
-var turn_spawn_excluded_cells: Array[Vector2i] = []
 var is_rewind_mode: bool = false
 var rewind_live_snapshot: Dictionary = {}
 var rewind_overlay: PanelContainer = null
@@ -145,22 +144,6 @@ const PUZZLE_MESSAGE_BANNER_MIN_HEIGHT: float = 76.0
 const PUZZLE_MESSAGE_BANNER_MAX_HEIGHT: float = 112.0
 const PUZZLE_MESSAGE_BANNER_FLIGHT_DURATION: float = 0.96
 const PUZZLE_MESSAGE_BANNER_HOLD_DURATION: float = 1.0
-const DEFAULT_TRAP_PROFILE: Dictionary = {
-	"trap_counts_by_level": [0, 1, 2, 3],
-	"trap_rotation_enabled": false,
-	"trap_rotation_limits_by_level": [0, 1, 2, -1],
-	"trap_rotation_chances_by_level": [0, 0.18, 0.18, 0.3],
-	"big_swamp_pulse_probabilities_by_level": [0, 0.20, 0.40, 1],
-	"pulse_duration_seconds": 5.0,
-	"failed_pulse_spawn_count": 2,
-	"allow_king_target": false,
-	"max_active_pulses": 1,
-	"big_swamp_max_target_distance_cells": 1,
-}
-const TRAP_PROFILES_BY_KINGDOM: Dictionary = {
-	"default": DEFAULT_TRAP_PROFILE,
-	"neon": DEFAULT_TRAP_PROFILE,
-}
 const DEBUG_HUD_LAYOUT: bool = false
 
 class BigSwampPulseState:
@@ -194,16 +177,6 @@ class BigSwampPulseState:
 		remaining_time = 0.0
 		duration = 0.0
 		is_active = false
-
-class TrapPredictionBlocker:
-	var piece_color: int = -1
-	var piece_type: int = GameManager.PieceType.KING
-	var grid_position: Vector2i = Vector2i(-1, -1)
-
-	func _init(color: int, pos: Vector2i):
-		piece_color = color
-		piece_type = GameManager.PieceType.KING
-		grid_position = pos
 
 func _ready():
 	big_swamp_pulse_state = BigSwampPulseState.new()
@@ -1104,7 +1077,7 @@ func _initialize_puzzle_progress():
 	score_message_batch.clear()
 	session_event_history.clear()
 	pending_event_snapshot.clear()
-	turn_spawn_excluded_cells.clear()
+	turn_state.spawn_excluded_cells.clear()
 	is_message_queue_running = false
 	is_score_message_batch_open = false
 	is_rewind_mode = false
@@ -1245,40 +1218,22 @@ func _get_level_start_message(level_number: int) -> String:
 	return template.replace("{number}", str(level_number))
 
 static func _get_trap_profile(kingdom_id: String = "") -> Dictionary:
+	return TrapProfileScript.get_profile(_resolve_trap_kingdom_id(kingdom_id))
+
+static func _resolve_trap_kingdom_id(kingdom_id: String = "") -> String:
 	var resolved_kingdom_id := kingdom_id.strip_edges()
 	if resolved_kingdom_id.is_empty():
 		resolved_kingdom_id = Settings.theme_id
-	if TRAP_PROFILES_BY_KINGDOM.has(resolved_kingdom_id):
-		return TRAP_PROFILES_BY_KINGDOM[resolved_kingdom_id]
-	return DEFAULT_TRAP_PROFILE
-
-static func _get_profile_level_int(profile: Dictionary, key: String, level_index: int, fallback: int = 0) -> int:
-	if level_index < 0:
-		return fallback
-	var values: Array = profile.get(key, [])
-	if values.is_empty():
-		return fallback
-	if level_index < values.size():
-		return int(values[level_index])
-	return int(values[values.size() - 1])
-
-static func _get_profile_level_float(profile: Dictionary, key: String, level_index: int, fallback: float = 0.0) -> float:
-	if level_index < 0:
-		return fallback
-	var values: Array = profile.get(key, [])
-	if values.is_empty():
-		return fallback
-	var raw_value = values[level_index] if level_index < values.size() else values[values.size() - 1]
-	return clampf(float(raw_value), 0.0, 1.0)
+	return resolved_kingdom_id
 
 static func _get_trap_count_for_level(level_index: int, kingdom_id: String = "") -> int:
-	return _get_profile_level_int(_get_trap_profile(kingdom_id), "trap_counts_by_level", level_index, 0)
+	return TrapProfileScript.get_level_int("trap_counts_by_level", level_index, _resolve_trap_kingdom_id(kingdom_id), 0)
 
 static func _get_trap_rotation_limit_for_level(level_index: int, kingdom_id: String = "") -> int:
-	return _get_profile_level_int(_get_trap_profile(kingdom_id), "trap_rotation_limits_by_level", level_index, 0)
+	return TrapProfileScript.get_level_int("trap_rotation_limits_by_level", level_index, _resolve_trap_kingdom_id(kingdom_id), 0)
 
 static func _is_trap_rotation_enabled_for_kingdom(kingdom_id: String = "") -> bool:
-	return bool(_get_trap_profile(kingdom_id).get("trap_rotation_enabled", false))
+	return bool(TrapProfileScript.get_value("trap_rotation_enabled", _resolve_trap_kingdom_id(kingdom_id), false))
 
 func _generate_traps_for_level(level_index: int, trap_count_override: int = -1):
 	board_manager.set_traps([])
@@ -1354,25 +1309,25 @@ func _can_rotate_traps_for_level(level_index: int) -> bool:
 	return trap_rotations_used_current_level < rotation_limit
 
 static func _get_trap_rotation_chance_for_level(level_index: int, kingdom_id: String = "") -> float:
-	return _get_profile_level_float(_get_trap_profile(kingdom_id), "trap_rotation_chances_by_level", level_index, 0.0)
+	return TrapProfileScript.get_level_probability("trap_rotation_chances_by_level", level_index, _resolve_trap_kingdom_id(kingdom_id), 0.0)
 
 static func _get_big_swamp_pulse_probability_for_level(level_index: int, kingdom_id: String = "") -> float:
-	return _get_profile_level_float(_get_trap_profile(kingdom_id), "big_swamp_pulse_probabilities_by_level", level_index, 0.0)
+	return TrapProfileScript.get_level_probability("big_swamp_pulse_probabilities_by_level", level_index, _resolve_trap_kingdom_id(kingdom_id), 0.0)
 
 static func _get_big_swamp_pulse_duration_seconds(kingdom_id: String = "") -> float:
-	return maxf(float(_get_trap_profile(kingdom_id).get("pulse_duration_seconds", 5.0)), 0.01)
+	return maxf(float(TrapProfileScript.get_value("pulse_duration_seconds", _resolve_trap_kingdom_id(kingdom_id), 5.0)), 0.01)
 
 static func _get_failed_pulse_spawn_count(kingdom_id: String = "") -> int:
-	return maxi(int(_get_trap_profile(kingdom_id).get("failed_pulse_spawn_count", 2)), 0)
+	return maxi(int(TrapProfileScript.get_value("failed_pulse_spawn_count", _resolve_trap_kingdom_id(kingdom_id), 2)), 0)
 
 static func _get_allow_king_target(kingdom_id: String = "") -> bool:
-	return bool(_get_trap_profile(kingdom_id).get("allow_king_target", false))
+	return bool(TrapProfileScript.get_value("allow_king_target", _resolve_trap_kingdom_id(kingdom_id), false))
 
 static func _get_max_active_pulses(kingdom_id: String = "") -> int:
-	return maxi(int(_get_trap_profile(kingdom_id).get("max_active_pulses", 1)), 0)
+	return maxi(int(TrapProfileScript.get_value("max_active_pulses", _resolve_trap_kingdom_id(kingdom_id), 1)), 0)
 
 static func _get_big_swamp_max_target_distance_cells(kingdom_id: String = "") -> int:
-	return maxi(int(_get_trap_profile(kingdom_id).get("big_swamp_max_target_distance_cells", 1)), 0)
+	return maxi(int(TrapProfileScript.get_value("big_swamp_max_target_distance_cells", _resolve_trap_kingdom_id(kingdom_id), 1)), 0)
 
 func _maybe_rotate_traps():
 	if not _should_rotate_traps(current_puzzle_level):
@@ -1574,7 +1529,7 @@ func _is_big_swamp_pulse_line_completed() -> bool:
 	var completion_target: Vector2i = big_swamp_pulse_state.candidate.get("completion_target_cell", Vector2i(-1, -1))
 	if completion_target == big_swamp_pulse_state.trap_cell:
 		return false
-	return _is_candidate_line_completed(
+	return TrapLineDetectorScript.is_candidate_line_completed(
 		board_manager.board,
 		big_swamp_pulse_state.candidate_line_cells
 	)
@@ -1582,318 +1537,6 @@ func _is_big_swamp_pulse_line_completed() -> bool:
 static func _find_big_swamp_pulse_candidates(board: Dictionary, trap_cells: Array, allow_king_capture: bool, blocked_trap_cells: Array = [], max_target_distance_cells: int = 1) -> Array:
 	return TrapLineDetectorScript.detect_trap_lines(board, trap_cells, max_target_distance_cells, blocked_trap_cells)
 
-static func _get_five_cell_windows(direction: Vector2i) -> Array:
-	var windows: Array = []
-	for y in range(GameManager.BOARD_SIZE):
-		for x in range(GameManager.BOARD_SIZE):
-			var start := Vector2i(x, y)
-			var end := start + direction * (ChainDetector.MIN_LINE_LENGTH - 1)
-			if not _is_grid_cell_in_bounds(end):
-				continue
-			var cells: Array[Vector2i] = []
-			for i in range(ChainDetector.MIN_LINE_LENGTH):
-				cells.append(start + direction * i)
-			windows.append(cells)
-	return windows
-
-static func _build_big_swamp_pulse_candidates_for_line(board: Dictionary, trap_cells: Array, blocked_trap_cells: Array, line_cells: Array, direction: Vector2i, allow_king_capture: bool, max_target_distance_cells: int) -> Array:
-	var candidates: Array = []
-	if _is_candidate_line_completed(board, line_cells):
-		return candidates
-
-	for completion_cell in line_cells:
-		var candidate_cell: Vector2i = completion_cell
-		if candidate_cell in blocked_trap_cells:
-			continue
-		var occupied_pieces: Array = []
-		var has_gap_outside_candidate := false
-		for line_cell in line_cells:
-			var current_cell: Vector2i = line_cell
-			if current_cell == candidate_cell:
-				continue
-			if current_cell in blocked_trap_cells:
-				has_gap_outside_candidate = true
-				break
-			if not board.has(current_cell):
-				has_gap_outside_candidate = true
-				break
-			occupied_pieces.append(board[current_cell])
-		if has_gap_outside_candidate or occupied_pieces.size() != ChainDetector.MIN_LINE_LENGTH - 1:
-			continue
-		var completion: Dictionary = _get_almost_line_completion(board, occupied_pieces, candidate_cell, line_cells, blocked_trap_cells)
-		if completion.is_empty():
-			continue
-		var target_cell: Vector2i = _select_big_swamp_pulse_target(board, line_cells, candidate_cell, direction, trap_cells, allow_king_capture, max_target_distance_cells)
-		if target_cell == Vector2i(-1, -1):
-			continue
-		var trap_cell: Vector2i = _select_big_swamp_pulse_trap(trap_cells, target_cell, max_target_distance_cells)
-		if trap_cell == Vector2i(-1, -1):
-			continue
-		candidates.append({
-			"trap_cell": trap_cell,
-			"target_piece_cell": target_cell,
-			"missing_line_cell": candidate_cell,
-			"candidate_line_cells": line_cells.duplicate(),
-			"score": _score_big_swamp_pulse_target(line_cells, candidate_cell, target_cell, direction, trap_cell)
-		})
-
-	return candidates
-
-static func _get_almost_line_completion(board: Dictionary, occupied_pieces: Array, missing_cell: Vector2i, candidate_line_cells: Array, blocked_trap_cells: Array = []) -> Dictionary:
-	var color_completer := _get_color_almost_line_completer(board, occupied_pieces, missing_cell, candidate_line_cells, blocked_trap_cells)
-	if color_completer != Vector2i(-1, -1):
-		return {"kind": "color"}
-	var type_match: int = _get_almost_type_match(occupied_pieces)
-	var type_completer := _get_type_almost_line_completer(board, occupied_pieces, missing_cell, candidate_line_cells, blocked_trap_cells, type_match, _has_king_piece(occupied_pieces))
-	if type_completer != Vector2i(-1, -1):
-		return {
-			"kind": "type",
-			"matched_type": type_match
-		}
-	return {}
-
-static func _can_complete_color_almost_line(board: Dictionary, occupied_pieces: Array, missing_cell: Vector2i, candidate_line_cells: Array, blocked_trap_cells: Array) -> bool:
-	var color: int = occupied_pieces[0].piece_color
-	var occupied_line_cells: Dictionary = {}
-	for piece in occupied_pieces:
-		occupied_line_cells[piece.grid_position] = true
-		if piece.piece_color != color:
-			return false
-	for piece in board.values():
-		if occupied_line_cells.has(piece.grid_position):
-			continue
-		if piece.piece_color == color and _can_piece_complete_almost_line_cell(piece, board, missing_cell, candidate_line_cells, blocked_trap_cells):
-			return true
-	return false
-
-static func _get_color_almost_line_completer(board: Dictionary, occupied_pieces: Array, missing_cell: Vector2i, candidate_line_cells: Array, blocked_trap_cells: Array) -> Vector2i:
-	var color: int = occupied_pieces[0].piece_color
-	var occupied_line_cells: Dictionary = {}
-	for piece in occupied_pieces:
-		occupied_line_cells[piece.grid_position] = true
-		if piece.piece_color != color:
-			return Vector2i(-1, -1)
-	for piece in board.values():
-		if occupied_line_cells.has(piece.grid_position):
-			continue
-		if piece.piece_color == color and _can_piece_complete_almost_line_cell(piece, board, missing_cell, candidate_line_cells, blocked_trap_cells):
-			return piece.grid_position
-	return Vector2i(-1, -1)
-
-static func _get_almost_type_match(occupied_pieces: Array) -> int:
-	var matched_type: int = -1
-	for piece in occupied_pieces:
-		if piece.piece_type == GameManager.PieceType.KING:
-			continue
-		if matched_type == -1:
-			matched_type = piece.piece_type
-			continue
-		if piece.piece_type != matched_type:
-			return -1
-	return matched_type
-
-static func _can_complete_type_almost_line(board: Dictionary, occupied_pieces: Array, missing_cell: Vector2i, candidate_line_cells: Array, blocked_trap_cells: Array, matched_type: int, line_has_king: bool) -> bool:
-	if matched_type == -1:
-		return false
-	var occupied_line_cells: Dictionary = {}
-	for piece in occupied_pieces:
-		occupied_line_cells[piece.grid_position] = true
-	for piece in board.values():
-		if occupied_line_cells.has(piece.grid_position):
-			continue
-		if piece.piece_type == matched_type and _can_piece_complete_almost_line_cell(piece, board, missing_cell, candidate_line_cells, blocked_trap_cells):
-			return true
-		if not line_has_king and piece.piece_type == GameManager.PieceType.KING and _can_piece_complete_almost_line_cell(piece, board, missing_cell, candidate_line_cells, blocked_trap_cells):
-			return true
-	return false
-
-static func _get_type_almost_line_completer(board: Dictionary, occupied_pieces: Array, missing_cell: Vector2i, candidate_line_cells: Array, blocked_trap_cells: Array, matched_type: int, line_has_king: bool) -> Vector2i:
-	if matched_type == -1:
-		return Vector2i(-1, -1)
-	var occupied_line_cells: Dictionary = {}
-	for piece in occupied_pieces:
-		occupied_line_cells[piece.grid_position] = true
-	for piece in board.values():
-		if occupied_line_cells.has(piece.grid_position):
-			continue
-		if piece.piece_type == matched_type and _can_piece_complete_almost_line_cell(piece, board, missing_cell, candidate_line_cells, blocked_trap_cells):
-			return piece.grid_position
-		if not line_has_king and piece.piece_type == GameManager.PieceType.KING and _can_piece_complete_almost_line_cell(piece, board, missing_cell, candidate_line_cells, blocked_trap_cells):
-			return piece.grid_position
-	return Vector2i(-1, -1)
-
-static func _can_piece_complete_almost_line_cell(piece, board: Dictionary, completion_cell: Vector2i, candidate_line_cells: Array, blocked_trap_cells: Array) -> bool:
-	if completion_cell in blocked_trap_cells:
-		return false
-	var can_reach_completion: bool = false
-	if board.has(completion_cell):
-		can_reach_completion = completion_cell in piece.get_legal_captures(board)
-	else:
-		can_reach_completion = completion_cell in piece.get_legal_moves(board)
-	if not can_reach_completion:
-		return false
-	return _simulated_completion_creates_candidate_line(piece, board, completion_cell, candidate_line_cells)
-
-static func _build_prediction_movement_board(board: Dictionary, blocked_trap_cells: Array, completion_cell: Vector2i, blocker_color: int) -> Dictionary:
-	var prediction_board := board.duplicate()
-	for trap_cell in blocked_trap_cells:
-		var blocked_cell: Vector2i = trap_cell
-		if blocked_cell == completion_cell or prediction_board.has(blocked_cell):
-			continue
-		prediction_board[blocked_cell] = TrapPredictionBlocker.new(blocker_color, blocked_cell)
-	return prediction_board
-
-static func _free_prediction_movement_blockers(prediction_board: Dictionary, board: Dictionary, blocked_trap_cells: Array):
-	for trap_cell in blocked_trap_cells:
-		var blocked_cell: Vector2i = trap_cell
-		if board.has(blocked_cell) or not prediction_board.has(blocked_cell):
-			continue
-		var blocker = prediction_board[blocked_cell]
-		if blocker is Node and is_instance_valid(blocker):
-			blocker.free()
-
-static func _simulated_completion_creates_candidate_line(piece, board: Dictionary, completion_cell: Vector2i, candidate_line_cells: Array) -> bool:
-	var original_cell: Vector2i = piece.grid_position
-	var simulation_board := board.duplicate()
-	simulation_board.erase(original_cell)
-	simulation_board.erase(completion_cell)
-	piece.grid_position = completion_cell
-	simulation_board[completion_cell] = piece
-	var completed := _is_candidate_line_completed(simulation_board, candidate_line_cells)
-	piece.grid_position = original_cell
-	return completed
-
-static func _select_big_swamp_pulse_target(board: Dictionary, line_cells: Array, missing_cell: Vector2i, direction: Vector2i, trap_cells: Array, allow_king_capture: bool, max_target_distance_cells: int = 1) -> Vector2i:
-	var best_cell: Vector2i = Vector2i(-1, -1)
-	var best_score: int = -999999
-	var best_trap_distance: int = 999999
-	var reachable_targets: Array[Vector2i] = []
-	for cell in line_cells:
-		if cell == missing_cell or not board.has(cell):
-			continue
-		var piece = board[cell]
-		if not allow_king_capture and piece.piece_type == GameManager.PieceType.KING:
-			continue
-		var target_cell: Vector2i = cell
-		var trap_cell: Vector2i = _select_big_swamp_pulse_trap(trap_cells, target_cell, max_target_distance_cells)
-		if trap_cell == Vector2i(-1, -1):
-			continue
-		if _is_valid_big_swamp_pulse_target_position(line_cells, missing_cell, target_cell, direction, board.has(missing_cell), trap_cell):
-			reachable_targets.append(target_cell)
-
-	for target_cell in reachable_targets:
-		var trap_cell: Vector2i = _select_big_swamp_pulse_trap(trap_cells, target_cell, max_target_distance_cells)
-		if trap_cell == Vector2i(-1, -1):
-			continue
-		var trap_distance: int = int(target_cell.distance_squared_to(trap_cell)) if trap_cell != Vector2i(-1, -1) else 999999
-		var score: int = _score_big_swamp_pulse_target(line_cells, missing_cell, target_cell, direction, trap_cell)
-		if trap_distance < best_trap_distance or (trap_distance == best_trap_distance and score > best_score):
-			best_trap_distance = trap_distance
-			best_score = score
-			best_cell = target_cell
-	return best_cell
-
-static func _is_cell_adjacent_to_line_gap(cell: Vector2i, gap_cell: Vector2i, direction: Vector2i) -> bool:
-	return cell == gap_cell - direction or cell == gap_cell + direction
-
-static func _is_valid_big_swamp_pulse_target_position(line_cells: Array, missing_cell: Vector2i, target_cell: Vector2i, direction: Vector2i, completion_cell_is_occupied: bool, trap_cell: Vector2i = Vector2i(-1, -1)) -> bool:
-	if _is_cell_adjacent_to_line_gap(target_cell, missing_cell, direction):
-		return true
-	var first_cell: Vector2i = line_cells[0]
-	var last_cell: Vector2i = line_cells[line_cells.size() - 1]
-	if target_cell != first_cell and target_cell != last_cell:
-		return false
-	if completion_cell_is_occupied:
-		return _is_cell_orthogonally_adjacent(target_cell, trap_cell) or _is_trap_attached_to_line_edge(trap_cell, target_cell, direction, target_cell == first_cell)
-	if target_cell == first_cell:
-		return _is_trap_on_line_edge_extension(trap_cell, first_cell, direction, true)
-	return _is_trap_on_line_edge_extension(trap_cell, last_cell, direction, false)
-
-static func _is_cell_orthogonally_adjacent(cell: Vector2i, other_cell: Vector2i) -> bool:
-	return absi(cell.x - other_cell.x) + absi(cell.y - other_cell.y) == 1
-
-static func _is_trap_attached_to_line_edge(trap_cell: Vector2i, edge_cell: Vector2i, direction: Vector2i, is_first_edge: bool) -> bool:
-	if trap_cell == Vector2i(-1, -1):
-		return false
-	if _is_trap_on_line_edge_extension(trap_cell, edge_cell, direction, is_first_edge):
-		return true
-	for perpendicular_offset in _get_line_perpendicular_offsets(direction):
-		if trap_cell == edge_cell + perpendicular_offset:
-			return true
-	return false
-
-static func _is_trap_on_line_edge_extension(trap_cell: Vector2i, edge_cell: Vector2i, direction: Vector2i, is_first_edge: bool) -> bool:
-	if trap_cell == Vector2i(-1, -1):
-		return false
-	var edge_offset: Vector2i = edge_cell - direction if is_first_edge else edge_cell + direction
-	return trap_cell == edge_offset
-
-static func _get_line_perpendicular_offsets(direction: Vector2i) -> Array[Vector2i]:
-	if direction.x != 0 and direction.y != 0:
-		return [Vector2i(direction.x, -direction.y), Vector2i(-direction.x, direction.y)]
-	if direction.x != 0:
-		return [Vector2i(0, 1), Vector2i(0, -1)]
-	return [Vector2i(1, 0), Vector2i(-1, 0)]
-
-static func _score_big_swamp_pulse_target(line_cells: Array, missing_cell: Vector2i, target_cell: Vector2i, direction: Vector2i, trap_cell: Vector2i) -> int:
-	var score: int = 0
-	if _is_cell_adjacent_to_line_gap(target_cell, missing_cell, direction):
-		score += 70
-	if target_cell == line_cells[0] or target_cell == line_cells[line_cells.size() - 1]:
-		score += 45
-	score -= int(target_cell.distance_squared_to(missing_cell)) * 2
-	if trap_cell != Vector2i(-1, -1):
-		score -= int(target_cell.distance_squared_to(trap_cell))
-	return score
-
-static func _select_big_swamp_pulse_trap(trap_cells: Array, target_cell: Vector2i, max_target_distance_cells: int = 1) -> Vector2i:
-	var selected: Vector2i = Vector2i(-1, -1)
-	var best_distance: int = 999999
-	for trap_cell in trap_cells:
-		if not _is_cell_within_big_swamp_reach(target_cell, trap_cell, max_target_distance_cells):
-			continue
-		var distance: int = int(target_cell.distance_squared_to(trap_cell))
-		if distance < best_distance:
-			best_distance = distance
-			selected = trap_cell
-	return selected
-
-static func _is_cell_within_big_swamp_reach(target_cell: Vector2i, trap_cell: Vector2i, max_target_distance_cells: int) -> bool:
-	var max_distance: int = maxi(max_target_distance_cells, 0)
-	return maxi(absi(target_cell.x - trap_cell.x), absi(target_cell.y - trap_cell.y)) <= max_distance
-
-static func _is_candidate_line_completed(board: Dictionary, candidate_line_cells: Array) -> bool:
-	var pieces: Array = []
-	for cell in candidate_line_cells:
-		if not board.has(cell):
-			return false
-		pieces.append(board[cell])
-	if pieces.size() != ChainDetector.MIN_LINE_LENGTH:
-		return false
-	return ChainDetector._build_line_result(pieces).size() > 0
-
-static func _is_candidate_almost_line_still_present(board: Dictionary, candidate_line_cells: Array, missing_cell: Vector2i, blocked_trap_cells: Array = []) -> bool:
-	if missing_cell in blocked_trap_cells:
-		return false
-	var occupied_pieces: Array = []
-	for cell in candidate_line_cells:
-		if cell == missing_cell:
-			continue
-		if cell in blocked_trap_cells:
-			return false
-		if not board.has(cell):
-			return false
-		occupied_pieces.append(board[cell])
-	return not _get_almost_line_completion(board, occupied_pieces, missing_cell, candidate_line_cells, blocked_trap_cells).is_empty()
-
-static func _has_king_piece(pieces: Array) -> bool:
-	for piece in pieces:
-		if piece.piece_type == GameManager.PieceType.KING:
-			return true
-	return false
-
-static func _is_grid_cell_in_bounds(cell: Vector2i) -> bool:
-	return cell.x >= 0 and cell.x < GameManager.BOARD_SIZE and cell.y >= 0 and cell.y < GameManager.BOARD_SIZE
 
 func _build_puzzle_tile_order():
 	puzzle_tile_order.clear()
@@ -2022,9 +1665,9 @@ func _apply_puzzle_progress(removed_pieces: int):
 		await _show_puzzle_overlay_message(level_complete_message, PUZZLE_LEVEL_COMPLETE_HOLD)
 		if completed_level_number >= WIN_LEVEL_NUMBER:
 			if is_survival_mode:
-				pending_survival_round_completion = true
+				turn_state.pending_survival_round_completion = true
 				return
-			pending_kingdom_completion_win = true
+			turn_state.pending_kingdom_completion_win = true
 			return
 		await _fade_puzzle_image_out()
 
@@ -2038,14 +1681,7 @@ func _queue_message(text: String):
 	_show_hud_message_log()
 
 func _record_session_event_history(text: String, snapshot: Dictionary):
-	if text.strip_edges().is_empty() or snapshot.is_empty():
-		return
-	session_event_history.push_front({
-		"text": text,
-		"snapshot": snapshot.duplicate(true)
-	})
-	while session_event_history.size() > GameManager.SESSION_HISTORY_DEPTH:
-		session_event_history.pop_back()
+	session_event_history.add(text, snapshot)
 	_refresh_rewind_history_list()
 
 func _record_trap_capture_history(piece_type: int, trap_name: String, snapshot: Dictionary):
@@ -2060,23 +1696,10 @@ func _record_trap_capture_history(piece_type: int, trap_name: String, snapshot: 
 
 func _append_hud_message(text: String):
 	var now := Time.get_ticks_msec() / 1000.0
-	var recent_messages: Array[Dictionary] = []
-	for entry in hud_message_log:
-		if now - float(entry.get("time", 0.0)) <= MESSAGE_RECENT_WINDOW:
-			recent_messages.append(entry)
-	recent_messages.append({
-		"text": text,
-		"time": now
-	})
-	while recent_messages.size() > 2:
-		recent_messages.pop_front()
-	hud_message_log = recent_messages
+	hud_message_log.add_message(text, now)
 
 func _get_hud_message_log_text() -> String:
-	var lines := PackedStringArray()
-	for entry in hud_message_log:
-		lines.append(str(entry.get("text", "")))
-	return "\n".join(lines)
+	return hud_message_log.get_text()
 
 func _queue_scoring_event(event: Dictionary):
 	if event.is_empty():
@@ -2191,7 +1814,7 @@ func _refresh_rewind_history_list():
 		rewind_list.add_child(empty_label)
 		return
 	for i in range(session_event_history.size()):
-		var entry: Dictionary = session_event_history[i]
+		var entry: Dictionary = session_event_history.get_entry(i)
 		var button := Button.new()
 		button.text = str(entry.get("text", ""))
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2255,7 +1878,7 @@ func _finish_rewind_hud_slide_in():
 func _show_history_entry(index: int):
 	if index < 0 or index >= session_event_history.size():
 		return
-	var entry: Dictionary = session_event_history[index]
+	var entry: Dictionary = session_event_history.get_entry(index)
 	var snapshot: Dictionary = entry.get("snapshot", {})
 	if snapshot.is_empty():
 		return
@@ -2409,7 +2032,7 @@ func _spawn_initial_pieces():
 			break
 
 func _on_capture_made(_piece, _target, captured_piece_type: int):
-	current_turn_had_take = true
+	turn_state.mark_take()
 	_exclude_spawn_cell_for_turn(_target)
 	AudioManager.play_sound("capture")
 	AudioManager.vibrate()
@@ -2421,7 +2044,7 @@ func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
 	if is_processing_move:
 		return
 
-	current_turn_had_take = true
+	turn_state.mark_take()
 	AudioManager.play_sound("capture")
 	AudioManager.vibrate()
 	var trap_data: Resource = board_manager.get_trap_data(_to)
@@ -2462,7 +2085,7 @@ func _get_trap_description(trap_data: Resource) -> String:
 func _on_piece_moved(_from, _to):
 	if is_processing_move:
 		return
-	current_turn_had_take = false
+	turn_state.current_turn_had_take = false
 	_resolve_turn()
 
 func _on_score_updated(_new_score: int):
@@ -2547,16 +2170,11 @@ func _on_restart_pressed():
 	survived_rounds = 0
 	is_final_survival_dialog = false
 	survival_round_started_this_turn = false
-	pending_kingdom_completion_win = false
-	pending_survival_round_completion = false
+	turn_state.reset()
 	if survival_blood_overlay != null and survival_blood_overlay.has_method("stop"):
 		survival_blood_overlay.stop()
-	session_total_turns = 0
-	session_clean_turns = 0
-	current_turn_had_take = false
 	session_event_history.clear()
 	pending_event_snapshot.clear()
-	turn_spawn_excluded_cells.clear()
 	is_rewind_mode = false
 	rewind_live_snapshot.clear()
 	selected_rewind_history_index = -1
@@ -2618,7 +2236,7 @@ func _resolve_turn():
 	await _resolve_chain_waves()
 	if survival_round_started_this_turn:
 		survival_round_started_this_turn = false
-		turn_spawn_excluded_cells.clear()
+		turn_state.spawn_excluded_cells.clear()
 		_flush_score_message_batch()
 		is_processing_move = false
 		return
@@ -2654,7 +2272,7 @@ func _resolve_turn():
 	await _resolve_chain_waves()
 	if survival_round_started_this_turn:
 		survival_round_started_this_turn = false
-		turn_spawn_excluded_cells.clear()
+		turn_state.spawn_excluded_cells.clear()
 		_flush_score_message_batch()
 		is_processing_move = false
 		return
@@ -2700,7 +2318,7 @@ func _resolve_sacrifice_turn(spawn_count: int):
 	await _resolve_chain_waves()
 	if survival_round_started_this_turn:
 		survival_round_started_this_turn = false
-		turn_spawn_excluded_cells.clear()
+		turn_state.spawn_excluded_cells.clear()
 		_flush_score_message_batch()
 		is_processing_move = false
 		return
@@ -2716,34 +2334,29 @@ func _resolve_sacrifice_turn(spawn_count: int):
 		board_manager.set_input_enabled(true)
 
 func _record_completed_turn():
-	session_total_turns += 1
-	if not current_turn_had_take:
-		session_clean_turns += 1
-	current_turn_had_take = false
-	turn_spawn_excluded_cells.clear()
+	turn_state.complete_turn()
 
 func _exclude_spawn_cell_for_turn(cell: Vector2i):
-	if cell not in turn_spawn_excluded_cells:
-		turn_spawn_excluded_cells.append(cell)
+	turn_state.exclude_spawn_cell(cell)
 
 func _has_pending_completion() -> bool:
-	return pending_kingdom_completion_win or pending_survival_round_completion
+	return turn_state.has_pending_completion()
 
 func _finish_pending_completion_after_successful_spawn() -> bool:
 	if not _has_pending_completion():
 		return false
 	if game_over_overlay.visible:
 		return false
-	if pending_survival_round_completion:
-		pending_survival_round_completion = false
+	if turn_state.pending_survival_round_completion:
+		turn_state.pending_survival_round_completion = false
 		survived_rounds += 1
 		survival_round_index += 1
 		survival_round_started_this_turn = true
 		await _fade_puzzle_image_out()
 		await _start_survival_round()
 		return true
-	if pending_kingdom_completion_win:
-		pending_kingdom_completion_win = false
+	if turn_state.pending_kingdom_completion_win:
+		turn_state.pending_kingdom_completion_win = false
 		GameManager.end_game(GameManager.GAME_RESULT_WIN)
 		return true
 	return false
@@ -2751,8 +2364,8 @@ func _finish_pending_completion_after_successful_spawn() -> bool:
 func _save_clean_turn_mastery(result: String):
 	Settings.record_kingdom_clean_turn_session(
 		Settings.theme_id,
-		session_clean_turns,
-		session_total_turns,
+		turn_state.clean_turns,
+		turn_state.total_turns,
 		result == GameManager.GAME_RESULT_WIN
 	)
 
@@ -2820,7 +2433,7 @@ func _get_trap_spawn_count(trap_data: Resource) -> int:
 	return 2
 
 func _spawn_new_pieces(count: int = 3) -> int:
-	return board_manager.spawn_random_pieces(count, turn_spawn_excluded_cells)
+	return board_manager.spawn_random_pieces(count, turn_state.spawn_excluded_cells)
 
 func _apply_localized_text():
 	pause_title_label.text = _t("game_paused")

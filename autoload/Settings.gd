@@ -1,5 +1,7 @@
 extends Node
 
+const ConfigStoreScript = preload("res://scripts/persistence/ConfigStore.gd")
+
 signal settings_changed
 
 @export var sound_enabled: bool = true
@@ -20,15 +22,19 @@ func _ready():
 	load_settings()
 
 func save_settings():
-	var config := ConfigFile.new()
-	config.set_value("settings", "sound_enabled", sound_enabled)
-	config.set_value("settings", "vibration_enabled", vibration_enabled)
-	config.set_value("settings", "theme_id", theme_id)
-	config.set_value("settings", "language_code", language_code)
-	config.set_value("progress", "kingdom_levels", kingdom_progress_levels)
-	config.set_value("progress", "kingdom_start_levels", kingdom_start_levels)
-	config.set_value("progress", "kingdom_clean_turn_stats", kingdom_clean_turn_stats)
-	config.save(SETTINGS_FILE)
+	ConfigStoreScript.save_sections({
+		"settings": {
+			"sound_enabled": sound_enabled,
+			"vibration_enabled": vibration_enabled,
+			"theme_id": theme_id,
+			"language_code": language_code,
+		},
+		"progress": {
+			"kingdom_levels": kingdom_progress_levels,
+			"kingdom_start_levels": kingdom_start_levels,
+			"kingdom_clean_turn_stats": kingdom_clean_turn_stats,
+		},
+	}, SETTINGS_FILE)
 
 func load_settings():
 	var config := ConfigFile.new()

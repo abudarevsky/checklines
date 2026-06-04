@@ -1,5 +1,7 @@
 extends Node
 
+const ConfigStoreScript = preload("res://scripts/persistence/ConfigStore.gd")
+
 enum PieceType { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING }
 enum PieceColor { RED, BLUE, GREEN, ORANGE }
 
@@ -57,21 +59,20 @@ func _ready():
 	load_game_state()
 
 func load_game_state():
-	var config := ConfigFile.new()
-	if config.load("user://settings.cfg") == OK:
+	var config := ConfigStoreScript.load_config()
+	if config.has_section("game"):
 		current_score = config.get_value("game", "current_score", 0)
 		high_score = config.get_value("game", "high_score", 0)
 		color_lines_cleared = config.get_value("game", "color_lines_cleared", 0)
 		type_lines_cleared = config.get_value("game", "type_lines_cleared", 0)
 
 func save_game_state():
-	var config := ConfigFile.new()
-	config.load("user://settings.cfg")
-	config.set_value("game", "current_score", current_score)
-	config.set_value("game", "high_score", high_score)
-	config.set_value("game", "color_lines_cleared", color_lines_cleared)
-	config.set_value("game", "type_lines_cleared", type_lines_cleared)
-	config.save("user://settings.cfg")
+	ConfigStoreScript.save_values("game", {
+		"current_score": current_score,
+		"high_score": high_score,
+		"color_lines_cleared": color_lines_cleared,
+		"type_lines_cleared": type_lines_cleared,
+	})
 
 func save_high_score():
 	save_game_state()

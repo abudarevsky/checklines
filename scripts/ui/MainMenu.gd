@@ -2,18 +2,7 @@ extends Control
 
 const MenuBadgeShieldScript = preload("res://scripts/ui/MenuBadgeShield.gd")
 const MenuRoadPlayButtonScript = preload("res://scripts/ui/MenuRoadPlayButton.gd")
-const MAIN_SCREEN_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/main_screen_backround_mainframe.png")
-const KINGDOM_2_MAIN_SCREEN_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/main_screen_mainframe_neon_bg.png")
-const ACTIVE_CARD_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/card_frame_active_final.png")
-const INACTIVE_CARD_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/card_frame_inactive_final.png")
-const KINGDOM_2_ACTIVE_CARD_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/card_frame_active_kindom2.png")
-const KINGDOM_2_INACTIVE_CARD_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/card_frame_inactive_kindom2.png")
-const KINGDOM_1_TEXTURE := preload("res://assets/ui/themes/main_screen/kingdom1.png")
-const KINGDOM_2_TEXTURE := preload("res://assets/ui/themes/main_screen/kingdom2.png")
-const KINGDOM_3_TEXTURE := preload("res://assets/ui/themes/main_screen/kingdom3.png")
-const DEFAULT_THEME := preload("res://themes/default_theme.tres")
-const NEON_THEME := preload("res://themes/neon_theme.tres")
-const KINGDOM_THEME_IDS := ["default", "neon", ""]
+const KingdomCatalogScript = preload("res://scripts/ui/KingdomCatalog.gd")
 
 const DESIGN_SIZE := Vector2(768.0, 1376.0)
 const KINGDOM_SCROLL_VIEW_RECT := Rect2(44.0, 250.0, 680.0, 960.0)
@@ -305,7 +294,7 @@ func _build_kingdom_screen():
 	kingdom_design_root.mouse_filter = Control.MOUSE_FILTER_PASS
 	kingdom_screen.add_child(kingdom_design_root)
 
-	main_frame_node = _create_texture_rect("MainFrame", MAIN_SCREEN_FRAME_TEXTURE, Rect2(Vector2.ZERO, DESIGN_SIZE))
+	main_frame_node = _create_texture_rect("MainFrame", KingdomCatalogScript.get_main_frame_texture(0), Rect2(Vector2.ZERO, DESIGN_SIZE))
 	kingdom_design_root.add_child(main_frame_node)
 
 	best_score_container = HBoxContainer.new()
@@ -373,13 +362,13 @@ func _build_kingdom_screen():
 	var kingdom_textures: Array[Texture2D] = [
 		_get_kingdom_card_texture(0),
 		_get_kingdom_card_texture(1),
-		KINGDOM_3_TEXTURE
+		KingdomCatalogScript.get_fallback_card_texture(2)
 	]
 	for i in range(KINGDOM_CARD_RECTS.size()):
 		var frame_rect := _get_kingdom_frame_rect(KINGDOM_CARD_RECTS[i])
 		var card_rect := _get_kingdom_card_content_rect(frame_rect)
 		var card := _create_texture_rect("Kingdom%dCard" % [i + 1], kingdom_textures[i], card_rect, TextureRect.STRETCH_KEEP_ASPECT_COVERED)
-		var frame := _create_texture_rect("Kingdom%dFrame" % [i + 1], INACTIVE_CARD_FRAME_TEXTURE, frame_rect)
+		var frame := _create_texture_rect("Kingdom%dFrame" % [i + 1], KingdomCatalogScript.get_card_frame_texture(i, false), frame_rect)
 		kingdom_scroll_content.add_child(card)
 		frame.material = kingdom_frame_material
 		kingdom_scroll_content.add_child(frame)
@@ -593,7 +582,7 @@ func _update_kingdom_selection():
 	if kingdom_frame_nodes.size() < 3:
 		return
 	if main_frame_node != null:
-		main_frame_node.texture = KINGDOM_2_MAIN_SCREEN_FRAME_TEXTURE if selected_kingdom_index == 1 else MAIN_SCREEN_FRAME_TEXTURE
+		main_frame_node.texture = KingdomCatalogScript.get_main_frame_texture(selected_kingdom_index)
 	for i in range(kingdom_frame_nodes.size()):
 		if i < 2:
 			kingdom_card_nodes[i].texture = _get_kingdom_card_texture(i)
@@ -608,27 +597,20 @@ func _update_kingdom_selection():
 	_update_kingdom_play_buttons()
 
 func _get_kingdom_frame_texture(kingdom_index: int, is_active: bool) -> Texture2D:
-	if kingdom_index == 1:
-		return KINGDOM_2_ACTIVE_CARD_FRAME_TEXTURE if is_active else KINGDOM_2_INACTIVE_CARD_FRAME_TEXTURE
-	return ACTIVE_CARD_FRAME_TEXTURE if is_active else INACTIVE_CARD_FRAME_TEXTURE
+	return KingdomCatalogScript.get_card_frame_texture(kingdom_index, is_active)
 
 func _get_kingdom_card_texture(kingdom_index: int) -> Texture2D:
 	var kingdom_theme := _get_kingdom_theme(kingdom_index)
 	if kingdom_theme == null or kingdom_theme.puzzle_level_images.is_empty():
-		return KINGDOM_1_TEXTURE if kingdom_index == 0 else KINGDOM_2_TEXTURE
+		return KingdomCatalogScript.get_fallback_card_texture(kingdom_index)
 
-	var theme_id := str(KINGDOM_THEME_IDS[kingdom_index])
+	var theme_id := KingdomCatalogScript.get_theme_id(kingdom_index)
 	var level_index := Settings.get_kingdom_menu_image_level_index(theme_id)
 	var image_index := ThemeData.get_puzzle_level_image_index(kingdom_theme.puzzle_level_images, level_index)
 	return kingdom_theme.puzzle_level_images[image_index] as Texture2D
 
 func _get_kingdom_theme(kingdom_index: int) -> ThemeData:
-	match kingdom_index:
-		0:
-			return DEFAULT_THEME
-		1:
-			return NEON_THEME
-	return null
+	return KingdomCatalogScript.get_theme(kingdom_index)
 
 func _sync_selected_kingdom_from_settings():
 	selected_kingdom_index = 1 if Settings.theme_id == "neon" else 0
@@ -711,7 +693,7 @@ func _update_kingdom_badges():
 		var badges: Array = kingdom_badge_nodes[i]
 		if badges.size() < 3:
 			continue
-		var theme_id := str(KINGDOM_THEME_IDS[i])
+		var theme_id := KingdomCatalogScript.get_theme_id(i)
 		badges[0].tier = Settings.get_kingdom_progress_badge_tier(theme_id)
 		badges[0].progress_level = Settings.get_kingdom_max_completed_level(theme_id)
 		badges[1].tier = Settings.get_kingdom_tactical_badge_tier(theme_id)

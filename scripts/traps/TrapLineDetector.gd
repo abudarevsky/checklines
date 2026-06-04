@@ -63,6 +63,16 @@ static func is_candidate_still_present(board: Dictionary, traps: Array, candidat
 			return true
 	return false
 
+static func is_candidate_line_completed(board: Dictionary, candidate_line_cells: Array) -> bool:
+	var pieces: Array = []
+	for cell in candidate_line_cells:
+		if not board.has(cell):
+			return false
+		pieces.append(board[cell])
+	if pieces.size() != ChainDetector.MIN_LINE_LENGTH:
+		return false
+	return not ChainDetector._build_line_result(pieces).is_empty()
+
 static func _detect_line_completion_traps(board: Dictionary, traps: Array, attack_map: Dictionary, max_target_distance_cells: int, blocked_trap_cells: Array) -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
 	if board.size() < 4 or traps.is_empty():
