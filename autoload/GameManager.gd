@@ -39,6 +39,7 @@ const PIECE_VALUES: Dictionary = {
 const LEVEL_COMPLETE_SCORE: int = 500
 const GAME_RESULT_LOSS: String = "loss"
 const GAME_RESULT_WIN: String = "win"
+const SESSION_HISTORY_DEPTH: int = 5
 
 var board_size: int = BOARD_SIZE
 var cell_size: float = CELL_SIZE

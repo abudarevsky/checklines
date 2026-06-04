@@ -58,7 +58,11 @@ class_name ThemeData
 @export var gameplay_backdrop_edge_glow_color: Color = Color(0.0, 0.28, 0.43, 1.0)
 @export var gameplay_backdrop_center_glow_color: Color = Color(0.0, 0.09, 0.14, 1.0)
 
-@export var dialog_font_names: PackedStringArray = PackedStringArray(["Avenir Next Condensed", "Helvetica Neue", "Arial Narrow", "Arial"])
+@export var banner_font_path: String = ""
+@export var menu_title_font_path: String = ""
+@export var menu_body_font_path: String = ""
+@export var menu_button_font_path: String = ""
+@export var dialog_font_names: PackedStringArray = PackedStringArray(["Cormorant Garamond", "Garamond", "Georgia", "Times New Roman"])
 @export var dialog_title_font_weight: int = 800
 @export var dialog_body_font_weight: int = 600
 @export var dialog_button_font_weight: int = 700

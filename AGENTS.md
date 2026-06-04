@@ -15,6 +15,7 @@ This file is the short entrypoint for coding and reasoning agents. Detailed proj
 - For gameplay changes, read the relevant rule docs before editing code.
 - For UI/theme changes, read the relevant rendering, HUD, menu, layout, or dialog docs before editing scenes/scripts/resources.
 - If root guidance and detailed docs disagree, treat `AGENTS.md` as the routing guide and the focused docs as the detailed rule source, then fix the drift as part of the change.
+- Python scripts and tests are running in isolation. DO NOT RUN OR UPDATE GoDot resources, (.gd, etc) 
 
 ## Project Snapshot
 

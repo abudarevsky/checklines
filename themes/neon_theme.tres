@@ -1,18 +1,18 @@
 [gd_resource type="Resource" script_class="ThemeData" format=3 uid="uid://bbmtfq1e6120c"]
 
 [ext_resource type="Script" uid="uid://bxlqs2rfe1bed" path="res://scripts/theme/ThemeData.gd" id="1_theme"]
-[ext_resource type="Texture2D" path="res://assets/sprites/themes/neon/png/white_pawn.png" id="2_pawn"]
-[ext_resource type="Texture2D" path="res://assets/sprites/themes/neon/png/white_knight.png" id="3_knight"]
-[ext_resource type="Texture2D" path="res://assets/sprites/themes/neon/png/white_bishop.png" id="4_bishop"]
-[ext_resource type="Texture2D" path="res://assets/sprites/themes/neon/png/white_rook.png" id="5_rook"]
-[ext_resource type="Texture2D" path="res://assets/sprites/themes/neon/png/white_queen.png" id="6_queen"]
-[ext_resource type="Texture2D" path="res://assets/sprites/themes/neon/png/white_king.png" id="7_king"]
-[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level0.png" id="8_puzzle_1"]
-[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/neon-checklines-screen-badge.png" id="9_badge"]
-[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level1.png" id="10_puzzle_2"]
-[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level2.png" id="11_puzzle_3"]
-[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/level3.png" id="12_puzzle_4"]
-[ext_resource type="Texture2D" path="res://assets/ui/themes/neon/background_image.png" id="13_bg"]
+[ext_resource type="Texture2D" uid="uid://drxe66sm6okou" path="res://assets/sprites/themes/neon/png/white_pawn.png" id="2_pawn"]
+[ext_resource type="Texture2D" uid="uid://cnkkabuydnoht" path="res://assets/sprites/themes/neon/png/white_knight.png" id="3_knight"]
+[ext_resource type="Texture2D" uid="uid://b2qhfqn3pnh5d" path="res://assets/sprites/themes/neon/png/white_bishop.png" id="4_bishop"]
+[ext_resource type="Texture2D" uid="uid://dcff345d0mrv4" path="res://assets/sprites/themes/neon/png/white_rook.png" id="5_rook"]
+[ext_resource type="Texture2D" uid="uid://gfrqsebk46e5" path="res://assets/sprites/themes/neon/png/white_queen.png" id="6_queen"]
+[ext_resource type="Texture2D" uid="uid://dvkiydwwpmmu2" path="res://assets/sprites/themes/neon/png/white_king.png" id="7_king"]
+[ext_resource type="Texture2D" uid="uid://b7j1gjn4kfpet" path="res://assets/ui/themes/neon/level0.png" id="8_puzzle_1"]
+[ext_resource type="Texture2D" uid="uid://c61bq6htptera" path="res://assets/ui/themes/neon/neon-checklines-screen-badge.png" id="9_badge"]
+[ext_resource type="Texture2D" uid="uid://cev5paw8w0j7i" path="res://assets/ui/themes/neon/level1.png" id="10_puzzle_2"]
+[ext_resource type="Texture2D" uid="uid://dfbaw8s27rhtw" path="res://assets/ui/themes/neon/level2.png" id="11_puzzle_3"]
+[ext_resource type="Texture2D" uid="uid://c1smjhwiqm3hr" path="res://assets/ui/themes/neon/level3.png" id="12_puzzle_4"]
+[ext_resource type="Texture2D" uid="uid://dxyr0004ifkn3" path="res://assets/ui/themes/neon/background_image.png" id="13_bg"]
 
 [resource]
 script = ExtResource("1_theme")
@@ -28,7 +28,6 @@ green_piece_color = Color(0.14901961, 0.8901961, 0.5372549, 1)
 orange_piece_color = Color(0, 1, 1, 1)
 board_cell_light_color = Color(0.14, 0.14, 0.2, 1)
 board_cell_dark_color = Color(0.04, 0.04, 0.06, 1)
-trap_type_id = "swallow"
 left_border_color = Color(1, 1, 0, 1)
 top_border_color = Color(1, 0, 1, 1)
 right_border_color = Color(0.14901961, 0.8901961, 0.5372549, 1)
@@ -57,7 +56,12 @@ puzzle_message_banner_color = Color(0.02, 0.06, 0.12, 0.92)
 puzzle_message_banner_shadow_color = Color(0, 1, 1, 0.22)
 level_start_message_template = "Let's shed some light on the dark."
 trap_disappearance_message_template = "Dark is the new light... :( -{cost}"
-dialog_font_names = PackedStringArray("Avenir Next Condensed", "Helvetica Neue", "Arial Narrow", "Arial")
+gameplay_background_texture = ExtResource("13_bg")
+banner_font_path = "res://assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Bold.ttf"
+menu_title_font_path = "res://assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Bold.ttf"
+menu_body_font_path = "res://assets/fonts/Cormorant_Garamond/static/CormorantGaramond-Regular.ttf"
+menu_button_font_path = "res://assets/fonts/Cormorant_Garamond/static/CormorantGaramond-SemiBold.ttf"
+dialog_font_names = PackedStringArray("Cormorant Garamond", "Garamond", "Georgia", "Times New Roman")
 dialog_overlay_color = Color(0.02, 0.02, 0.04, 0.62)
 dialog_panel_background_color = Color(0.05, 0.05, 0.1, 0.96)
 dialog_panel_border_color = Color(0, 1, 1, 0.25)
@@ -85,4 +89,3 @@ menu_button_outline_color = Color(0.2, 0.2, 0.4, 0.92)
 menu_button_outline_hover_color = Color(0.24, 0.24, 0.48, 0.96)
 menu_button_outline_border_color = Color(0, 1, 1, 0.35)
 menu_button_outline_border_hover_color = Color(0, 1, 1, 0.55)
-gameplay_background_texture = ExtResource("13_bg")

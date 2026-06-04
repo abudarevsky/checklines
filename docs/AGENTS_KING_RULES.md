@@ -20,7 +20,7 @@ Kings are not treated as normal pieces for removal unless explicitly part of a v
 - Spawn placement should avoid creating removable lines when an alternative empty cell exists
 - If every remaining empty cell would create a line, spawning may still use one of those cells
 - Under normal play, only one King should exist on the board at a time
-- If normal spawn inventory is exhausted, fill the remaining empty cells with Kings and end the game immediately as the terminal fallback
+- Never fill remaining cells with Kings; a full board or lack of eligible moves ends the game as a loss
 
 ## Movement Rule
 

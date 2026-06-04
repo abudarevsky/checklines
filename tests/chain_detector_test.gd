@@ -20,6 +20,7 @@ func _initialize():
 	_run_test("does not detect invalid mixed type line with king", _test_invalid_mixed_type_line_with_king, failures)
 	_run_test("does not treat mixed-color kings as type line", _test_all_kings_not_type_line, failures)
 	_run_test("does not detect gapped color line", _test_gap_breaks_line, failures)
+	_run_test("detects diagonal color line after knight capture", _test_diagonal_color_line_after_knight_capture, failures)
 
 	if failures.is_empty():
 		print("All ChainDetector tests passed")
@@ -150,6 +151,25 @@ func _test_gap_breaks_line() -> String:
 	var chains: Array = ChainDetector.find_chains(board)
 	if not chains.is_empty():
 		return "gapped pieces were incorrectly detected as a line"
+	return ""
+
+func _test_diagonal_color_line_after_knight_capture() -> String:
+	var board: Dictionary = _make_board([
+		_piece(GameManager.PieceType.QUEEN, GameManager.PieceColor.BLUE, 6, 3),
+		_piece(GameManager.PieceType.BISHOP, GameManager.PieceColor.BLUE, 5, 4),
+		_piece(GameManager.PieceType.KNIGHT, GameManager.PieceColor.BLUE, 4, 5),
+		_piece(GameManager.PieceType.PAWN, GameManager.PieceColor.BLUE, 3, 6),
+		_piece(GameManager.PieceType.PAWN, GameManager.PieceColor.BLUE, 2, 7)
+	])
+
+	var expected := _positions_from_coords([[2, 7], [3, 6], [4, 5], [5, 4], [6, 3]])
+	var line: Dictionary = _find_line_by_positions(ChainDetector.find_chains(board), expected)
+	if line.is_empty():
+		return "missing expected diagonal blue color line"
+	if not line["is_color_line"]:
+		return "expected color line metadata"
+	if line["is_type_line"]:
+		return "mixed-piece color line was incorrectly marked as type line"
 	return ""
 
 func _piece(type, color, x: int, y: int) -> MockPiece:

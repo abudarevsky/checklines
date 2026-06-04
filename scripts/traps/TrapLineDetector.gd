@@ -90,6 +90,8 @@ static func _detect_line_completion_traps(board: Dictionary, traps: Array, attac
 					var attacker := _first_compatible_attacker(board, attack_map, occupied_cells, completion_target, mode, value)
 					if attacker == Vector2i(-1, -1):
 						continue
+					if not _simulated_completion_creates_line(board, occupied_cells, completion_target, attacker, mode, value):
+						continue
 					var trap_target := _select_trap_adjacent_to_candidate_piece(traps, occupied_cells, max_target_distance_cells)
 					if trap_target.is_empty():
 						continue
@@ -192,6 +194,32 @@ static func _can_piece_enter_target(board: Dictionary, source: Vector2i, target:
 	if target_piece == null or int(target_piece.piece_type) == GameManager.PieceType.KING:
 		return false
 	return int(source_piece.piece_color) != int(target_piece.piece_color)
+
+static func _simulated_completion_creates_line(
+	board: Dictionary,
+	occupied_line_cells: Array[Vector2i],
+	completion_target: Vector2i,
+	attacker: Vector2i,
+	mode: String,
+	value
+) -> bool:
+	if not board.has(attacker):
+		return false
+	var before_pieces: Array = []
+	for cell in occupied_line_cells:
+		if not board.has(cell):
+			return false
+		before_pieces.append(board[cell])
+	if board.has(completion_target):
+		before_pieces.append(board[completion_target])
+		if _pieces_match_mode(before_pieces, mode, value):
+			return false
+
+	var after_pieces: Array = []
+	for cell in occupied_line_cells:
+		after_pieces.append(board[cell])
+	after_pieces.append(board[attacker])
+	return after_pieces.size() >= 5 and _pieces_match_mode(after_pieces, mode, value)
 
 static func _select_trap_adjacent_to_candidate_piece(traps: Array, matching_cells: Array[Vector2i], max_target_distance_cells: int) -> Dictionary:
 	var candidate_piece_cells := matching_cells.duplicate()
@@ -364,6 +392,16 @@ static func _matches_mode(piece, mode: String, value) -> bool:
 	if mode == MODE_TYPE:
 		return int(piece.piece_type) == int(value)
 	return false
+
+static func _pieces_match_mode(pieces: Array, mode: String, value) -> bool:
+	if pieces.size() < 5:
+		return false
+	for piece in pieces:
+		if piece == null or int(piece.piece_type) == GameManager.PieceType.KING:
+			return false
+		if not _matches_mode(piece, mode, value):
+			return false
+	return true
 
 static func _first_attacker(board: Dictionary, matching_positions: Array[Vector2i], target: Vector2i) -> Vector2i:
 	for source in matching_positions:

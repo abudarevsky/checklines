@@ -2,7 +2,6 @@ extends Control
 
 const MenuBadgeShieldScript = preload("res://scripts/ui/MenuBadgeShield.gd")
 const MenuRoadPlayButtonScript = preload("res://scripts/ui/MenuRoadPlayButton.gd")
-const MAIN_SCREEN_BACKGROUND_TEXTURE := preload("res://assets/ui/themes/main_screen/background_image.png")
 const MAIN_SCREEN_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/main_screen_backround_mainframe.png")
 const KINGDOM_2_MAIN_SCREEN_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/main_screen_mainframe_neon_bg.png")
 const ACTIVE_CARD_FRAME_TEXTURE := preload("res://assets/ui/themes/main_screen/card_frame_active_final.png")
@@ -151,15 +150,16 @@ func apply_theme(theme_data):
 	if background.has_method("apply_theme"):
 		background.apply_theme(theme_data)
 	if main_background_node != null:
-		main_background_node.texture = theme_data.gameplay_background_texture if theme_data.gameplay_background_texture != null else MAIN_SCREEN_BACKGROUND_TEXTURE
+		main_background_node.texture = theme_data.gameplay_background_texture
+		main_background_node.visible = theme_data.gameplay_background_texture != null
 
 	var panel_style := _build_panel_style(theme_data.menu_panel_background_color, theme_data.menu_panel_border_color)
 	menu_panel.add_theme_stylebox_override("panel", panel_style)
 	how_to_play_panel.add_theme_stylebox_override("panel", panel_style.duplicate())
 
-	var title_font: SystemFont = _build_menu_font(theme_data.dialog_font_names, theme_data.dialog_title_font_weight)
-	var body_font: SystemFont = _build_menu_font(theme_data.dialog_font_names, theme_data.dialog_body_font_weight)
-	var button_font: SystemFont = _build_menu_font(theme_data.dialog_font_names, theme_data.dialog_button_font_weight)
+	var title_font: Font = _build_menu_font(theme_data.menu_title_font_path, theme_data.dialog_font_names, theme_data.dialog_title_font_weight)
+	var body_font: Font = _build_menu_font(theme_data.menu_body_font_path, theme_data.dialog_font_names, theme_data.dialog_body_font_weight)
+	var button_font: Font = _build_menu_font(theme_data.menu_button_font_path, theme_data.dialog_font_names, theme_data.dialog_button_font_weight)
 	var dialog_panel_style := _build_dialog_panel_style(theme_data.dialog_panel_background_color, theme_data.dialog_panel_border_color)
 
 	title_label.add_theme_color_override("font_color", theme_data.menu_title_color)
@@ -293,7 +293,6 @@ func _build_kingdom_screen():
 
 	main_background_node = TextureRect.new()
 	main_background_node.name = "BackgroundImage"
-	main_background_node.texture = MAIN_SCREEN_BACKGROUND_TEXTURE
 	main_background_node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	main_background_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	main_background_node.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -738,10 +737,21 @@ func _update_kingdom_play_buttons():
 func _clear_pending_play_button_animation():
 	pending_play_button_animation_index = -1
 
-func _build_menu_font(font_names: PackedStringArray, font_weight: int) -> SystemFont:
+func _build_menu_font(theme_font_path: String, font_names: PackedStringArray, font_weight: int) -> Font:
+	var theme_font := _load_font_file(theme_font_path)
+	if theme_font != null:
+		return theme_font
 	var font := SystemFont.new()
 	font.font_names = font_names
 	font.font_weight = font_weight
+	return font
+
+func _load_font_file(font_path: String) -> FontFile:
+	if font_path.strip_edges().is_empty():
+		return null
+	var font := FontFile.new()
+	if font.load_dynamic_font(font_path) != OK:
+		return null
 	return font
 
 func _build_dialog_panel_style(background_color: Color, border_color: Color) -> StyleBoxFlat:

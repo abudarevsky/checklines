@@ -1,42 +1,5 @@
-# Godot .gitignore
-
-# Gradle
-.gradle/
-
-# Build outputs
-build/
-dist/
-export/
-exports/
-*.pck
-*.zip
-*.exe
-*.dmg
-*.app
-*.dmg
-*.html
-*.wasm
-*.js
-
-# Godot
-.godot/
-*.import
-import_presets.cfg
-project.binary
-*.4orm
-*.gdext
-
-# OS
-.DS_Store
-Thumbs.db
-*.swp
-*~
-
-# Editor
-.vscode/
-.idea/
-*.code-workspace
-
-# Logs
-*.log
-android/*
+node_modules
+package.json
+package-lock.json
+bun.lock
+.gitignore

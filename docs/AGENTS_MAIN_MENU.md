@@ -26,7 +26,7 @@ The global best-score row should use localized `"Your best"` text plus the numer
 Kingdom badges should use compact matte-glass overlays arranged horizontally from the former lowest vertical-badge position, keeping that lower badge location as the baseline while all three fit inside the card footprint. Use a waving ribbon for progression, a Maltese-style cross for tactical mastery, and a crown for campaigns.
 Explain badge meaning and achievement thresholds in the localized How To Play content.
 The progression badge maps maximum completed kingdom level `1/2/3` to bronze/silver/gold; Level 4 prestige will use a separate future overlay.
-The tactical mastery badge maps best clean-turn percentage to bronze/silver/gold at `5%/15%/25%`, where a clean turn has neither a capture nor a sacrifice.
+The tactical mastery badge maps the last winning session's clean-turn percentage to bronze/silver/gold at `5%/15%/25%`, where a clean turn has neither a capture nor a sacrifice. Losing sessions do not change this badge color.
 The campaign badge remains visually empty until campaigns are implemented.
 The menu image progression intentionally lags gameplay progression: keep showing puzzle image index `0` until level 2 has been completed, then advance through later available images with the shared theme-image fallback rule.
 Card artwork should fill the visible inner opening by width while allowing the frame's decorative corner elements to remain overlaid.
@@ -44,7 +44,7 @@ Avoid duplicated scene subtrees or duplicate node names in `MainMenu.tscn`.
 If you change the HowToPlay layout, update script node paths at the same time.
 
 Main menu visuals should remain theme-driven through `ThemeManager` and `ThemeData`, even though only the default theme exists for now.
-Main menu typography should use the same brisk dialog font family as the game-over screen and other modal dialogs.
+Main menu typography should use the Cormorant Garamond font assets from `assets/fonts/Cormorant_Garamond` through `ThemeData`, with the same theme font resources shared by the game-over screen and other modal dialogs.
 The settings theme and language selector dropdowns should use the dialog body font scale, not the smaller button scale.
 Menu and game UI labels should be routed through `Localization` so the language setting updates visible text.
 When no language is saved yet, initialize the language from `OS.get_locale_language()` and fall back to English if unsupported.

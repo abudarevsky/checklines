@@ -36,7 +36,7 @@ Owns or coordinates:
 - score updates
 - UI updates
 - win/loss condition
-- exhausted-spawn terminal fallback to a king-filled board ending
+- next-spawn-capacity loss handling
 
 ### `SpawnPlanner.gd`
 

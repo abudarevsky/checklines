@@ -246,6 +246,8 @@ var active_big_swamp_target_sprite: Sprite2D = null
 var active_big_swamp_target_alpha: float = 1.0
 var active_big_swamp_target_position: Vector2 = Vector2.ZERO
 var last_sacrificed_piece_color: int = -1
+var last_sacrifice_snapshot: Dictionary = {}
+var last_capture_snapshot: Dictionary = {}
 var input_enabled: bool = true
 var show_borders: bool = true
 var left_border_width: float = GameManager.BORDER_WIDTH
@@ -656,6 +658,12 @@ func show_trap_message_cloud(grid_pos: Vector2i, message: String, theme: Resourc
 func get_last_sacrificed_piece_color() -> int:
 	return last_sacrificed_piece_color
 
+func get_last_sacrifice_snapshot() -> Dictionary:
+	return last_sacrifice_snapshot.duplicate(true)
+
+func get_last_capture_snapshot() -> Dictionary:
+	return last_capture_snapshot.duplicate(true)
+
 func grid_to_world(grid_pos: Vector2i) -> Vector2:
 	return _get_board_origin() + _get_cell_local_position(grid_pos)
 
@@ -703,7 +711,7 @@ func _shrink_all_borders():
 	for property_name in ["left_border_width", "top_border_width", "right_border_width", "bottom_border_width"]:
 		border_tween.tween_property(self, property_name, float(GameManager.BORDER_WIDTH), 0.15).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
-func add_piece(type, color, grid_pos):
+func add_piece(type, color, grid_pos, play_notice: bool = true):
 	if board.has(grid_pos):
 		return null
 	
@@ -711,7 +719,8 @@ func add_piece(type, color, grid_pos):
 	piece.setup(type, color, grid_pos)
 	piece.position = _get_cell_local_position(grid_pos)
 	pieces_container.add_child(piece)
-	piece.play_spawn_notice()
+	if play_notice:
+		piece.play_spawn_notice()
 	board[grid_pos] = piece
 	
 	return piece
@@ -724,6 +733,65 @@ func remove_piece(grid_pos: Vector2i) -> bool:
 	piece.queue_free()
 	board.erase(grid_pos)
 	return true
+
+func build_board_snapshot() -> Dictionary:
+	var pieces: Array[Dictionary] = []
+	for cell in board.keys():
+		var grid_pos: Vector2i = cell
+		var piece = board[grid_pos]
+		if piece == null:
+			continue
+		pieces.append({
+			"cell": grid_pos,
+			"piece_type": int(piece.piece_type),
+			"piece_color": int(piece.piece_color)
+		})
+
+	var trap_entries: Array[Dictionary] = []
+	for trap_cell in traps:
+		var grid_pos: Vector2i = trap_cell
+		trap_entries.append({
+			"cell": grid_pos,
+			"trap_type_id": get_trap_type_id(grid_pos)
+		})
+
+	return {
+		"pieces": pieces,
+		"traps": trap_entries
+	}
+
+func restore_board_snapshot(snapshot: Dictionary):
+	deselect_piece()
+	deselect_trap()
+	_clear_highlights()
+	_restore_dimmed_pieces()
+	for child in pieces_container.get_children():
+		pieces_container.remove_child(child)
+		child.queue_free()
+	board.clear()
+
+	traps.clear()
+	trap_type_by_cell.clear()
+	pulsing_trap_cells.clear()
+	for entry in snapshot.get("traps", []):
+		var trap_cell: Vector2i = entry.get("cell", Vector2i(-1, -1))
+		if _is_grid_in_bounds(trap_cell):
+			traps.append(trap_cell)
+			trap_type_by_cell[trap_cell] = str(entry.get("trap_type_id", TrapLibraryScript.get_default_trap_id()))
+
+	for entry in snapshot.get("pieces", []):
+		var grid_pos: Vector2i = entry.get("cell", Vector2i(-1, -1))
+		if not _is_grid_in_bounds(grid_pos) or is_trap(grid_pos):
+			continue
+		add_piece(
+			int(entry.get("piece_type", GameManager.PieceType.PAWN)),
+			int(entry.get("piece_color", GameManager.PieceColor.RED)),
+			grid_pos,
+			false
+		)
+
+	_refresh_trap_visuals()
+	queue_redraw()
 
 func _input(event):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -935,11 +1003,13 @@ func move_piece(piece, target: Vector2i):
 	var from_pos: Vector2i = piece.grid_position
 	var moved_piece_type: int = piece.piece_type
 	var moved_piece_color: int = piece.piece_color
+	var move_start_snapshot := build_board_snapshot()
 
 	board.erase(from_pos)
 
 	if is_trap(target):
 		last_sacrificed_piece_color = moved_piece_color
+		last_sacrifice_snapshot = move_start_snapshot
 		piece.queue_free()
 		deselect_piece()
 		piece_sacrificed.emit(from_pos, target, moved_piece_type)
@@ -948,6 +1018,7 @@ func move_piece(piece, target: Vector2i):
 	var captured_piece = null
 	var captured_piece_type := -1
 	if board.has(target):
+		last_capture_snapshot = move_start_snapshot
 		captured_piece = board[target]
 		captured_piece_type = captured_piece.piece_type
 		remove_piece(target)
@@ -981,29 +1052,29 @@ func _get_playable_legal_moves(piece) -> Array:
 func get_piece_count() -> int:
 	return board.size()
 
-func get_empty_cells():
+func get_empty_cells(excluded_cells: Array = []):
 	var empty = []
 	for y in range(board_size):
 		for x in range(board_size):
 			var pos: Vector2i = Vector2i(x, y)
 			if not board.has(pos) and not is_trap(pos):
 				empty.append(pos)
-	return empty
+	return SpawnPlannerScript.filter_excluded_cells(empty, excluded_cells)
 
-func can_spawn_piece_type_for_color(piece_type: GameManager.PieceType, color: GameManager.PieceColor) -> bool:
-	return SpawnPlannerScript.can_spawn_identity(board, piece_type, color, get_empty_cells())
+func can_spawn_piece_type_for_color(piece_type: GameManager.PieceType, color: GameManager.PieceColor, excluded_cells: Array = []) -> bool:
+	return SpawnPlannerScript.can_spawn_identity(board, piece_type, color, get_empty_cells(excluded_cells))
 
-func get_available_piece_types_for_color(color: GameManager.PieceColor) -> Array:
+func get_available_piece_types_for_color(color: GameManager.PieceColor, excluded_cells: Array = []) -> Array:
 	var available_types: Array = []
 	for piece_type in GameManager.PieceType.values():
-		if can_spawn_piece_type_for_color(piece_type, color):
+		if can_spawn_piece_type_for_color(piece_type, color, excluded_cells):
 			available_types.append(piece_type)
 	return available_types
 
-func get_available_colors_for_spawn() -> Array:
+func get_available_colors_for_spawn(excluded_cells: Array = []) -> Array:
 	var available_colors: Array = []
 	for color in GameManager.PieceColor.values():
-		if not get_available_piece_types_for_color(color).is_empty():
+		if not get_available_piece_types_for_color(color, excluded_cells).is_empty():
 			available_colors.append(color)
 	return available_colors
 
@@ -1055,64 +1126,64 @@ func get_weighted_random_piece_type(available_types: Array) -> int:
 
 	return available_types[available_types.size() - 1]
 
-func resolve_spawn_piece_data(piece_type, color) -> Dictionary:
-	if can_spawn_piece_type_for_color(piece_type, color):
+func resolve_spawn_piece_data(piece_type, color, excluded_cells: Array = []) -> Dictionary:
+	if can_spawn_piece_type_for_color(piece_type, color, excluded_cells):
 		return {"piece_type": piece_type, "color": color}
 
-	var available_types := get_available_piece_types_for_color(color)
+	var available_types := get_available_piece_types_for_color(color, excluded_cells)
 	if available_types.is_empty():
 		return {}
 
 	return {"piece_type": get_weighted_random_piece_type(available_types), "color": color}
 
-func get_random_spawn_piece_data() -> Dictionary:
-	var available_colors := get_available_colors_for_spawn()
+func get_random_spawn_piece_data(excluded_cells: Array = []) -> Dictionary:
+	var available_colors := get_available_colors_for_spawn(excluded_cells)
 	if available_colors.is_empty():
-		if get_empty_cells().is_empty():
+		if get_empty_cells(excluded_cells).is_empty():
 			return {}
 		return get_fallback_spawn_piece_data()
 
 	available_colors.shuffle()
 	var color = available_colors[0]
 	var piece_type = GameManager.get_random_piece_type()
-	return resolve_spawn_piece_data(piece_type, color)
+	return resolve_spawn_piece_data(piece_type, color, excluded_cells)
 
-func get_preferred_spawn_cell(piece_type: int, color: int) -> Vector2i:
-	var empty_cells: Array = get_empty_cells()
+func get_preferred_spawn_cell(piece_type: int, color: int, excluded_cells: Array = []) -> Vector2i:
+	var empty_cells: Array = get_empty_cells(excluded_cells)
 	return SpawnPlannerScript.get_preferred_spawn_cell(board, empty_cells, piece_type, color)
 
-func spawn_piece_with_preferred_placement(spawn_data: Dictionary) -> bool:
+func spawn_piece_with_preferred_placement(spawn_data: Dictionary, excluded_cells: Array = []) -> bool:
 	if spawn_data.is_empty():
 		return false
 
 	var grid_pos: Vector2i
 	if bool(spawn_data.get("ignore_inventory", false)):
-		var empty_cells: Array = get_empty_cells()
+		var empty_cells: Array = get_empty_cells(excluded_cells)
 		if empty_cells.is_empty():
 			return false
 		empty_cells.shuffle()
 		grid_pos = empty_cells[0]
 	else:
-		grid_pos = get_preferred_spawn_cell(spawn_data["piece_type"], spawn_data["color"])
+		grid_pos = get_preferred_spawn_cell(spawn_data["piece_type"], spawn_data["color"], excluded_cells)
 	if grid_pos == Vector2i(-1, -1):
 		return false
 
 	add_piece(spawn_data["piece_type"], spawn_data["color"], grid_pos)
 	return true
 
-func spawn_random_pieces(count: int) -> int:
+func spawn_random_pieces(count: int, excluded_cells: Array = []) -> int:
 	if count <= 0:
 		return 0
-	if get_empty_cells().size() < count:
+	if get_empty_cells(excluded_cells).size() < count:
 		return 0
 
 	var spawned_count := 0
 
 	for i in range(count):
-		var spawn_data: Dictionary = get_random_spawn_piece_data()
+		var spawn_data: Dictionary = get_random_spawn_piece_data(excluded_cells)
 		if spawn_data.is_empty():
 			return spawned_count
-		if not spawn_piece_with_preferred_placement(spawn_data):
+		if not spawn_piece_with_preferred_placement(spawn_data, excluded_cells):
 			return spawned_count
 		spawned_count += 1
 

@@ -33,6 +33,11 @@ class_name FlyingBanner
 		font_height_ratio = value
 		_update_banner_texture()
 
+@export var banner_font: Font:
+	set(value):
+		banner_font = value
+		_update_banner_texture()
+
 @export var wind_strength: float = 8.0:
 	set(value):
 		wind_strength = value
@@ -230,6 +235,8 @@ func _update_banner_texture():
 	banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	banner_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if banner_font != null:
+		banner_label.add_theme_font_override("font", banner_font)
 	banner_label.add_theme_color_override("font_color", banner_text_color)
 	banner_label.add_theme_font_size_override("font_size", int(maxf(30.0, render_size.y * font_height_ratio)))
 	banner_label.add_theme_constant_override("outline_size", int(maxf(2.0, safe_render_scale * 1.5)))

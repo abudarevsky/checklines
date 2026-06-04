@@ -33,6 +33,7 @@ func _initialize():
 	_run_test("trap detector rejects trap as fifth line cell", _test_trap_detector_rejects_trap_as_fifth_line_cell, failures)
 	_run_test("trap detector finds attackable wrong-cell completion", _test_trap_detector_finds_attackable_wrong_cell, failures)
 	_run_test("trap detector finds attackable empty-cell completion", _test_trap_detector_finds_attackable_empty_cell, failures)
+	_run_test("trap detector rejects already complete line capture", _test_trap_detector_rejects_already_complete_line_capture, failures)
 	_run_test("trap detector requires adjacent piece to match", _test_trap_detector_requires_adjacent_match, failures)
 	_run_test("trap detector excludes king attackers", _test_trap_detector_excludes_king_attackers, failures)
 	_run_test("trap detector uses reference pawn attack directions", _test_trap_detector_uses_reference_pawn_directions, failures)
@@ -42,6 +43,7 @@ func _initialize():
 	_run_test("trap detector finds diagonal queen gap completion", _test_trap_detector_finds_diagonal_queen_gap_completion, failures)
 	_run_test("trap detector finds vertical pawn blocker capture from endpoint trap", _test_trap_detector_finds_vertical_pawn_blocker_capture_from_endpoint_trap, failures)
 	_run_test("trap detector may target any candidate line piece", _test_trap_detector_may_target_any_candidate_line_piece, failures)
+	_run_test("trap detector rejects unrelated line near distant trap", _test_trap_detector_rejects_unrelated_line_near_distant_trap, failures)
 	_run_test("trap detector rejects edge run with trap before first cell", _test_trap_detector_rejects_edge_run_with_trap_before_first_cell, failures)
 	_run_test("trap detector rejects trap inside candidate line", _test_trap_detector_rejects_trap_inside_candidate_line, failures)
 	_run_test("trap detector rejects backward blue pawn attack", Callable(self, "_test_trap_detector_rejects_backward_blue_pawn_attack"), failures)
@@ -315,6 +317,31 @@ func _test_trap_detector_finds_attackable_empty_cell() -> String:
 	_free_test_board(board)
 	return error_message
 
+func _test_trap_detector_rejects_already_complete_line_capture() -> String:
+	var Detector = load("res://scripts/traps/TrapLineDetector.gd")
+	var board: Dictionary = {}
+	_add_test_piece(board, GameManager.PieceType.PAWN, GameManager.PieceColor.RED, Vector2i(0, 0))
+	_add_test_piece(board, GameManager.PieceType.PAWN, GameManager.PieceColor.BLUE, Vector2i(1, 0))
+	_add_test_piece(board, GameManager.PieceType.PAWN, GameManager.PieceColor.GREEN, Vector2i(2, 0))
+	_add_test_piece(board, GameManager.PieceType.PAWN, GameManager.PieceColor.ORANGE, Vector2i(3, 0))
+	_add_test_piece(board, GameManager.PieceType.PAWN, GameManager.PieceColor.RED, Vector2i(4, 0))
+	_add_test_piece(board, GameManager.PieceType.PAWN, GameManager.PieceColor.BLUE, Vector2i(3, 1))
+
+	var candidates: Array = Detector.detect_trap_lines(board, [Vector2i(4, 1)])
+	var error_message := ""
+	for candidate in candidates:
+		if _same_cells(candidate.get("candidate_line_cells", []), [
+			Vector2i(0, 0),
+			Vector2i(1, 0),
+			Vector2i(2, 0),
+			Vector2i(3, 0),
+			Vector2i(4, 0),
+		]):
+			error_message = "already complete type line was treated as a trap completion"
+			break
+	_free_test_board(board)
+	return error_message
+
 func _test_trap_detector_requires_adjacent_match() -> String:
 	var Detector = load("res://scripts/traps/TrapLineDetector.gd")
 	var board: Dictionary = {}
@@ -568,6 +595,24 @@ func _test_trap_detector_may_target_any_candidate_line_piece() -> String:
 		return "expected interior candidate line piece target, got %s" % str(trap_target.get("target_piece_cell"))
 	if trap_target.get("trap_cell") != _colrow(3, 4):
 		return "expected configured trap cell"
+	return ""
+
+func _test_trap_detector_rejects_unrelated_line_near_distant_trap() -> String:
+	var GameBoardScript = load("res://scripts/board/GameBoard.gd")
+	var board: Dictionary = {}
+	for row in range(2, 7):
+		_add_test_piece(board, GameManager.PieceType.PAWN, GameManager.PieceColor.RED, _colrow(2, row))
+	_add_test_piece(board, GameManager.PieceType.PAWN, GameManager.PieceColor.ORANGE, _colrow(6, 7))
+	var trap_cell := _colrow(7, 7)
+
+	var candidates: Array = GameBoardScript._find_big_swamp_pulse_candidates(board, [trap_cell], false)
+	var error_message := ""
+	for candidate in candidates:
+		if candidate.get("target_piece_cell") == _colrow(6, 7):
+			error_message = "trap 7,7 targeted pawn 6,7 from unrelated line"
+			break
+	_free_test_board(board)
+	return error_message
 	return ""
 
 func _test_trap_detector_rejects_edge_run_with_trap_before_first_cell() -> String:

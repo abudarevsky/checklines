@@ -41,6 +41,7 @@ const SurvivalBloodOverlayScript = preload("res://scripts/effects/SurvivalBloodO
 @onready var pause_title_label: Label = $CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox/TitleLabel
 @onready var resume_button: Button = $CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox/ButtonColumn/ResumeButton
 @onready var pause_reset_button: Button = $CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox/ButtonColumn/ResetButton
+@onready var pause_review_button: Button = $CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox/ButtonColumn/ReviewButton
 @onready var pause_main_menu_button: Button = $CanvasLayer/UI/PauseOverlay/CenterContainer/PausePanel/VBox/ButtonColumn/MainMenuButton
 @onready var game_over_overlay: Control = $CanvasLayer/UI/GameOverOverlay
 @onready var game_over_backdrop: ColorRect = $CanvasLayer/UI/GameOverOverlay/Backdrop
@@ -63,6 +64,7 @@ var is_message_queue_running: bool = false
 var is_score_message_batch_open: bool = false
 var hud_message_generation: int = 0
 var message_tween: Tween
+var rewind_hud_tween: Tween
 var puzzle_effect_tween: Tween
 var base_score_position: Vector2 = Vector2.ZERO
 var base_message_position: Vector2 = Vector2.ZERO
@@ -86,6 +88,19 @@ var survival_round_started_this_turn: bool = false
 var survival_blood_overlay: Control = null
 var pending_kingdom_completion_win: bool = false
 var pending_survival_round_completion: bool = false
+var session_event_history: Array[Dictionary] = []
+var pending_event_snapshot: Dictionary = {}
+var turn_spawn_excluded_cells: Array[Vector2i] = []
+var is_rewind_mode: bool = false
+var rewind_live_snapshot: Dictionary = {}
+var rewind_overlay: PanelContainer = null
+var rewind_hud_tap_button: Button = null
+var rewind_hud_bar: Control = null
+var rewind_hud_background: ColorRect = null
+var rewind_title_label: Label = null
+var rewind_list: VBoxContainer = null
+var rewind_close_button: Button = null
+var selected_rewind_history_index: int = -1
 
 const TOP_BAR_SHADOW_HEIGHT: float = 5.0
 const BOARD_TOP_GAP: float = 2.0
@@ -118,6 +133,9 @@ const MESSAGE_SLIDE_IN_DURATION: float = 0.42
 const MESSAGE_RECENT_WINDOW: float = 2.0
 const MESSAGE_HOLD_DURATION: float = 2.0
 const MESSAGE_SLIDE_OUT_DURATION: float = 0.38
+const REWIND_HUD_SLIDE_IN_DURATION: float = 0.28
+const REWIND_HUD_SLIDE_OUT_DURATION: float = 0.22
+const REWIND_HUD_FONT_SIZE: int = 22
 const PUZZLE_IMAGE_PREVIEW_DURATION: float = 2.0
 const PUZZLE_LEVEL_COMPLETE_HOLD: float = 3.0
 const PUZZLE_IMAGE_FADE_DURATION: float = 0.5
@@ -192,6 +210,7 @@ func _ready():
 	GameManager.reset_game()
 	_lock_mobile_orientation()
 	_ensure_survival_blood_overlay()
+	_ensure_rewind_overlay()
 	apply_theme(_get_theme())
 	_setup_signals()
 	_apply_localized_text()
@@ -222,6 +241,84 @@ func _ensure_survival_blood_overlay():
 	survival_blood_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	puzzle_panel.add_child(survival_blood_overlay)
 	puzzle_panel.move_child(survival_blood_overlay, puzzle_panel.get_child_count() - 1)
+
+func _ensure_rewind_overlay():
+	if rewind_overlay != null:
+		return
+
+	rewind_hud_tap_button = Button.new()
+	rewind_hud_tap_button.name = "RewindHudTapButton"
+	rewind_hud_tap_button.text = ""
+	rewind_hud_tap_button.flat = true
+	rewind_hud_tap_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	rewind_hud_tap_button.z_index = 25
+	rewind_hud_tap_button.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rewind_hud_tap_button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	rewind_hud_tap_button.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
+	rewind_hud_tap_button.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
+	rewind_hud_tap_button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	rewind_hud_tap_button.pressed.connect(_on_rewind_hud_tap_pressed)
+	score_clip.add_child(rewind_hud_tap_button)
+
+	rewind_hud_bar = Control.new()
+	rewind_hud_bar.name = "RewindHudBar"
+	rewind_hud_bar.visible = false
+	rewind_hud_bar.mouse_filter = Control.MOUSE_FILTER_STOP
+	rewind_hud_bar.z_index = 30
+	rewind_hud_bar.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	score_clip.add_child(rewind_hud_bar)
+
+	rewind_hud_background = ColorRect.new()
+	rewind_hud_background.name = "Background"
+	rewind_hud_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rewind_hud_background.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	rewind_hud_bar.add_child(rewind_hud_background)
+
+	rewind_title_label = Label.new()
+	rewind_title_label.name = "Title"
+	rewind_title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	rewind_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	rewind_hud_bar.add_child(rewind_title_label)
+
+	rewind_close_button = Button.new()
+	rewind_close_button.name = "CloseButton"
+	rewind_close_button.custom_minimum_size = Vector2.ZERO
+	rewind_close_button.pressed.connect(_close_rewind_mode)
+	rewind_hud_bar.add_child(rewind_close_button)
+
+	rewind_overlay = PanelContainer.new()
+	rewind_overlay.name = "RewindOverlay"
+	rewind_overlay.visible = false
+	rewind_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	rewind_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	puzzle_panel.add_child(rewind_overlay)
+	puzzle_panel.move_child(rewind_overlay, puzzle_panel.get_child_count() - 1)
+
+	var margin := MarginContainer.new()
+	margin.name = "Margin"
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	rewind_overlay.add_child(margin)
+
+	var layout := VBoxContainer.new()
+	layout.name = "Layout"
+	layout.add_theme_constant_override("separation", 8)
+	margin.add_child(layout)
+
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	layout.add_child(scroll)
+
+	rewind_list = VBoxContainer.new()
+	rewind_list.name = "HistoryList"
+	rewind_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rewind_list.add_theme_constant_override("separation", 6)
+	scroll.add_child(rewind_list)
+	score_clip.mouse_filter = Control.MOUSE_FILTER_STOP
 
 func apply_theme(theme: ThemeData):
 	if theme == null:
@@ -264,6 +361,7 @@ func apply_theme(theme: ThemeData):
 	level_value_label.add_theme_color_override("font_outline_color", theme.hud_secondary_outline_color)
 
 	board_manager.apply_theme(theme)
+	_apply_rewind_overlay_theme(theme)
 	color_lines_badge.apply_theme(theme)
 	type_lines_badge.apply_theme(theme)
 	level_badge.apply_theme(theme)
@@ -360,6 +458,16 @@ func _apply_dialog_theme(theme):
 		theme.dialog_button_secondary_border_hover_color
 	)
 	_apply_dialog_button_style(
+		pause_review_button,
+		button_font,
+		theme.dialog_button_font_size,
+		theme.dialog_button_secondary_color,
+		theme.dialog_button_secondary_hover_color,
+		theme.dialog_button_text_color,
+		theme.dialog_button_secondary_border_color,
+		theme.dialog_button_secondary_border_hover_color
+	)
+	_apply_dialog_button_style(
 		pause_main_menu_button,
 		button_font,
 		theme.dialog_button_font_size,
@@ -403,6 +511,83 @@ func _build_dialog_font(theme_font_path: String, font_names: PackedStringArray, 
 	font.font_names = font_names
 	font.font_weight = font_weight
 	return font
+
+func _apply_rewind_overlay_theme(theme: ThemeData):
+	if rewind_overlay == null:
+		return
+	if rewind_hud_background != null:
+		rewind_hud_background.color = theme.hud_panel_color
+	rewind_overlay.add_theme_stylebox_override(
+		"panel",
+		_build_dialog_panel_style(theme.hud_panel_color, theme.gameplay_frame_color)
+	)
+	var title_font: Font = _build_dialog_font(theme.menu_title_font_path, theme.dialog_font_names, theme.dialog_title_font_weight)
+	var button_font: Font = _build_dialog_font(theme.menu_button_font_path, theme.dialog_font_names, theme.dialog_button_font_weight)
+	if rewind_title_label != null:
+		rewind_title_label.add_theme_font_override("font", title_font)
+		rewind_title_label.add_theme_font_size_override("font_size", REWIND_HUD_FONT_SIZE)
+		rewind_title_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
+		rewind_title_label.add_theme_color_override("font_outline_color", theme.hud_outline_color)
+	if rewind_close_button != null:
+		_apply_dialog_button_style(
+			rewind_close_button,
+			button_font,
+			REWIND_HUD_FONT_SIZE,
+			theme.dialog_button_primary_color,
+			theme.dialog_button_primary_hover_color,
+			theme.dialog_button_text_color
+		)
+		rewind_close_button.add_theme_stylebox_override("normal", _build_rewind_close_button_style(theme.dialog_button_primary_color))
+		rewind_close_button.add_theme_stylebox_override("hover", _build_rewind_close_button_style(theme.dialog_button_primary_hover_color))
+	if rewind_list != null:
+		for child in rewind_list.get_children():
+			if child is Button:
+				_apply_history_button_theme(child, theme, int(child.get_meta("history_index", -1)) == selected_rewind_history_index)
+
+func _apply_history_button_theme(button: Button, theme: ThemeData, is_selected: bool = false):
+	button.remove_theme_font_override("font")
+	button.add_theme_font_size_override("font_size", 18)
+	button.add_theme_color_override("font_color", theme.hud_primary_text_color)
+	button.add_theme_color_override("font_hover_color", theme.hud_primary_text_color)
+	button.add_theme_color_override("font_pressed_color", theme.hud_primary_text_color)
+	if is_selected:
+		button.add_theme_stylebox_override("normal", _build_history_row_style(Color(theme.dialog_button_primary_hover_color.r, theme.dialog_button_primary_hover_color.g, theme.dialog_button_primary_hover_color.b, 0.34)))
+		button.add_theme_stylebox_override("hover", _build_history_row_style(Color(theme.dialog_button_primary_hover_color.r, theme.dialog_button_primary_hover_color.g, theme.dialog_button_primary_hover_color.b, 0.46)))
+		button.add_theme_stylebox_override("pressed", _build_history_row_style(Color(theme.dialog_button_primary_hover_color.r, theme.dialog_button_primary_hover_color.g, theme.dialog_button_primary_hover_color.b, 0.58)))
+	else:
+		button.add_theme_stylebox_override("normal", _build_history_row_style(Color.TRANSPARENT))
+		button.add_theme_stylebox_override("hover", _build_history_row_style(Color(theme.dialog_button_secondary_hover_color.r, theme.dialog_button_secondary_hover_color.g, theme.dialog_button_secondary_hover_color.b, 0.22)))
+		button.add_theme_stylebox_override("pressed", _build_history_row_style(Color(theme.dialog_button_primary_hover_color.r, theme.dialog_button_primary_hover_color.g, theme.dialog_button_primary_hover_color.b, 0.34)))
+
+func _build_history_row_style(fill_color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill_color
+	style.border_width_left = 0
+	style.border_width_top = 0
+	style.border_width_right = 0
+	style.border_width_bottom = 0
+	style.corner_radius_top_left = 0
+	style.corner_radius_top_right = 0
+	style.corner_radius_bottom_left = 0
+	style.corner_radius_bottom_right = 0
+	style.content_margin_left = 10.0
+	style.content_margin_top = 8.0
+	style.content_margin_right = 10.0
+	style.content_margin_bottom = 8.0
+	return style
+
+func _build_rewind_close_button_style(fill_color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill_color
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	style.content_margin_left = 6.0
+	style.content_margin_top = 0.0
+	style.content_margin_right = 6.0
+	style.content_margin_bottom = 0.0
+	return style
 
 func _load_font_file(font_path: String) -> FontFile:
 	if font_path.strip_edges().is_empty():
@@ -584,6 +769,7 @@ func _setup_signals():
 	gear_button.pressed.connect(_on_gear_pressed)
 	resume_button.pressed.connect(_on_resume_pressed)
 	pause_reset_button.pressed.connect(_on_reset_pressed)
+	pause_review_button.pressed.connect(_on_review_moves_pressed)
 	pause_main_menu_button.pressed.connect(_on_main_menu_pressed)
 	restart_button.pressed.connect(_on_restart_pressed)
 	survive_button.pressed.connect(_on_survive_pressed)
@@ -773,6 +959,47 @@ func _update_message_layout(score_clip_width: float):
 		message_panel.position = base_message_position + Vector2(-slide_distance, 0.0)
 		message_label.position = base_message_position + Vector2(-slide_distance, 0.0)
 		score_hbox.position = base_score_position
+	if rewind_hud_bar != null:
+		_layout_rewind_hud_bar(score_clip_width)
+
+func _layout_rewind_hud_bar(score_clip_width: float):
+	var hud_size := Vector2(score_clip_width, SCORE_ROW_HEIGHT)
+	var hidden_position := base_message_position + Vector2(-_get_message_slide_distance(score_clip_width), 0.0)
+	var should_hold_open := is_rewind_mode and rewind_hud_bar.visible and rewind_hud_tween == null
+
+	rewind_hud_bar.size = hud_size
+	rewind_hud_bar.offset_left = 0.0
+	rewind_hud_bar.offset_top = 0.0
+	rewind_hud_bar.offset_right = score_clip_width
+	rewind_hud_bar.offset_bottom = SCORE_ROW_HEIGHT
+	if should_hold_open:
+		rewind_hud_bar.position = base_message_position
+	elif not rewind_hud_bar.visible:
+		rewind_hud_bar.position = hidden_position
+	if rewind_hud_background != null:
+		rewind_hud_background.size = hud_size
+		rewind_hud_background.offset_left = 0.0
+		rewind_hud_background.offset_top = 0.0
+		rewind_hud_background.offset_right = score_clip_width
+		rewind_hud_background.offset_bottom = SCORE_ROW_HEIGHT
+	if rewind_close_button != null:
+		var close_width := 112.0
+		var close_height := SCORE_ROW_HEIGHT
+		var close_top := 0.0
+		rewind_close_button.offset_left = maxf(score_clip_width - close_width - 8.0, 0.0)
+		rewind_close_button.offset_top = close_top
+		rewind_close_button.offset_right = score_clip_width - 8.0
+		rewind_close_button.offset_bottom = close_top + close_height
+	if rewind_title_label != null:
+		rewind_title_label.offset_left = 12.0
+		rewind_title_label.offset_top = 0.0
+		rewind_title_label.offset_right = maxf(score_clip_width - 132.0, 12.0)
+		rewind_title_label.offset_bottom = SCORE_ROW_HEIGHT
+	if rewind_hud_tap_button != null:
+		rewind_hud_tap_button.offset_left = 0.0
+		rewind_hud_tap_button.offset_top = 0.0
+		rewind_hud_tap_button.offset_right = 0.0
+		rewind_hud_tap_button.offset_bottom = SCORE_ROW_HEIGHT
 
 func _update_puzzle_overlay_banner_layout(panel_width: float, puzzle_height: float):
 	puzzle_overlay_area_size = Vector2(panel_width, puzzle_height)
@@ -852,7 +1079,7 @@ func _input(event):
 func _process(delta: float):
 	if big_swamp_pulse_state != null and big_swamp_pulse_state.is_active:
 		_update_big_swamp_pulse(delta)
-	elif is_game_state_ready and not is_processing_move and not game_over_overlay.visible and not pause_overlay.visible:
+	elif is_game_state_ready and not is_processing_move and not game_over_overlay.visible and not pause_overlay.visible and not is_rewind_mode:
 		_check_game_over()
 
 func _initialize_game():
@@ -875,8 +1102,17 @@ func _initialize_puzzle_progress():
 	puzzle_tile_order.clear()
 	hud_message_log.clear()
 	score_message_batch.clear()
+	session_event_history.clear()
+	pending_event_snapshot.clear()
+	turn_spawn_excluded_cells.clear()
 	is_message_queue_running = false
 	is_score_message_batch_open = false
+	is_rewind_mode = false
+	rewind_live_snapshot.clear()
+	selected_rewind_history_index = -1
+	if rewind_overlay != null:
+		rewind_overlay.visible = false
+	_reset_rewind_hud_bar()
 	hud_message_generation += 1
 	_cancel_big_swamp_pulse(false)
 	if message_tween:
@@ -1271,6 +1507,7 @@ func _expire_big_swamp_pulse():
 		return
 	var captured_piece_type: int = int(target_piece.piece_type)
 	var captured_piece_color: int = int(target_piece.piece_color)
+	var trap_history_snapshot: Dictionary = board_manager.build_board_snapshot()
 	await board_manager.animate_big_swamp_capture(trap_cell, target_cell)
 	target_piece = _get_valid_big_swamp_target_piece()
 	if target_piece != null:
@@ -1281,7 +1518,9 @@ func _expire_big_swamp_pulse():
 		var trap_data: Resource = board_manager.get_trap_data(trap_cell)
 		var trap_name := _get_trap_display_name(trap_data)
 		var trap_message := _build_trap_disappearance_message(captured_piece_type, trap_name)
+		_record_trap_capture_history(captured_piece_type, trap_name, trap_history_snapshot)
 		board_manager.show_trap_message_cloud(trap_cell, trap_message, _get_theme(), captured_piece_type, captured_piece_color)
+		_exclude_spawn_cell_for_turn(target_cell)
 		_spawn_new_pieces(_get_failed_pulse_spawn_count(Settings.theme_id))
 		await get_tree().create_timer(0.2).timeout
 		await _resolve_chain_waves()
@@ -1798,6 +2037,27 @@ func _queue_message(text: String):
 	_append_hud_message(text)
 	_show_hud_message_log()
 
+func _record_session_event_history(text: String, snapshot: Dictionary):
+	if text.strip_edges().is_empty() or snapshot.is_empty():
+		return
+	session_event_history.push_front({
+		"text": text,
+		"snapshot": snapshot.duplicate(true)
+	})
+	while session_event_history.size() > GameManager.SESSION_HISTORY_DEPTH:
+		session_event_history.pop_back()
+	_refresh_rewind_history_list()
+
+func _record_trap_capture_history(piece_type: int, trap_name: String, snapshot: Dictionary):
+	var trap_event := GameManager.build_trap_disappearance_event(piece_type, trap_name)
+	var text := GameManager.format_scoring_event(trap_event)
+	if text.strip_edges().is_empty():
+		text = _tf("trap_disappeared", {
+			"trap": trap_name,
+			"cost": 0
+		})
+	_record_session_event_history(text, snapshot)
+
 func _append_hud_message(text: String):
 	var now := Time.get_ticks_msec() / 1000.0
 	var recent_messages: Array[Dictionary] = []
@@ -1830,6 +2090,11 @@ func _queue_scoring_event(event: Dictionary):
 	if not display_only:
 		GameManager.add_scoring_event(event)
 	var formatted_event := GameManager.format_scoring_event(event)
+	var history_snapshot := pending_event_snapshot.duplicate(true)
+	pending_event_snapshot.clear()
+	if history_snapshot.is_empty():
+		history_snapshot = board_manager.build_board_snapshot()
+	_record_session_event_history(formatted_event, history_snapshot)
 	if is_score_message_batch_open:
 		score_message_batch.append(formatted_event)
 		_queue_message(formatted_event)
@@ -1907,6 +2172,151 @@ func _slide_hud_message_out(generation: int):
 	message_tween.tween_property(message_panel, "position:x", base_message_position.x + slide_distance, MESSAGE_SLIDE_OUT_DURATION)
 	message_tween.tween_property(score_hbox, "position:x", base_score_position.x, MESSAGE_SLIDE_OUT_DURATION)
 	message_tween.finished.connect(_clear_hud_message_log_after_slide.bind(generation, slide_distance))
+
+func _refresh_rewind_history_list():
+	if rewind_list == null:
+		return
+	for child in rewind_list.get_children():
+		rewind_list.remove_child(child)
+		child.queue_free()
+	var theme := _get_theme()
+	if session_event_history.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = _t("history_empty")
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if theme != null:
+			empty_label.remove_theme_font_override("font")
+			empty_label.add_theme_font_size_override("font_size", 18)
+			empty_label.add_theme_color_override("font_color", theme.hud_secondary_text_color)
+		rewind_list.add_child(empty_label)
+		return
+	for i in range(session_event_history.size()):
+		var entry: Dictionary = session_event_history[i]
+		var button := Button.new()
+		button.text = str(entry.get("text", ""))
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.custom_minimum_size = Vector2(0.0, 58.0)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.set_meta("history_index", i)
+		button.pressed.connect(_show_history_entry.bind(i))
+		if theme != null:
+			_apply_history_button_theme(button, theme, i == selected_rewind_history_index)
+		rewind_list.add_child(button)
+
+func _enter_rewind_mode():
+	if is_rewind_mode:
+		return
+	is_rewind_mode = true
+	rewind_live_snapshot = board_manager.build_board_snapshot()
+	selected_rewind_history_index = 0
+	board_manager.set_input_enabled(false)
+	_refresh_rewind_history_list()
+	if rewind_overlay != null:
+		rewind_overlay.visible = true
+	_show_rewind_hud_bar()
+	_show_history_entry(0)
+
+func _show_rewind_hud_bar():
+	if rewind_hud_bar == null:
+		return
+
+	hud_message_generation += 1
+	is_message_queue_running = false
+	if message_tween:
+		message_tween.kill()
+		message_tween = null
+	message_label.text = ""
+	var slide_distance := _get_message_slide_distance()
+	message_panel.position = base_message_position + Vector2(-slide_distance, 0.0)
+	message_label.position = base_message_position + Vector2(-slide_distance, 0.0)
+	score_hbox.position = base_score_position
+
+	if rewind_hud_tween:
+		rewind_hud_tween.kill()
+		rewind_hud_tween = null
+	rewind_hud_bar.visible = true
+	_layout_rewind_hud_bar(score_clip.size.x)
+	rewind_hud_bar.position = base_message_position + Vector2(-slide_distance, 0.0)
+	rewind_hud_tween = create_tween()
+	rewind_hud_tween.set_parallel(true)
+	rewind_hud_tween.set_trans(Tween.TRANS_QUAD)
+	rewind_hud_tween.set_ease(Tween.EASE_OUT)
+	rewind_hud_tween.tween_property(rewind_hud_bar, "position:x", base_message_position.x, REWIND_HUD_SLIDE_IN_DURATION)
+	rewind_hud_tween.tween_property(score_hbox, "position:x", base_score_position.x + slide_distance, REWIND_HUD_SLIDE_IN_DURATION)
+	rewind_hud_tween.finished.connect(_finish_rewind_hud_slide_in)
+
+func _finish_rewind_hud_slide_in():
+	rewind_hud_tween = null
+	if rewind_hud_bar != null and is_rewind_mode:
+		rewind_hud_bar.position = base_message_position
+		score_hbox.position = base_score_position + Vector2(_get_message_slide_distance(), 0.0)
+
+func _show_history_entry(index: int):
+	if index < 0 or index >= session_event_history.size():
+		return
+	var entry: Dictionary = session_event_history[index]
+	var snapshot: Dictionary = entry.get("snapshot", {})
+	if snapshot.is_empty():
+		return
+	selected_rewind_history_index = index
+	_update_rewind_history_selection_styles()
+	board_manager.restore_board_snapshot(snapshot)
+
+func _update_rewind_history_selection_styles():
+	if rewind_list == null:
+		return
+	var theme := _get_theme()
+	if theme == null:
+		return
+	for child in rewind_list.get_children():
+		if child is Button:
+			_apply_history_button_theme(child, theme, int(child.get_meta("history_index", -1)) == selected_rewind_history_index)
+
+func _close_rewind_mode():
+	if not is_rewind_mode:
+		return
+	if not rewind_live_snapshot.is_empty():
+		board_manager.restore_board_snapshot(rewind_live_snapshot)
+	rewind_live_snapshot.clear()
+	is_rewind_mode = false
+	selected_rewind_history_index = -1
+	if rewind_overlay != null:
+		rewind_overlay.visible = false
+	_hide_rewind_hud_bar()
+	if not game_over_overlay.visible and not pause_overlay.visible and not is_processing_move:
+		board_manager.set_input_enabled(true)
+
+func _hide_rewind_hud_bar():
+	if rewind_hud_bar == null:
+		return
+
+	var slide_distance := _get_message_slide_distance()
+	if rewind_hud_tween:
+		rewind_hud_tween.kill()
+	rewind_hud_tween = create_tween()
+	rewind_hud_tween.set_parallel(true)
+	rewind_hud_tween.set_trans(Tween.TRANS_QUAD)
+	rewind_hud_tween.set_ease(Tween.EASE_IN)
+	rewind_hud_tween.tween_property(rewind_hud_bar, "position:x", base_message_position.x + slide_distance, REWIND_HUD_SLIDE_OUT_DURATION)
+	rewind_hud_tween.tween_property(score_hbox, "position:x", base_score_position.x, REWIND_HUD_SLIDE_OUT_DURATION)
+	rewind_hud_tween.finished.connect(_finish_rewind_hud_slide_out.bind(slide_distance))
+
+func _finish_rewind_hud_slide_out(slide_distance: float):
+	rewind_hud_tween = null
+	if rewind_hud_bar != null:
+		rewind_hud_bar.visible = false
+		rewind_hud_bar.position = base_message_position + Vector2(-slide_distance, 0.0)
+	score_hbox.position = base_score_position
+
+func _reset_rewind_hud_bar():
+	if rewind_hud_tween:
+		rewind_hud_tween.kill()
+		rewind_hud_tween = null
+	if rewind_hud_bar != null:
+		rewind_hud_bar.visible = false
+		rewind_hud_bar.position = base_message_position + Vector2(-_get_message_slide_distance(), 0.0)
+	score_hbox.position = base_score_position
 
 func _clear_hud_message_log_after_slide(generation: int, slide_distance: float):
 	if generation != hud_message_generation:
@@ -2000,9 +2410,11 @@ func _spawn_initial_pieces():
 
 func _on_capture_made(_piece, _target, captured_piece_type: int):
 	current_turn_had_take = true
+	_exclude_spawn_cell_for_turn(_target)
 	AudioManager.play_sound("capture")
 	AudioManager.vibrate()
 	_begin_score_message_batch()
+	pending_event_snapshot = board_manager.get_last_capture_snapshot()
 	_queue_scoring_event(GameManager.build_sacrifice_event(captured_piece_type))
 
 func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
@@ -2019,6 +2431,7 @@ func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
 	var trap_event := GameManager.build_trap_disappearance_event(piece_type, trap_name)
 	board_manager.show_trap_message_cloud(_to, trap_message, theme, piece_type, board_manager.get_last_sacrificed_piece_color())
 	_begin_score_message_batch()
+	pending_event_snapshot = board_manager.get_last_sacrifice_snapshot()
 	_queue_scoring_event(trap_event)
 	_resolve_sacrifice_turn(_get_trap_spawn_count(trap_data))
 
@@ -2067,8 +2480,7 @@ func _on_theme_changed(theme_data, _theme_id: String):
 
 func _update_ui():
 	_update_current_score_digits(GameManager.current_score)
-	var best_level_display := Settings.get_kingdom_best_level_display(Settings.theme_id)
-	high_score_label.text = "%d | L %d" % [GameManager.high_score, best_level_display]
+	high_score_label.text = "%d" % GameManager.high_score
 	_update_line_metrics_ui()
 
 func _update_line_metrics_ui():
@@ -2114,15 +2526,16 @@ func _update_game_over_dialog(final_score: int, result: String, achieved_best_sc
 	game_over_score_label.text = "\n".join(score_lines)
 
 func _on_gear_pressed():
-	if game_over_overlay.visible:
+	if game_over_overlay.visible or is_rewind_mode:
 		return
 
 	pause_overlay.visible = true
+	pause_review_button.disabled = is_processing_move or big_swamp_pulse_state.is_active
 	board_manager.set_input_enabled(false)
 
 func _on_resume_pressed():
 	pause_overlay.visible = false
-	if not is_processing_move and not game_over_overlay.visible:
+	if not is_processing_move and not game_over_overlay.visible and not is_rewind_mode:
 		board_manager.set_input_enabled(true)
 
 func _on_restart_pressed():
@@ -2141,6 +2554,15 @@ func _on_restart_pressed():
 	session_total_turns = 0
 	session_clean_turns = 0
 	current_turn_had_take = false
+	session_event_history.clear()
+	pending_event_snapshot.clear()
+	turn_spawn_excluded_cells.clear()
+	is_rewind_mode = false
+	rewind_live_snapshot.clear()
+	selected_rewind_history_index = -1
+	if rewind_overlay != null:
+		rewind_overlay.visible = false
+	_reset_rewind_hud_bar()
 	latest_game_result = GameManager.GAME_RESULT_LOSS
 	latest_best_score_achieved = false
 	GameManager.reset_game()
@@ -2151,6 +2573,31 @@ func _on_restart_pressed():
 func _on_reset_pressed():
 	Settings.reset_kingdom_start_level(Settings.theme_id)
 	_on_restart_pressed()
+
+func _on_review_moves_pressed():
+	if is_processing_move or big_swamp_pulse_state.is_active:
+		return
+	if session_event_history.is_empty():
+		pause_overlay.visible = false
+		_show_no_rewind_history_message()
+		if not game_over_overlay.visible and not is_processing_move:
+			board_manager.set_input_enabled(true)
+		return
+	pause_overlay.visible = false
+	_enter_rewind_mode()
+
+func _on_rewind_hud_tap_pressed():
+	if is_rewind_mode or game_over_overlay.visible or pause_overlay.visible:
+		return
+	if is_processing_move or big_swamp_pulse_state.is_active:
+		return
+	if session_event_history.is_empty():
+		_show_no_rewind_history_message()
+		return
+	_enter_rewind_mode()
+
+func _show_no_rewind_history_message():
+	_queue_message(_t("rewind_no_history"))
 
 func _on_survive_pressed():
 	survival_round_index = 1
@@ -2171,6 +2618,7 @@ func _resolve_turn():
 	await _resolve_chain_waves()
 	if survival_round_started_this_turn:
 		survival_round_started_this_turn = false
+		turn_spawn_excluded_cells.clear()
 		_flush_score_message_batch()
 		is_processing_move = false
 		return
@@ -2206,6 +2654,7 @@ func _resolve_turn():
 	await _resolve_chain_waves()
 	if survival_round_started_this_turn:
 		survival_round_started_this_turn = false
+		turn_spawn_excluded_cells.clear()
 		_flush_score_message_batch()
 		is_processing_move = false
 		return
@@ -2251,6 +2700,7 @@ func _resolve_sacrifice_turn(spawn_count: int):
 	await _resolve_chain_waves()
 	if survival_round_started_this_turn:
 		survival_round_started_this_turn = false
+		turn_spawn_excluded_cells.clear()
 		_flush_score_message_batch()
 		is_processing_move = false
 		return
@@ -2270,6 +2720,11 @@ func _record_completed_turn():
 	if not current_turn_had_take:
 		session_clean_turns += 1
 	current_turn_had_take = false
+	turn_spawn_excluded_cells.clear()
+
+func _exclude_spawn_cell_for_turn(cell: Vector2i):
+	if cell not in turn_spawn_excluded_cells:
+		turn_spawn_excluded_cells.append(cell)
 
 func _has_pending_completion() -> bool:
 	return pending_kingdom_completion_win or pending_survival_round_completion
@@ -2316,9 +2771,13 @@ func _resolve_chain_waves() -> bool:
 
 func _clear_chain_wave(chains: Array):
 	var pieces_to_remove := _get_unique_chain_pieces(chains)
+	var line_snapshot: Dictionary = board_manager.build_board_snapshot()
+	if big_swamp_pulse_state.is_active:
+		_cancel_big_swamp_pulse(true)
 	await _animate_chain_removal(pieces_to_remove)
 
 	for chain in chains:
+		pending_event_snapshot = line_snapshot.duplicate(true)
 		_queue_scoring_event(GameManager.build_line_scoring_event(chain))
 		GameManager.register_cleared_line(
 			chain.get("is_color_line", false),
@@ -2361,18 +2820,23 @@ func _get_trap_spawn_count(trap_data: Resource) -> int:
 	return 2
 
 func _spawn_new_pieces(count: int = 3) -> int:
-	return board_manager.spawn_random_pieces(count)
+	return board_manager.spawn_random_pieces(count, turn_spawn_excluded_cells)
 
 func _apply_localized_text():
 	pause_title_label.text = _t("game_paused")
 	resume_button.text = _t("resume")
 	pause_reset_button.text = _t("reset")
+	pause_review_button.text = _t("review_moves")
 	pause_main_menu_button.text = _t("main_menu")
 	game_over_title_label.text = _t("game_over")
 	game_over_summary_label.text = _t("session_complete")
 	restart_button.text = _t("play_again")
 	survive_button.text = _t("survive")
 	main_menu_button.text = _t("main_menu")
+	if rewind_title_label != null:
+		rewind_title_label.text = _t("rewind_mode")
+	if rewind_close_button != null:
+		rewind_close_button.text = _t("close")
 	if game_over_overlay.visible:
 		_update_game_over_dialog(GameManager.current_score, latest_game_result, latest_best_score_achieved)
 

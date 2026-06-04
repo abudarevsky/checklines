@@ -101,6 +101,23 @@ static func has_spawn_capacity(board: Dictionary) -> bool:
 
 	return false
 
+static func can_spawn_count(board: Dictionary, empty_cells: Array, count: int) -> bool:
+	if count <= 0:
+		return true
+	if empty_cells.size() < count:
+		return false
+	return _can_spawn_count_recursive(board, empty_cells, count)
+
+static func filter_excluded_cells(cells: Array, excluded_cells: Array) -> Array:
+	if excluded_cells.is_empty():
+		return cells
+
+	var filtered_cells: Array = []
+	for cell in cells:
+		if cell not in excluded_cells:
+			filtered_cells.append(cell)
+	return filtered_cells
+
 static func get_board_cell_color(grid_pos: Vector2i) -> int:
 	return BOARD_CELL_LIGHT if (grid_pos.x + grid_pos.y) % 2 == 0 else BOARD_CELL_DARK
 
@@ -126,6 +143,24 @@ static func _has_king(board: Dictionary) -> bool:
 	for piece in board.values():
 		if piece.piece_type == KING_TYPE:
 			return true
+	return false
+
+static func _can_spawn_count_recursive(board: Dictionary, empty_cells: Array, remaining_count: int) -> bool:
+	if remaining_count <= 0:
+		return true
+
+	for color in range(PIECE_COLOR_COUNT):
+		for piece_type in range(PIECE_TYPE_COUNT):
+			for cell in empty_cells:
+				if not can_place_piece_on_cell(board, piece_type, color, cell):
+					continue
+				var preview_board: Dictionary = board.duplicate()
+				preview_board[cell] = PreviewPiece.new(piece_type, color, cell)
+				var preview_empty_cells: Array = empty_cells.duplicate()
+				preview_empty_cells.erase(cell)
+				if _can_spawn_count_recursive(preview_board, preview_empty_cells, remaining_count - 1):
+					return true
+
 	return false
 
 static func _get_empty_cells(board: Dictionary) -> Array:

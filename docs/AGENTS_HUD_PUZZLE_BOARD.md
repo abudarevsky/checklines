@@ -17,7 +17,7 @@ Puzzle board rules:
 - a new kingdom run starts at the highest reached next level, capped at Level 4: completing Level 1 restarts future runs at Level 2, completing Level 2 at Level 3, and completing Level 3 or Level 4 at Level 4
 - the pause Reset action clears only the kingdom start level back to Level 1; it should not erase max-completed badge progress
 - the current score value should render as individual bordered digit slots, like a mechanical counter, with at least five zero-padded digits while preserving visible spacing between digits
-- the best-score HUD uses a compact three-level pedestal icon plus `"$score | L $number"` and never displays a level lower than `1`; do not show a `"Best"` text prefix in the score row
+- the best-score HUD uses a compact three-level pedestal icon plus the best score only; do not append a `| L $number` level marker or show a `"Best"` text prefix in the score row
 - completing Level 4 wins the active kingdom run after the required post-turn spawn validation succeeds
 - puzzle tile counts are 25, 50, 75, then 100 for Level 4
 - level images come from the active `ThemeData`
@@ -42,8 +42,13 @@ Pause dialog rules:
 - the pause dialog title is `"Game paused."`
 - the pause dialog uses the same centered card style, colors, fonts, and button treatment as the game-over dialog
 - pause dialog actions are vertically aligned
-- pause dialog actions should include Resume, Reset, and Main Menu
+- pause dialog actions should include Resume, Reset, Review moves, and Main Menu
 - opening the pause dialog disables board input; Resume re-enables board input unless the game is over or a move is processing
+- Review moves or tapping the score HUD opens Rewind mode when session history exists; if no history exists, show the HUD message `"No moves to rewind"`
+- Rewind mode shows its `"Rewind mode"` title and Close button in the HUD score row, shows only the scrollable history list inside the puzzle frame, disables board input, and stays active until Close is pressed
+- session history stores the last `GameManager.SESSION_HISTORY_DEPTH` score/HUD events with board snapshots
+- selecting a history message restores the board snapshot for that event, such as a completed line before removal or a sacrificed piece before it disappears
+- closing rewind mode restores the live board and normal HUD state, then re-enables input when normal play is available
 
 Message display rules:
 

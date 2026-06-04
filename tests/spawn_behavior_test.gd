@@ -40,6 +40,7 @@ func _initialize():
 	_run_test("full non-king inventory is not loss with four empty cells", _test_non_king_inventory_limit_is_not_loss_with_four_open_cells, failures)
 	_run_test("empty board can spawn a full batch", _test_empty_board_can_spawn_full_batch, failures)
 	_run_test("fewer than required spawn cells is a loss", _test_fewer_than_required_spawn_cells_is_loss, failures)
+	_run_test("captured cells can be excluded from same-turn spawns", _test_captured_cells_excluded_from_same_turn_spawns, failures)
 
 	if failures.is_empty():
 		print("All spawn behavior tests passed")
@@ -220,6 +221,23 @@ func _test_fewer_than_required_spawn_cells_is_loss() -> String:
 		return "expected two empty cells to be a loss"
 	if BoardStateRulesScript.is_loss_board_state([Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0)]):
 		return "expected three empty cells to keep game active"
+
+	return ""
+
+func _test_captured_cells_excluded_from_same_turn_spawns() -> String:
+	var captured_cell := Vector2i(4, 4)
+	var empty_cells: Array = SpawnPlannerScript.filter_excluded_cells(_get_empty_cells({}), [captured_cell])
+	if captured_cell in empty_cells:
+		return "captured cell remained available for same-turn spawn"
+
+	var chosen_cell: Vector2i = SpawnPlannerScript.get_preferred_spawn_cell(
+		{},
+		empty_cells,
+		GameManager.PieceType.PAWN,
+		GameManager.PieceColor.RED
+	)
+	if chosen_cell == captured_cell:
+		return "spawn planner selected the captured cell"
 
 	return ""
 

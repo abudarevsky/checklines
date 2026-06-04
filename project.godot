@@ -13,6 +13,7 @@ config_version=5
 config/name="Royal Lines"
 run/main_scene="res://scenes/ui/MainMenu.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
+boot_splash/image="res://assets/icons/android/android_splash.png"
 config/icon="res://assets/icons/checklines_app_icon_padded.png"
 
 [autoload]
