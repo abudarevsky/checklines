@@ -26,6 +26,9 @@ func _initialize():
 	_run_test("traps are excluded from empty spawn cells", _test_traps_excluded_from_empty_cells, failures)
 	_run_test("moving onto a trap sacrifices the piece", _test_trap_sacrifices_piece, failures)
 	_run_test("trap-only moves do not keep game alive", _test_trap_only_moves_do_not_keep_game_alive, failures)
+	_run_test("board detaches stale highlights immediately", _test_board_detaches_stale_highlights_immediately, failures)
+	_run_test("board safely clears a queued selected piece", _test_board_safely_clears_queued_selected_piece, failures)
+	_run_test("board prunes queued pieces before highlighting", _test_board_prunes_queued_pieces_before_highlighting, failures)
 	_run_test("trap detector rejects trap as fifth line cell", _test_trap_detector_rejects_trap_as_fifth_line_cell, failures)
 	_run_test("trap detector finds attackable wrong-cell completion", _test_trap_detector_finds_attackable_wrong_cell, failures)
 	_run_test("trap detector finds attackable empty-cell completion", _test_trap_detector_finds_attackable_empty_cell, failures)
@@ -49,6 +52,7 @@ func _initialize():
 	_run_test("Big Swamp pulse rejects king-led candidate lines", Callable(self, "_test_big_swamp_pulse_rejects_king_led_candidate_line"), failures)
 	_run_test("Big Swamp pulse uses trap detector target", _test_big_swamp_pulse_uses_trap_detector_target, failures)
 	_run_test("Big Swamp pulse rejects changed target identity", _test_big_swamp_pulse_rejects_changed_target_identity, failures)
+	_run_test("trap detector ignores queued board pieces", _test_trap_detector_ignores_queued_board_pieces, failures)
 
 	if failures.is_empty():
 		print("All trap tests passed")
@@ -183,6 +187,65 @@ func _test_trap_sacrifices_piece() -> String:
 		error_message = "sacrifice signal carried wrong cells"
 	elif sacrificed[0]["piece_type"] != GameManager.PieceType.ROOK:
 		error_message = "sacrifice signal carried wrong piece type"
+
+	board_manager.free()
+	return error_message
+
+func _test_board_detaches_stale_highlights_immediately() -> String:
+	var BoardManagerScript = load("res://scripts/board/BoardManager.gd")
+	var board_manager = BoardManagerScript.new()
+	var highlight_parent := Node2D.new()
+	var highlight := Node2D.new()
+	var dim_border := Node2D.new()
+	highlight_parent.add_child(highlight)
+	highlight_parent.add_child(dim_border)
+	board_manager.highlight_nodes.append(highlight)
+	board_manager.dim_border_nodes.append(dim_border)
+
+	board_manager._clear_highlights()
+	board_manager._restore_dimmed_pieces()
+
+	var error_message := ""
+	if highlight_parent.get_child_count() != 0:
+		error_message = "queued highlight visuals remained attached for the current frame"
+	elif not board_manager.highlight_nodes.is_empty() or not board_manager.dim_border_nodes.is_empty():
+		error_message = "highlight tracking retained stale entries"
+
+	highlight_parent.free()
+	board_manager.free()
+	return error_message
+
+func _test_board_safely_clears_queued_selected_piece() -> String:
+	var BoardManagerScript = load("res://scripts/board/BoardManager.gd")
+	var PieceScript = load("res://scripts/piece/Piece.gd")
+	var board_manager = BoardManagerScript.new()
+	var stale_piece = PieceScript.new()
+	board_manager.selected_piece = stale_piece
+	stale_piece.queue_free()
+
+	var error_message := ""
+	if board_manager._has_valid_selected_piece():
+		error_message = "queued selected piece remained selectable"
+	elif board_manager.selected_piece != null:
+		error_message = "queued selected piece reference was not cleared"
+
+	board_manager.free()
+	return error_message
+
+func _test_board_prunes_queued_pieces_before_highlighting() -> String:
+	var BoardManagerScript = load("res://scripts/board/BoardManager.gd")
+	var PieceScript = load("res://scripts/piece/Piece.gd")
+	var board_manager = BoardManagerScript.new()
+	var stale_cell := Vector2i(1, 0)
+	var stale_piece = PieceScript.new()
+	board_manager.board[stale_cell] = stale_piece
+	stale_piece.queue_free()
+
+	board_manager._prune_invalid_board_pieces()
+
+	var error_message := ""
+	if board_manager.board.has(stale_cell):
+		error_message = "queued board piece remained available to move highlighting"
 
 	board_manager.free()
 	return error_message
@@ -790,6 +853,28 @@ func _test_big_swamp_pulse_rejects_changed_target_identity() -> String:
 		error_message = "candidate survived after target piece identity changed"
 	_free_test_board(board)
 	return error_message
+
+func _test_trap_detector_ignores_queued_board_pieces() -> String:
+	var Detector = load("res://scripts/traps/TrapLineDetector.gd")
+	var board: Dictionary = {}
+	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(0, 0))
+	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(1, 0))
+	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(2, 0))
+	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(4, 0))
+	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(3, 3))
+
+	var freed_cell := Vector2i(2, 0)
+	board[freed_cell].queue_free()
+
+	var candidates: Array = Detector.detect_trap_lines(board, [Vector2i(1, 1)])
+	var can_move_from_freed_piece: bool = Detector.can_move_to(board, freed_cell, Vector2i(2, 1))
+	_free_test_board(board)
+
+	if not candidates.is_empty():
+		return "queued piece remained eligible for a trap candidate"
+	if can_move_from_freed_piece:
+		return "queued piece remained eligible as an attacker"
+	return ""
 
 func _test_big_swamp_pulse_detects_almost_line() -> String:
 	var GameBoardScript = load("res://scripts/board/GameBoard.gd")

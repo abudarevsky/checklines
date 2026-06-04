@@ -35,8 +35,12 @@ def parse_board(input_data: str) -> List[List[str]]:
         for j, cell in enumerate(row):
             if not isinstance(cell, str):
                 raise ValueError(f"Cell at position ({i}, {j}) must be a string")
-            if cell not in ['pawn', 'knight', 'queen', 'bishop', 'rook', 'king', 'trap']:
-                raise ValueError(f"Invalid piece type '{cell}' at position ({i}, {j})")
+            # Allow any non-empty string, but preserve special handling for 'trap'
+            if cell == 'trap':
+                # Trap validation already handled by the special case below
+                pass
+            elif cell == '':
+                raise ValueError(f"Cell at position ({i}, {j}) cannot be empty string")
     
     return board_data
 

@@ -807,6 +807,7 @@ func _is_grid_in_bounds(grid_pos: Vector2i) -> bool:
 	return grid_pos.x >= 0 and grid_pos.x < board_size and grid_pos.y >= 0 and grid_pos.y < board_size
 
 func _handle_grid_click(grid_pos: Vector2i):
+	_prune_invalid_board_pieces()
 	if board.has(grid_pos):
 		handle_occupied_cell_click(grid_pos)
 	elif is_trap(grid_pos):
@@ -815,12 +816,15 @@ func _handle_grid_click(grid_pos: Vector2i):
 		handle_empty_cell_click(grid_pos)
 
 func handle_occupied_cell_click(grid_pos: Vector2i):
-	if selected_piece:
+	if _has_valid_selected_piece():
 		var captures = selected_piece.get_legal_captures(board)
 		if grid_pos in captures:
 			move_piece(selected_piece, grid_pos)
 			return
-	
+	if not board.has(grid_pos):
+		handle_empty_cell_click(grid_pos)
+		return
+
 	_on_piece_clicked(board[grid_pos])
 
 func _on_piece_clicked(piece):
@@ -831,7 +835,7 @@ func _on_piece_clicked(piece):
 	select_piece(piece)
 
 func handle_empty_cell_click(grid_pos: Vector2i):
-	if selected_piece:
+	if _has_valid_selected_piece():
 		var moves = selected_piece.get_legal_moves(board)
 		if grid_pos in moves:
 			move_piece(selected_piece, grid_pos)
@@ -840,7 +844,7 @@ func handle_empty_cell_click(grid_pos: Vector2i):
 	deselect_trap()
 
 func handle_trap_cell_click(grid_pos: Vector2i):
-	if selected_piece:
+	if _has_valid_selected_piece():
 		var moves = selected_piece.get_legal_moves(board)
 		if grid_pos in moves:
 			move_piece(selected_piece, grid_pos)
@@ -850,6 +854,9 @@ func handle_trap_cell_click(grid_pos: Vector2i):
 func select_piece(piece):
 	deselect_trap()
 	deselect_piece()
+	_prune_invalid_board_pieces()
+	if not _is_live_piece(piece):
+		return
 	selected_piece = piece
 	piece.set_selected(true)
 	_animate_border_selection(piece.piece_color)
@@ -869,8 +876,8 @@ func select_piece(piece):
 	piece_selected.emit(piece)
 
 func deselect_piece():
-	var had_selected := selected_piece != null
-	if selected_piece:
+	var had_selected := _is_live_piece(selected_piece)
+	if had_selected:
 		selected_piece.set_selected(false)
 		_shrink_all_borders()
 	selected_piece = null
@@ -880,6 +887,25 @@ func deselect_piece():
 	_clear_highlights()
 	if had_selected:
 		piece_deselected.emit()
+
+func _has_valid_selected_piece() -> bool:
+	_prune_invalid_board_pieces()
+	if _is_live_piece(selected_piece):
+		return true
+	selected_piece = null
+	highlighted_cells.clear()
+	highlighted_attacks.clear()
+	_restore_dimmed_pieces()
+	_clear_highlights()
+	return false
+
+func _prune_invalid_board_pieces():
+	for cell in board.keys():
+		if not _is_live_piece(board[cell]):
+			board.erase(cell)
+
+func _is_live_piece(piece) -> bool:
+	return piece != null and is_instance_valid(piece) and not piece.is_queued_for_deletion()
 
 func select_trap(grid_pos: Vector2i):
 	if selected_trap_cell == grid_pos:
@@ -989,15 +1015,21 @@ func _restore_dimmed_pieces():
 			entry.piece.modulate.a = entry.original_a
 	dimmed_pieces.clear()
 	for node in dim_border_nodes:
-		if is_instance_valid(node):
-			node.queue_free()
+		_detach_and_queue_free(node)
 	dim_border_nodes.clear()
 
 func _clear_highlights():
 	for node in highlight_nodes:
-		if is_instance_valid(node):
-			node.queue_free()
+		_detach_and_queue_free(node)
 	highlight_nodes.clear()
+
+func _detach_and_queue_free(node):
+	if not is_instance_valid(node):
+		return
+	var parent: Node = node.get_parent()
+	if parent != null:
+		parent.remove_child(node)
+	node.queue_free()
 
 func move_piece(piece, target: Vector2i):
 	var from_pos: Vector2i = piece.grid_position

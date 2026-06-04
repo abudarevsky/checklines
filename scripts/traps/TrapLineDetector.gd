@@ -28,6 +28,7 @@ static func find_first_trap_candidate(board: Dictionary, traps: Array, max_targe
 	return candidates[0]
 
 static func detect_trap_lines(board: Dictionary, traps: Array, max_target_distance_cells: int = 1, blocked_trap_cells: Array = []) -> Array[Dictionary]:
+	board = _valid_piece_board(board)
 	var found: Array[Dictionary] = []
 	var attack_map := _build_attack_map(board)
 	var blocked_cells: Array = blocked_trap_cells if not blocked_trap_cells.is_empty() else traps
@@ -64,6 +65,7 @@ static func is_candidate_still_present(board: Dictionary, traps: Array, candidat
 	return false
 
 static func is_candidate_line_completed(board: Dictionary, candidate_line_cells: Array) -> bool:
+	board = _valid_piece_board(board)
 	var pieces: Array = []
 	for cell in candidate_line_cells:
 		if not board.has(cell):
@@ -175,7 +177,7 @@ static func _build_attack_map(board: Dictionary) -> Dictionary:
 		for y in range(GameManager.BOARD_SIZE):
 			for x in range(GameManager.BOARD_SIZE):
 				var target := Vector2i(x, y)
-				if can_move_to(board, source_cell, target):
+				if _can_move_to_valid_board(board, source_cell, target):
 					if not attack_map.has(target):
 						attack_map[target] = []
 					attack_map[target].append(source_cell)
@@ -415,11 +417,14 @@ static func _pieces_match_mode(pieces: Array, mode: String, value) -> bool:
 
 static func _first_attacker(board: Dictionary, matching_positions: Array[Vector2i], target: Vector2i) -> Vector2i:
 	for source in matching_positions:
-		if can_move_to(board, source, target):
+		if _can_move_to_valid_board(board, source, target):
 			return source
 	return Vector2i(-1, -1)
 
 static func can_move_to(board: Dictionary, source: Vector2i, target: Vector2i) -> bool:
+	return _can_move_to_valid_board(_valid_piece_board(board), source, target)
+
+static func _can_move_to_valid_board(board: Dictionary, source: Vector2i, target: Vector2i) -> bool:
 	if not _is_valid_pos(source) or not _is_valid_pos(target):
 		return false
 	if not board.has(source):
@@ -511,3 +516,11 @@ static func _same_cells(a: Array, b: Array) -> bool:
 		if a[i] != b[i]:
 			return false
 	return true
+
+static func _valid_piece_board(board: Dictionary) -> Dictionary:
+	var valid_board: Dictionary = {}
+	for cell in board:
+		var piece = board[cell]
+		if piece != null and is_instance_valid(piece) and not piece.is_queued_for_deletion():
+			valid_board[cell] = piece
+	return valid_board
