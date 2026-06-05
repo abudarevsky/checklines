@@ -11,6 +11,7 @@ const SPAWN_PIECE_REVEAL_DURATION: float = 0.18
 
 var is_selected: bool = false
 var selection_tween: Tween
+var spawn_reveal_tween: Tween
 var base_sprite_position: Vector2 = Vector2.ZERO
 var base_selection_indicator_position: Vector2 = Vector2.ZERO
 
@@ -65,8 +66,11 @@ func play_spawn_notice():
 	swirl.z_index = 2
 	add_child(swirl)
 	swirl.setup(piece_size, target_modulate)
-	var reveal_tween := create_tween()
-	reveal_tween.tween_property(sprite, "modulate:a", target_modulate.a, SPAWN_PIECE_REVEAL_DURATION).set_delay(SPAWN_PIECE_REVEAL_DELAY).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if spawn_reveal_tween:
+		spawn_reveal_tween.kill()
+	spawn_reveal_tween = create_tween()
+	spawn_reveal_tween.tween_property(sprite, "modulate:a", target_modulate.a, SPAWN_PIECE_REVEAL_DURATION).set_delay(SPAWN_PIECE_REVEAL_DELAY).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	spawn_reveal_tween.finished.connect(func(): spawn_reveal_tween = null)
 
 func set_selected(selected: bool):
 	is_selected = selected
@@ -90,6 +94,19 @@ func _stop_selection_animation():
 		selection_tween.kill()
 		selection_tween = null
 	_set_visual_jump_offset(0.0)
+
+func stop_gameplay_animations():
+	_stop_selection_animation()
+	if spawn_reveal_tween:
+		spawn_reveal_tween.kill()
+		spawn_reveal_tween = null
+	if sprite:
+		var color := sprite.modulate
+		color.a = 1.0
+		sprite.modulate = color
+	for child in get_children():
+		if child is PieceSpawnSwirl:
+			child.queue_free()
 
 func _set_visual_jump_offset(offset_y: float):
 	if sprite:
@@ -219,6 +236,51 @@ func _get_pawn_captures(board: Dictionary):
 func can_attack(target: Vector2i, board: Dictionary) -> bool:
 	var captures = get_legal_captures(board)
 	return target in captures
+
+func can_attempt_king_attack(target: Vector2i, board: Dictionary) -> bool:
+	if not board.has(target):
+		return false
+	var other_piece = board[target]
+	if other_piece == null or other_piece.piece_color == piece_color:
+		return false
+	if other_piece.piece_type != GameManager.PieceType.KING:
+		return false
+	return _can_reach_attack_target(target, board)
+
+func get_king_attack_attempt_targets(board: Dictionary) -> Array:
+	var targets: Array = []
+	for cell in board.keys():
+		var target_cell: Vector2i = cell
+		if can_attempt_king_attack(target_cell, board):
+			targets.append(target_cell)
+	return targets
+
+func _can_reach_attack_target(target: Vector2i, board: Dictionary) -> bool:
+	match piece_type:
+		GameManager.PieceType.PAWN:
+			var forward = _get_pawn_forward_direction()
+			var left = Vector2i(-forward.y, forward.x)
+			var right = Vector2i(forward.y, -forward.x)
+			return target == grid_position + forward + left or target == grid_position + forward + right
+		GameManager.PieceType.KNIGHT:
+			var knight_delta := target - grid_position
+			return abs(knight_delta.x) * abs(knight_delta.y) == 2 and abs(knight_delta.x) + abs(knight_delta.y) == 3
+		GameManager.PieceType.KING:
+			var king_delta := target - grid_position
+			return maxi(abs(king_delta.x), abs(king_delta.y)) == 1
+		_:
+			return _can_sliding_piece_reach_attack_target(target, board, _get_attack_directions())
+
+func _can_sliding_piece_reach_attack_target(target: Vector2i, board: Dictionary, directions: Array) -> bool:
+	for dir in directions:
+		var current: Vector2i = grid_position + dir
+		while _is_in_bounds(current):
+			if current == target:
+				return true
+			if board.has(current):
+				break
+			current += dir
+	return false
 
 func _get_sliding_moves(board: Dictionary, directions):
 	var moves = []

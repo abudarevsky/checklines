@@ -29,4 +29,4 @@ func get_text() -> String:
 	var lines := PackedStringArray()
 	for entry in entries:
 		lines.append(str(entry.get("text", "")))
-	return "\n".join(lines)
+	return " * ".join(lines)

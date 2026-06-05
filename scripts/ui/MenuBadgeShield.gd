@@ -19,6 +19,11 @@ var progress_level: int = 0:
 		progress_level = maxi(value, 0)
 		queue_redraw()
 
+var survival_stars: int = 0:
+	set(value):
+		survival_stars = maxi(value, 0)
+		queue_redraw()
+
 func _draw():
 	match kind:
 		Kind.PROGRESSION:
@@ -42,13 +47,30 @@ func _draw_progression_band():
 		Vector2(size.x * 0.10, size.y * 0.76)
 	])
 	_draw_glass_shape(points)
-	if progress_level > 0:
-		var font := ThemeDB.fallback_font
-		var font_size := int(size.y * 0.42)
-		var text := str(progress_level)
-		var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
-		var text_position := Vector2((size.x - text_size.x) * 0.5, size.y * 0.60)
-		draw_string(font, text_position, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(1, 1, 1, 0.96))
+	if survival_stars > 0:
+		_draw_survival_stars()
+
+func _draw_survival_stars():
+	var star_count := maxi(survival_stars, 1)
+	var max_row_width := size.x * 0.72
+	var radius := minf(size.y * 0.065, max_row_width / maxf(float(star_count) * 2.15, 1.0))
+	radius = maxf(radius, size.y * 0.025)
+	var gap := radius * 2.15
+	if star_count > 1:
+		gap = minf(gap, max_row_width / float(star_count - 1))
+	var row_width := gap * float(star_count - 1)
+	var center := Vector2((size.x - row_width) * 0.5, size.y * 0.52)
+	for i in range(star_count):
+		draw_colored_polygon(_get_star_points(center + Vector2(gap * i, 0.0), radius), Color(0.62, 0.95, 1.0, 0.96))
+
+func _get_star_points(center: Vector2, outer_radius: float) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	var inner_radius := outer_radius * 0.44
+	for i in range(10):
+		var radius := outer_radius if i % 2 == 0 else inner_radius
+		var angle := -PI * 0.5 + float(i) * PI / 5.0
+		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	return points
 
 func _draw_maltese_cross():
 	var points := PackedVector2Array([

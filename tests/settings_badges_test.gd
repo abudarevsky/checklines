@@ -9,6 +9,11 @@ func _initialize():
 	_run_test("win replaces tactical badge value with latest session", _test_win_replaces_tactical_badge_value, failures)
 	_run_test("legacy best clean turn stats migrate to last won value", _test_legacy_best_clean_turn_stats_migrate_to_last_won_value, failures)
 	_run_test("kingdom start level advances and resets", _test_kingdom_start_level_advances_and_resets, failures)
+	_run_test("completed level stars never decrease", _test_completed_level_stars_never_decrease, failures)
+	_run_test("completed level progress normalizes from saved settings", _test_completed_level_progress_normalizes_from_saved_settings, failures)
+	_run_test("start level repairs missing completed progress", _test_start_level_repairs_missing_completed_progress, failures)
+	_run_test("survival rounds persist and do not decrease", _test_survival_rounds_persist_and_do_not_decrease, failures)
+	_run_test("reset keeps badge and survival progress", _test_reset_keeps_badge_and_survival_progress, failures)
 
 	if failures.is_empty():
 		print("All settings badge tests passed")
@@ -112,6 +117,94 @@ func _test_kingdom_start_level_advances_and_resets() -> String:
 		settings.kingdom_start_levels.erase("neon")
 		if settings.get_kingdom_start_level_index("neon") != 0:
 			error_message = "expected reset to clear start level"
+
+	settings.free()
+	return error_message
+
+func _test_completed_level_stars_never_decrease() -> String:
+	var settings = SettingsScript.new()
+	settings.kingdom_progress_levels = {"neon": 3}
+	settings.record_kingdom_completed_level("neon", 1)
+
+	var error_message := ""
+	if settings.get_kingdom_max_completed_level("neon") != 3:
+		error_message = "lower completion removed permanent progression stars"
+	elif settings.get_kingdom_progress_badge_tier("neon") != 3:
+		error_message = "lower completion reduced the progression badge tier"
+
+	settings.free()
+	return error_message
+
+func _test_completed_level_progress_normalizes_from_saved_settings() -> String:
+	var settings = SettingsScript.new()
+	var normalized: Dictionary = settings._normalize_kingdom_progress_levels({
+		"neon": 4,
+		"": 3
+	})
+	settings.kingdom_progress_levels = normalized
+
+	var error_message := ""
+	if not normalized.has("neon"):
+		error_message = "saved completed level was not normalized"
+	elif settings.get_kingdom_max_completed_level("neon") != 4:
+		error_message = "saved completed level did not survive normalization"
+	elif settings.get_kingdom_progress_badge_tier("neon") != 3:
+		error_message = "saved Level 4 progress should still render the gold progression badge"
+	elif normalized.has(""):
+		error_message = "empty kingdom id was preserved during normalization"
+
+	settings.free()
+	return error_message
+
+func _test_start_level_repairs_missing_completed_progress() -> String:
+	var settings = SettingsScript.new()
+	settings.kingdom_progress_levels = {}
+	settings.kingdom_start_levels = {"default": 3, "neon": 0}
+	settings._reconcile_completed_levels_with_start_levels()
+
+	var error_message := ""
+	if settings.get_kingdom_start_level_index("default") != 3:
+		error_message = "expected default kingdom to keep Level 4 start"
+	elif settings.get_kingdom_max_completed_level("default") != 3:
+		error_message = "Level 4 start did not repair missing completed progress"
+	elif settings.get_kingdom_progress_badge_tier("default") != 3:
+		error_message = "repaired Level 4 start did not render the gold progression badge"
+	elif settings.get_kingdom_max_completed_level("neon") != 0:
+		error_message = "Level 1 start should not create neon progress"
+
+	settings.free()
+	return error_message
+
+func _test_survival_rounds_persist_and_do_not_decrease() -> String:
+	var settings = SettingsScript.new()
+	settings.kingdom_survival_rounds = {"neon": 2}
+
+	var error_message := ""
+	if settings._record_kingdom_survival_rounds_in_memory("neon", 1):
+		error_message = "lower survival round count replaced saved progress"
+	elif not settings._record_kingdom_survival_rounds_in_memory("neon", 3):
+		error_message = "higher survival round count was not recorded"
+	elif settings.get_kingdom_survival_rounds("neon") != 3:
+		error_message = "survival round count did not persist in memory"
+
+	settings.free()
+	return error_message
+
+func _test_reset_keeps_badge_and_survival_progress() -> String:
+	var settings = SettingsScript.new()
+	settings.kingdom_start_levels = {"neon": 3}
+	settings.kingdom_progress_levels = {"neon": 4}
+	settings.kingdom_survival_rounds = {"neon": 2}
+
+	settings.kingdom_start_levels.erase("neon")
+
+	var error_message := ""
+	if settings.get_kingdom_start_level_index("neon") != 0:
+		error_message = "reset did not clear start level"
+	elif settings.get_kingdom_max_completed_level("neon") != 4:
+		error_message = "reset cleared completed badge progress"
+	elif settings.get_kingdom_survival_rounds("neon") != 2:
+		error_message = "reset cleared survival progress"
 
 	settings.free()
 	return error_message

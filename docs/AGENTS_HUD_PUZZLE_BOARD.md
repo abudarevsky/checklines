@@ -16,6 +16,7 @@ Puzzle board rules:
 - record the maximum completed progression level per kingdom only when that level is actually completed
 - a new kingdom run starts at the highest reached next level, capped at Level 4: completing Level 1 restarts future runs at Level 2, completing Level 2 at Level 3, and completing Level 3 or Level 4 at Level 4
 - the pause Reset action clears only the kingdom start level back to Level 1; it should not erase max-completed badge progress
+- completing a survival loop records a persistent per-kingdom survival star on the progression badge; ordinary completed levels change the badge tier but do not draw stars; pause Reset must not erase survival stars, badge progress, tactical badge state, or best score
 - the current score value should render as individual bordered digit slots, like a mechanical counter, with at least five zero-padded digits while preserving visible spacing between digits
 - the best-score HUD uses a compact three-level pedestal icon plus the best score only; do not append a `| L $number` level marker or show a `"Best"` text prefix in the score row
 - completing Level 4 wins the active kingdom run after the required post-turn spawn validation succeeds
@@ -48,6 +49,7 @@ Pause dialog rules:
 - Rewind mode shows its `"Rewind mode"` title and Close button in the HUD score row, shows only the scrollable history list inside the puzzle frame, disables board input, and stays active until Close is pressed
 - session history stores the last `GameManager.SESSION_HISTORY_DEPTH` score/HUD events with board snapshots
 - selecting a history message restores the board snapshot for that event, such as a completed line before removal or a sacrificed piece before it disappears
+- trap-capture history identifies the captured piece with a chess icon and the candidate line type, such as `"Trapped ♙ from Color Line"`
 - closing rewind mode restores the live board and normal HUD state, then re-enables input when normal play is available
 
 Message display rules:
@@ -63,6 +65,7 @@ Message display rules:
 - trap disappearance messages are localized and use the trap name, such as `Big Swamp`
 - trap disappearance cloud messages use `assets/sprites/big_swamp.png` fitted inside the bubble, overlay the swallowed piece inside a dark coffin shape that only partially overlaps the swamp art, and render short localized splash/boo copy above the bottom edge with the HUD panel background, HUD text colors, shared HUD message font, and 1.2x the regular trap-cloud font size
 - while Big Swamp is pulsing/capturing, all occupied pieces in the affected candidate line should have a temporary fog overlay that clears when the pulse is canceled or finished; the captured target remains visible enough to tremble during the pulse and does a short trembling fade when swallowed
+- an enemy king that is reachable by attack geometry should appear as an attack target with a small crossed/blocked marker rather than the attacker's piece miniature; clicking it reuses the Big Swamp beam shader as a one-second king rebuff light from king to attacker, trembles the attacker, and shows `"The king is untouchable!"` as a normal HUD score event with `-2`
 - selecting a trap shows the trap name and description in the move-hint panel
 - trap behavior and trap visual definitions come from the common trap library; themes reference trap type ids
 - game board screen frames use `ThemeData.gameplay_frame_color`; neon should use cyan frames with cyan glow
@@ -70,9 +73,10 @@ Message display rules:
 - HUD messages live inside the score row while displayed
 - HUD messages should use an opaque score-row-colored backing panel, not transparent text over the scores
 - HUD messages wipe in from the left and wipe out to the right
-- score events produced by the same move/turn should be combined into one HUD message, separated by bullets, instead of displayed as sequential HUD messages
-- HUD messages should appear immediately and keep a two-line recent-message log; if a second score event arrives within two seconds, show it below the previous message instead of delaying display
+- score events produced by the same move/turn should be combined into one HUD message, separated by `*`, instead of displayed as sequential HUD messages
+- HUD messages should appear immediately and keep recent messages on one line joined by `*`; do not stack recent HUD messages vertically
 - score HUD messages are presentation only; board input should resume after board resolution and should not wait for score HUD exposure to finish
+- game-over dialogs stop HUD message motion and gameplay visual effects before becoming visible; no board, trap, puzzle, survival, rewind, spawn, or selection animation should continue under the game-over dialog
 - in-puzzle level/start messages should appear on the reusable `FlyingBanner` cloth banner across the puzzle image, using the Cormorant Garamond banner font from `assets/fonts/Cormorant_Garamond` through `ThemeData`, not as bare text over artwork
 - while the message wipes in, the score and best text slide out as if pushed away, then slide back when the message exits
 - message and score animations should be clipped within the score row frame

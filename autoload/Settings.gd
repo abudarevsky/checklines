@@ -10,6 +10,7 @@ signal settings_changed
 @export var language_code: String = "en"
 @export var kingdom_progress_levels: Dictionary = {}
 @export var kingdom_start_levels: Dictionary = {}
+@export var kingdom_survival_rounds: Dictionary = {}
 @export var kingdom_clean_turn_stats: Dictionary = {}
 
 const SETTINGS_FILE := "user://settings.cfg"
@@ -32,6 +33,7 @@ func save_settings():
 		"progress": {
 			"kingdom_levels": kingdom_progress_levels,
 			"kingdom_start_levels": kingdom_start_levels,
+			"kingdom_survival_rounds": kingdom_survival_rounds,
 			"kingdom_clean_turn_stats": kingdom_clean_turn_stats,
 		},
 	}, SETTINGS_FILE)
@@ -50,12 +52,15 @@ func load_settings():
 		language_code = _normalize_language_code(str(config.get_value("settings", "language_code", DEFAULT_LANGUAGE_CODE)))
 		kingdom_progress_levels = _normalize_kingdom_progress_levels(config.get_value("progress", "kingdom_levels", {}))
 		kingdom_start_levels = _normalize_kingdom_start_levels(config.get_value("progress", "kingdom_start_levels", {}))
+		kingdom_survival_rounds = _normalize_kingdom_survival_rounds(config.get_value("progress", "kingdom_survival_rounds", {}))
+		_reconcile_completed_levels_with_start_levels()
 		kingdom_clean_turn_stats = _normalize_kingdom_clean_turn_stats(config.get_value("progress", "kingdom_clean_turn_stats", {}))
 		settings_changed.emit()
 	else:
 			language_code = _get_system_language_code()
 			kingdom_progress_levels = {}
 			kingdom_start_levels = {}
+			kingdom_survival_rounds = {}
 			kingdom_clean_turn_stats = {}
 
 func toggle_sound():
@@ -143,6 +148,24 @@ func record_kingdom_completed_level(kingdom_id: String, completed_level_number: 
 func get_kingdom_progress_badge_tier(kingdom_id: String) -> int:
 	return clampi(get_kingdom_max_completed_level(kingdom_id), 0, 3)
 
+func get_kingdom_survival_rounds(kingdom_id: String) -> int:
+	return maxi(int(kingdom_survival_rounds.get(kingdom_id, 0)), 0)
+
+func record_kingdom_survival_rounds(kingdom_id: String, survived_round_count: int):
+	if not _record_kingdom_survival_rounds_in_memory(kingdom_id, survived_round_count):
+		return
+	save_settings()
+	settings_changed.emit()
+
+func _record_kingdom_survival_rounds_in_memory(kingdom_id: String, survived_round_count: int) -> bool:
+	if kingdom_id.is_empty():
+		return false
+	var normalized_rounds := maxi(survived_round_count, 0)
+	if normalized_rounds <= get_kingdom_survival_rounds(kingdom_id):
+		return false
+	kingdom_survival_rounds[kingdom_id] = normalized_rounds
+	return true
+
 func record_kingdom_clean_turn_session(kingdom_id: String, clean_turns: int, total_turns: int, won_session: bool):
 	if not _record_kingdom_clean_turn_session_in_memory(kingdom_id, clean_turns, total_turns, won_session):
 		return
@@ -213,7 +236,7 @@ func _normalize_kingdom_progress_levels(value: Variant) -> Dictionary:
 		var kingdom_id := str(raw_key)
 		if kingdom_id.is_empty():
 			continue
-			normalized[kingdom_id] = maxi(int(value[raw_key]), 0)
+		normalized[kingdom_id] = maxi(int(value[raw_key]), 0)
 	return normalized
 
 func _normalize_kingdom_start_levels(value: Variant) -> Dictionary:
@@ -227,6 +250,28 @@ func _normalize_kingdom_start_levels(value: Variant) -> Dictionary:
 			continue
 		normalized[kingdom_id] = clampi(int(value[raw_key]), 0, 3)
 	return normalized
+
+func _normalize_kingdom_survival_rounds(value: Variant) -> Dictionary:
+	var normalized: Dictionary = {}
+	if value is not Dictionary:
+		return normalized
+
+	for raw_key in value.keys():
+		var kingdom_id := str(raw_key)
+		if kingdom_id.is_empty():
+			continue
+		normalized[kingdom_id] = maxi(int(value[raw_key]), 0)
+	return normalized
+
+func _reconcile_completed_levels_with_start_levels():
+	for kingdom_id in kingdom_start_levels.keys():
+		var start_level_index := int(kingdom_start_levels[kingdom_id])
+		if start_level_index <= 0:
+			continue
+		kingdom_progress_levels[kingdom_id] = maxi(
+			get_kingdom_max_completed_level(kingdom_id),
+			start_level_index
+		)
 
 func _normalize_kingdom_clean_turn_stats(value: Variant) -> Dictionary:
 	var normalized: Dictionary = {}

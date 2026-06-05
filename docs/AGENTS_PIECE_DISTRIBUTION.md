@@ -24,4 +24,4 @@ Spawn logic should prefer colors and piece types that are still legal under thes
 
 Normal player moves always attempt the next 3-piece spawn after resolving move-created clears. If fewer than 3 playable empty cells remain before the next normal spawn, the game ends.
 
-Survival mode starts after the Level 4 win dialog. Each survival round restarts the Level 4 puzzle, adds one more trap than the previous round, and keeps looping until fewer than 3 playable empty cells remain before the next normal spawn.
+Survival mode starts after the Level 4 win dialog. Each survival round clears the board, starts with 3 pieces, uses the trap-rotation board fog effect, and adds one trap per refreshed survival board on top of the Level 4 base trap count. The `"Kingdom survivor! *"` banner repeats `*` once per refreshed survival board. Each completed survival loop records persistent per-kingdom survival progress. Survival keeps looping until fewer than 3 playable empty cells remain before the next normal spawn.

@@ -39,6 +39,7 @@ const PIECE_VALUES: Dictionary = {
 	PieceType.KING: 10
 }
 const LEVEL_COMPLETE_SCORE: int = 500
+const KING_ATTACK_ATTEMPT_PENALTY: int = 2
 const GAME_RESULT_LOSS: String = "loss"
 const GAME_RESULT_WIN: String = "win"
 const SESSION_HISTORY_DEPTH: int = 5
@@ -140,6 +141,12 @@ func build_trap_disappearance_event(piece_type: int, trap_name: String) -> Dicti
 		"message": message,
 		"value": -sacrifice_cost,
 		"show_value": false
+	}
+
+func build_king_attack_attempt_event() -> Dictionary:
+	return {
+		"message": _t("king_untouchable"),
+		"value": -KING_ATTACK_ATTEMPT_PENALTY
 	}
 
 func build_level_complete_event(level_number: int = 0) -> Dictionary:
@@ -269,6 +276,8 @@ func _english_text(key: String) -> String:
 			return "Level complete"
 		"trap_disappeared":
 			return "Trapped by {trap} -{cost} :("
+		"king_untouchable":
+			return "The king is untouchable!"
 		"sacrifice":
 			return "{piece} Sacrifice"
 		"piece_pawn":

@@ -29,6 +29,8 @@ func _initialize():
 	_run_test("board detaches stale highlights immediately", _test_board_detaches_stale_highlights_immediately, failures)
 	_run_test("board safely clears a queued selected piece", _test_board_safely_clears_queued_selected_piece, failures)
 	_run_test("board prunes queued pieces before highlighting", _test_board_prunes_queued_pieces_before_highlighting, failures)
+	_run_test("board emits king attack attempt instead of selecting king", _test_board_emits_king_attack_attempt, failures)
+	_run_test("piece exposes king defense targets for attack highlights", _test_piece_exposes_king_defense_targets, failures)
 	_run_test("trap detector rejects trap as fifth line cell", _test_trap_detector_rejects_trap_as_fifth_line_cell, failures)
 	_run_test("trap detector finds attackable wrong-cell completion", _test_trap_detector_finds_attackable_wrong_cell, failures)
 	_run_test("trap detector finds attackable empty-cell completion", _test_trap_detector_finds_attackable_empty_cell, failures)
@@ -53,6 +55,8 @@ func _initialize():
 	_run_test("Big Swamp pulse uses trap detector target", _test_big_swamp_pulse_uses_trap_detector_target, failures)
 	_run_test("Big Swamp pulse rejects changed target identity", _test_big_swamp_pulse_rejects_changed_target_identity, failures)
 	_run_test("trap detector ignores queued board pieces", _test_trap_detector_ignores_queued_board_pieces, failures)
+	_run_test("survival traps increase once per refreshed board", _test_survival_traps_increase_per_refresh, failures)
+	_run_test("trap history identifies captured piece and line", _test_trap_history_identifies_piece_and_line, failures)
 
 	if failures.is_empty():
 		print("All trap tests passed")
@@ -143,6 +147,76 @@ func _test_board_selects_trap_details() -> String:
 		error_message = "selected trap carried wrong description"
 
 	board_manager.free()
+	return error_message
+
+func _test_board_emits_king_attack_attempt() -> String:
+	var BoardManagerScript = load("res://scripts/board/BoardManager.gd")
+	var PieceScript = load("res://scripts/piece/Piece.gd")
+	var board_manager = BoardManagerScript.new()
+	var attacker = PieceScript.new()
+	var king = PieceScript.new()
+	attacker.setup(GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(0, 0))
+	king.setup(GameManager.PieceType.KING, GameManager.PieceColor.BLUE, Vector2i(0, 3))
+	board_manager.board = {
+		attacker.grid_position: attacker,
+		king.grid_position: king
+	}
+	board_manager.selected_piece = attacker
+	var attempts: Array[Dictionary] = []
+	board_manager.king_attack_attempted.connect(func(attempt_attacker, attempt_king, king_cell):
+		attempts.append({
+			"attacker": attempt_attacker,
+			"king": attempt_king,
+			"cell": king_cell
+		})
+	)
+
+	board_manager.handle_occupied_cell_click(king.grid_position)
+	var error_message := ""
+	if attempts.size() != 1:
+		error_message = "expected exactly one king attack attempt"
+	elif attempts[0]["attacker"] != attacker:
+		error_message = "wrong attacker in king attack attempt"
+	elif attempts[0]["king"] != king:
+		error_message = "wrong king in king attack attempt"
+	elif attempts[0]["cell"] != king.grid_position:
+		error_message = "wrong king cell in king attack attempt"
+	elif attacker.grid_position != Vector2i(0, 0):
+		error_message = "attacker moved during forbidden king attack"
+	elif board_manager.selected_piece != attacker:
+		error_message = "king attack attempt changed selection"
+
+	attacker.free()
+	king.free()
+	board_manager.free()
+	return error_message
+
+func _test_piece_exposes_king_defense_targets() -> String:
+	var PieceScript = load("res://scripts/piece/Piece.gd")
+	var attacker = PieceScript.new()
+	var enemy_king = PieceScript.new()
+	var friendly_king = PieceScript.new()
+	attacker.setup(GameManager.PieceType.ROOK, GameManager.PieceColor.RED, Vector2i(0, 0))
+	enemy_king.setup(GameManager.PieceType.KING, GameManager.PieceColor.BLUE, Vector2i(0, 3))
+	friendly_king.setup(GameManager.PieceType.KING, GameManager.PieceColor.RED, Vector2i(3, 0))
+	var board: Dictionary = {
+		attacker.grid_position: attacker,
+		enemy_king.grid_position: enemy_king,
+		friendly_king.grid_position: friendly_king
+	}
+	var targets: Array = attacker.get_king_attack_attempt_targets(board)
+	var captures: Array = attacker.get_legal_captures(board)
+	var error_message := ""
+	if not (enemy_king.grid_position in targets):
+		error_message = "enemy king was not exposed as a defense target"
+	elif friendly_king.grid_position in targets:
+		error_message = "friendly king was exposed as a defense target"
+	elif enemy_king.grid_position in captures:
+		error_message = "enemy king became a legal capture"
+
+	attacker.free()
+	enemy_king.free()
+	friendly_king.free()
 	return error_message
 
 func _test_traps_excluded_from_empty_cells() -> String:
@@ -874,6 +948,37 @@ func _test_trap_detector_ignores_queued_board_pieces() -> String:
 		return "queued piece remained eligible for a trap candidate"
 	if can_move_from_freed_piece:
 		return "queued piece remained eligible as an attacker"
+	return ""
+
+func _test_survival_traps_increase_per_refresh() -> String:
+	var GameBoardScript = load("res://scripts/board/GameBoard.gd")
+	var game_board = GameBoardScript.new()
+	game_board.survival_round_index = 1
+	var first_count: int = game_board._get_survival_trap_count()
+	game_board.survival_round_index = 3
+	var third_count: int = game_board._get_survival_trap_count()
+	game_board.free()
+
+	if first_count != 4:
+		return "expected first refreshed survival board to have Level 4 traps plus one"
+	if third_count != 6:
+		return "expected third refreshed survival board to have Level 4 traps plus three"
+	return ""
+
+func _test_trap_history_identifies_piece_and_line() -> String:
+	var GameBoardScript = load("res://scripts/board/GameBoard.gd")
+	var game_board = GameBoardScript.new()
+	var snapshot := {"pieces": [{"cell": Vector2i.ZERO}]}
+	game_board._record_trap_capture_history(
+		GameManager.PieceType.PAWN,
+		{"mode": "color"},
+		snapshot
+	)
+	var entry: Dictionary = game_board.session_event_history.get_entry(0)
+	game_board.free()
+
+	if entry.get("text") != "Trapped ♙ from Color Line":
+		return "unexpected trap history text: %s" % str(entry.get("text"))
 	return ""
 
 func _test_big_swamp_pulse_detects_almost_line() -> String:

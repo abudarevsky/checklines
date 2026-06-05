@@ -24,6 +24,7 @@ func _initialize():
 	_run_test("does not overdraw sacrifice score", _test_sacrifice_event_clamps_to_available_score, failures)
 	_run_test("builds zero-score sacrifice as display-only event", _test_zero_score_sacrifice_event, failures)
 	_run_test("formats trap disappearance event", _test_trap_disappearance_event, failures)
+	_run_test("formats king attack penalty event", _test_king_attack_penalty_event, failures)
 	_run_test("scores level completion", _test_level_complete_event, failures)
 	_run_test("defers best score until session end", _test_best_score_updates_only_on_session_end, failures)
 
@@ -142,6 +143,20 @@ func _test_trap_disappearance_event() -> String:
 		return "expected -7, got %d" % event["value"]
 	if _game_manager().format_scoring_event(event) != "Trapped by Big Swamp -7 :(":
 		return "wrong formatted disappearance event"
+	return ""
+
+func _test_king_attack_penalty_event() -> String:
+	_game_manager().current_score = 1
+	var event: Dictionary = _game_manager().build_king_attack_attempt_event()
+	if event["message"] != "The king is untouchable!":
+		return "wrong king attack message"
+	if event["value"] != -2:
+		return "expected -2, got %d" % event["value"]
+	if _game_manager().format_scoring_event(event) != "The king is untouchable!   −2":
+		return "wrong formatted king attack event"
+	_game_manager().add_scoring_event(event)
+	if _game_manager().current_score != 0:
+		return "expected score to clamp at zero"
 	return ""
 
 func _test_level_complete_event() -> String:

@@ -132,9 +132,11 @@ const MESSAGE_SLIDE_IN_DURATION: float = 0.42
 const MESSAGE_RECENT_WINDOW: float = 2.0
 const MESSAGE_HOLD_DURATION: float = 2.0
 const MESSAGE_SLIDE_OUT_DURATION: float = 0.38
+const HUD_MESSAGE_FONT_SIZE: int = 32
 const REWIND_HUD_SLIDE_IN_DURATION: float = 0.28
 const REWIND_HUD_SLIDE_OUT_DURATION: float = 0.22
 const REWIND_HUD_FONT_SIZE: int = 22
+const REWIND_HISTORY_FONT_SIZE: int = 28
 const PUZZLE_IMAGE_PREVIEW_DURATION: float = 2.0
 const PUZZLE_LEVEL_COMPLETE_HOLD: float = 3.0
 const PUZZLE_IMAGE_FADE_DURATION: float = 0.5
@@ -184,6 +186,7 @@ func _ready():
 	_lock_mobile_orientation()
 	_ensure_survival_blood_overlay()
 	_ensure_rewind_overlay()
+	game_over_title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	apply_theme(_get_theme())
 	_setup_signals()
 	_apply_localized_text()
@@ -316,7 +319,7 @@ func apply_theme(theme: ThemeData):
 	message_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
 	message_label.add_theme_color_override("font_outline_color", theme.hud_outline_color)
 	message_label.add_theme_font_override("font", _build_dialog_font(theme.menu_body_font_path, theme.dialog_font_names, theme.puzzle_message_font_weight))
-	message_label.add_theme_font_size_override("font_size", mini(theme.puzzle_message_font_size, 24))
+	message_label.add_theme_font_size_override("font_size", maxi(theme.puzzle_message_font_size, HUD_MESSAGE_FONT_SIZE))
 	_apply_puzzle_banner_theme(theme)
 	score_frame.add_theme_stylebox_override("panel", _build_gameplay_frame_style(theme))
 	puzzle_frame.add_theme_stylebox_override("panel", _build_gameplay_frame_style(theme))
@@ -519,7 +522,7 @@ func _apply_rewind_overlay_theme(theme: ThemeData):
 
 func _apply_history_button_theme(button: Button, theme: ThemeData, is_selected: bool = false):
 	button.remove_theme_font_override("font")
-	button.add_theme_font_size_override("font_size", 18)
+	button.add_theme_font_size_override("font_size", REWIND_HISTORY_FONT_SIZE)
 	button.add_theme_color_override("font_color", theme.hud_primary_text_color)
 	button.add_theme_color_override("font_hover_color", theme.hud_primary_text_color)
 	button.add_theme_color_override("font_pressed_color", theme.hud_primary_text_color)
@@ -731,6 +734,7 @@ func _setup_signals():
 	board_manager.capture_made.connect(_on_capture_made)
 	board_manager.piece_moved.connect(_on_piece_moved)
 	board_manager.piece_sacrificed.connect(_on_piece_sacrificed)
+	board_manager.king_attack_attempted.connect(_on_king_attack_attempted)
 	GameManager.score_updated.connect(_on_score_updated)
 	GameManager.line_metrics_updated.connect(_on_line_metrics_updated)
 	GameManager.game_over.connect(_on_game_over)
@@ -1276,13 +1280,16 @@ func _start_survival_round():
 	revealed_puzzle_tiles = 0
 	trap_rotations_used_current_level = 0
 	_cancel_big_swamp_pulse(false)
+	board_manager.clear_board()
+	_spawn_initial_pieces()
+	_generate_traps_for_level(current_puzzle_level, _get_survival_trap_count())
+	board_manager.play_board_fog_effect()
 	if survival_blood_overlay != null and survival_blood_overlay.has_method("start"):
 		survival_blood_overlay.start()
 	puzzle_panel.visible = true
 	puzzle_image.texture = _get_puzzle_level_texture(current_puzzle_level)
 	puzzle_image.modulate.a = 1.0
 	_update_line_metrics_ui()
-	_generate_traps_for_level(current_puzzle_level, _get_survival_trap_count())
 	_build_puzzle_tile_order()
 	_clear_puzzle_tiles()
 	_update_layout()
@@ -1463,24 +1470,22 @@ func _expire_big_swamp_pulse():
 	var captured_piece_type: int = int(target_piece.piece_type)
 	var captured_piece_color: int = int(target_piece.piece_color)
 	var trap_history_snapshot: Dictionary = board_manager.build_board_snapshot()
+	board_manager.board.erase(target_cell)
 	await board_manager.animate_big_swamp_capture(trap_cell, target_cell)
-	target_piece = _get_valid_big_swamp_target_piece()
-	if target_piece != null:
-		captured_piece_type = int(target_piece.piece_type)
-		captured_piece_color = int(target_piece.piece_color)
-		board_manager.remove_piece(target_cell)
+	if is_instance_valid(target_piece):
+		target_piece.queue_free()
 		board_manager.finish_big_swamp_pulse_visual()
 		var trap_data: Resource = board_manager.get_trap_data(trap_cell)
 		var trap_name := _get_trap_display_name(trap_data)
 		var trap_message := _build_trap_disappearance_message(captured_piece_type, trap_name)
-		_record_trap_capture_history(captured_piece_type, trap_name, trap_history_snapshot)
+		_record_trap_capture_history(captured_piece_type, big_swamp_pulse_state.candidate, trap_history_snapshot)
 		board_manager.show_trap_message_cloud(trap_cell, trap_message, _get_theme(), captured_piece_type, captured_piece_color)
 		_exclude_spawn_cell_for_turn(target_cell)
 		_spawn_new_pieces(_get_failed_pulse_spawn_count(Settings.theme_id))
 		await get_tree().create_timer(0.2).timeout
 		await _resolve_chain_waves()
 	else:
-		board_manager.finish_big_swamp_pulse_visual()
+		board_manager.cancel_big_swamp_pulse_visual()
 	big_swamp_pulse_state.clear()
 	is_big_swamp_pulse_resolving = false
 	is_processing_move = false
@@ -1684,15 +1689,29 @@ func _record_session_event_history(text: String, snapshot: Dictionary):
 	session_event_history.add(text, snapshot)
 	_refresh_rewind_history_list()
 
-func _record_trap_capture_history(piece_type: int, trap_name: String, snapshot: Dictionary):
-	var trap_event := GameManager.build_trap_disappearance_event(piece_type, trap_name)
-	var text := GameManager.format_scoring_event(trap_event)
-	if text.strip_edges().is_empty():
-		text = _tf("trap_disappeared", {
-			"trap": trap_name,
-			"cost": 0
-		})
+func _record_trap_capture_history(piece_type: int, candidate: Dictionary, snapshot: Dictionary):
+	var line_name := _t("typed_line") if str(candidate.get("mode", "")) == TrapLineDetectorScript.MODE_TYPE else _t("color_line")
+	var text := _tf("trap_history", {
+		"piece": _get_piece_history_icon(piece_type),
+		"line": line_name
+	})
 	_record_session_event_history(text, snapshot)
+
+func _get_piece_history_icon(piece_type: int) -> String:
+	match piece_type:
+		GameManager.PieceType.PAWN:
+			return "♙"
+		GameManager.PieceType.KNIGHT:
+			return "♘"
+		GameManager.PieceType.BISHOP:
+			return "♗"
+		GameManager.PieceType.ROOK:
+			return "♖"
+		GameManager.PieceType.QUEEN:
+			return "♕"
+		GameManager.PieceType.KING:
+			return "♔"
+	return "?"
 
 func _append_hud_message(text: String):
 	var now := Time.get_ticks_msec() / 1000.0
@@ -1809,7 +1828,7 @@ func _refresh_rewind_history_list():
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		if theme != null:
 			empty_label.remove_theme_font_override("font")
-			empty_label.add_theme_font_size_override("font_size", 18)
+			empty_label.add_theme_font_size_override("font_size", REWIND_HISTORY_FONT_SIZE)
 			empty_label.add_theme_color_override("font_color", theme.hud_secondary_text_color)
 		rewind_list.add_child(empty_label)
 		return
@@ -1974,6 +1993,8 @@ func _finish_survival_run():
 func _on_piece_selected(piece):
 	var moves: Array = piece.get_legal_moves(board_manager.board)
 	var captures: Array = piece.get_legal_captures(board_manager.board)
+	if piece.has_method("get_king_attack_attempt_targets"):
+		captures += piece.get_king_attack_attempt_targets(board_manager.board)
 	var piece_name := GameManager.get_piece_type_name(int(piece.piece_type))
 	var move_count := moves.size()
 	var capture_count := captures.size()
@@ -2058,6 +2079,14 @@ func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
 	_queue_scoring_event(trap_event)
 	_resolve_sacrifice_turn(_get_trap_spawn_count(trap_data))
 
+func _on_king_attack_attempted(attacker, _king, king_cell: Vector2i):
+	if is_processing_move:
+		return
+	if attacker != null and is_instance_valid(attacker):
+		board_manager.play_king_attack_rebuff(attacker.grid_position, king_cell)
+	pending_event_snapshot = board_manager.build_board_snapshot()
+	_queue_scoring_event(GameManager.build_king_attack_attempt_event())
+
 func _build_trap_disappearance_message(piece_type: int, trap_name: String) -> String:
 	var sacrifice_cost := mini(GameManager.get_piece_value(piece_type), GameManager.current_score)
 	return _tf("trap_cloud_disappeared", {
@@ -2115,15 +2144,44 @@ func _on_game_over(final_score: int, result: String, achieved_best_score: bool):
 	latest_game_result = result
 	latest_best_score_achieved = achieved_best_score
 	_save_clean_turn_mastery(result)
-	board_manager.set_input_enabled(false)
+	_stop_gameplay_animations_for_game_over()
 	pause_overlay.visible = false
 	game_over_overlay.visible = true
 	_update_game_over_dialog(final_score, result, achieved_best_score)
 	AudioManager.play_sound("game_over")
 
+func _stop_gameplay_animations_for_game_over():
+	is_message_queue_running = false
+	hud_message_generation += 1
+	if message_tween:
+		message_tween.kill()
+		message_tween = null
+	if rewind_hud_tween:
+		rewind_hud_tween.kill()
+		rewind_hud_tween = null
+	if puzzle_effect_tween:
+		puzzle_effect_tween.kill()
+		puzzle_effect_tween = null
+	if puzzle_flying_banner != null:
+		puzzle_flying_banner.stop_banner()
+	message_label.text = ""
+	message_panel.position = base_message_position + Vector2(-_get_message_slide_distance(), 0.0)
+	message_label.position = base_message_position + Vector2(-_get_message_slide_distance(), 0.0)
+	score_hbox.position = base_score_position
+	if rewind_hud_bar != null:
+		rewind_hud_bar.visible = false
+	if rewind_overlay != null:
+		rewind_overlay.visible = false
+	is_rewind_mode = false
+	selected_rewind_history_index = -1
+	if survival_blood_overlay != null and survival_blood_overlay.has_method("stop"):
+		survival_blood_overlay.stop()
+	_cancel_big_swamp_pulse(false)
+	board_manager.stop_gameplay_animations()
+
 func _update_game_over_dialog(final_score: int, result: String, achieved_best_score: bool):
 	if is_final_survival_dialog:
-		game_over_title_label.text = _t("survival_win_title")
+		game_over_title_label.text = _t("survival_fall_title")
 	elif result == GameManager.GAME_RESULT_WIN:
 		game_over_title_label.text = _t("game_won")
 	else:
@@ -2350,6 +2408,7 @@ func _finish_pending_completion_after_successful_spawn() -> bool:
 	if turn_state.pending_survival_round_completion:
 		turn_state.pending_survival_round_completion = false
 		survived_rounds += 1
+		Settings.record_kingdom_survival_rounds(Settings.theme_id, survived_rounds)
 		survival_round_index += 1
 		survival_round_started_this_turn = true
 		await _fade_puzzle_image_out()

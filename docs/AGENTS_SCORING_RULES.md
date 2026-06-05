@@ -11,6 +11,12 @@ Target score sources:
 
 Small negative adjustments may come from sacrificing or capturing valuable pieces.
 
+Attempting to attack an enemy king is a visible invalid attack and costs 2 score:
+
+- HUD text: `"The king is untouchable!"`
+- event value: `-2`
+- score still clamps at zero through the normal score path
+
 Piece value bands:
 
 - common: 2

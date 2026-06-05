@@ -15,6 +15,7 @@ signal trap_deselected
 signal piece_moved(from, to)
 signal capture_made(piece, target, captured_piece_type)
 signal piece_sacrificed(from, to, piece_type)
+signal king_attack_attempted(attacker, king, king_cell)
 
 class BoardRotationFog:
 	extends Node2D
@@ -245,6 +246,10 @@ var active_big_swamp_line_fog: Node2D = null
 var active_big_swamp_target_sprite: Sprite2D = null
 var active_big_swamp_target_alpha: float = 1.0
 var active_big_swamp_target_position: Vector2 = Vector2.ZERO
+var king_rebuff_tween: Tween = null
+var active_king_rebuff_effect: Node2D = null
+var active_king_rebuff_attacker_sprite: Sprite2D = null
+var active_king_rebuff_attacker_position: Vector2 = Vector2.ZERO
 var last_sacrificed_piece_color: int = -1
 var last_sacrifice_snapshot: Dictionary = {}
 var last_capture_snapshot: Dictionary = {}
@@ -286,6 +291,26 @@ func apply_theme(theme):
 	_refresh_trap_visuals()
 	queue_redraw()
 
+func stop_gameplay_animations():
+	set_input_enabled(false)
+	_clear_big_swamp_target_fade(true)
+	_clear_big_swamp_pulse_effect(false)
+	_clear_big_swamp_line_fog(false)
+	_clear_king_rebuff_effect()
+	pulsing_trap_cells.clear()
+	for child in pieces_container.get_children():
+		if child is Piece and child.has_method("stop_gameplay_animations"):
+			child.stop_gameplay_animations()
+	if effects_container != null:
+		for child in effects_container.get_children():
+			child.queue_free()
+	_clear_trap_visuals()
+	if border_tween:
+		border_tween.kill()
+		border_tween = null
+	_reset_border_widths()
+	queue_redraw()
+
 func clear_board():
 	for child in pieces_container.get_children():
 		child.queue_free()
@@ -299,6 +324,7 @@ func clear_board():
 	pulsing_trap_cells.clear()
 	_clear_big_swamp_pulse_effect(false)
 	_clear_big_swamp_line_fog(false)
+	_clear_king_rebuff_effect()
 	selected_trap_cell = Vector2i(-1, -1)
 	last_sacrificed_piece_color = -1
 	_clear_trap_visuals()
@@ -382,7 +408,7 @@ func set_traps_with_rotation(cells: Array, trap_type_id: String = ""):
 	var old_traps := traps.duplicate()
 	var old_trap_type_by_cell := trap_type_by_cell.duplicate()
 	set_traps(cells, trap_type_id)
-	_play_trap_rotation_board_fog_effect()
+	play_board_fog_effect()
 	_play_trap_rotation_reveal_effects()
 	_play_trap_rotation_disappear_effects(old_traps, old_trap_type_by_cell)
 
@@ -441,7 +467,7 @@ func _play_trap_rotation_reveal_effects():
 		if child is TrapVisual:
 			child.play_rotation_reveal()
 
-func _play_trap_rotation_board_fog_effect():
+func play_board_fog_effect():
 	if effects_container == null:
 		return
 	var fog := BoardRotationFog.new()
@@ -595,10 +621,7 @@ func _clear_big_swamp_pulse_effect(animate_retract: bool):
 		effect.queue_free()
 
 func animate_big_swamp_capture(_trap_cell: Vector2i, target_cell: Vector2i):
-	if not board.has(target_cell):
-		return
-	var piece = board[target_cell]
-	if not is_instance_valid(piece):
+	if not is_instance_valid(active_big_swamp_target_sprite):
 		return
 	if is_instance_valid(active_big_swamp_pulse_effect):
 		active_big_swamp_pulse_effect.set("progress", 1.0)
@@ -609,6 +632,54 @@ func animate_big_swamp_capture(_trap_cell: Vector2i, target_cell: Vector2i):
 	if is_instance_valid(active_big_swamp_pulse_effect):
 		capture_tween.tween_property(active_big_swamp_pulse_effect, "alpha", 0.0, 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	await capture_tween.finished
+
+func play_king_attack_rebuff(attacker_cell: Vector2i, king_cell: Vector2i):
+	if effects_container == null or not board.has(attacker_cell) or not board.has(king_cell):
+		return
+	var attacker = board[attacker_cell]
+	var king = board[king_cell]
+	if not is_instance_valid(attacker) or not is_instance_valid(king):
+		return
+	_clear_king_rebuff_effect()
+	var theme: Resource = _get_theme()
+	var effect := BigSwampGeyserEffect.new()
+	effect.setup(cell_size, _get_cell_local_position(king_cell), _get_cell_local_position(attacker_cell), theme, int(king.piece_color))
+	effects_container.add_child(effect)
+	active_king_rebuff_effect = effect
+	if attacker is Piece and attacker.sprite != null:
+		active_king_rebuff_attacker_sprite = attacker.sprite
+		active_king_rebuff_attacker_position = attacker.sprite.position
+	king_rebuff_tween = create_tween()
+	king_rebuff_tween.set_parallel()
+	king_rebuff_tween.tween_property(effect, "progress", 1.0, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	king_rebuff_tween.tween_property(effect, "alpha", 0.0, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	king_rebuff_tween.tween_method(_set_king_rebuff_attacker_tremble_progress, 0.0, 1.0, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	king_rebuff_tween.finished.connect(_finish_king_rebuff_effect.bind(effect))
+
+func _set_king_rebuff_attacker_tremble_progress(progress: float):
+	if not is_instance_valid(active_king_rebuff_attacker_sprite):
+		active_king_rebuff_attacker_sprite = null
+		return
+	active_king_rebuff_attacker_sprite.position = active_king_rebuff_attacker_position + _get_big_swamp_target_tremble_offset(progress, false)
+
+func _finish_king_rebuff_effect(effect: Node):
+	_clear_king_rebuff_effect(false, false)
+	if effect == active_king_rebuff_effect:
+		active_king_rebuff_effect = null
+	if is_instance_valid(effect):
+		effect.queue_free()
+
+func _clear_king_rebuff_effect(kill_tween: bool = true, clear_effect: bool = true):
+	if king_rebuff_tween != null and kill_tween:
+		king_rebuff_tween.kill()
+	king_rebuff_tween = null
+	if clear_effect and is_instance_valid(active_king_rebuff_effect):
+		active_king_rebuff_effect.queue_free()
+	active_king_rebuff_effect = null
+	if is_instance_valid(active_king_rebuff_attacker_sprite):
+		active_king_rebuff_attacker_sprite.position = active_king_rebuff_attacker_position
+	active_king_rebuff_attacker_sprite = null
+	active_king_rebuff_attacker_position = Vector2.ZERO
 
 func _draw_borders():
 	if not show_borders:
@@ -821,6 +892,9 @@ func handle_occupied_cell_click(grid_pos: Vector2i):
 		if grid_pos in captures:
 			move_piece(selected_piece, grid_pos)
 			return
+		if selected_piece.has_method("can_attempt_king_attack") and selected_piece.can_attempt_king_attack(grid_pos, board):
+			king_attack_attempted.emit(selected_piece, board[grid_pos], grid_pos)
+			return
 	if not board.has(grid_pos):
 		handle_empty_cell_click(grid_pos)
 		return
@@ -863,13 +937,16 @@ func select_piece(piece):
 	
 	var moves = piece.get_legal_moves(board)
 	var captures = piece.get_legal_captures(board)
+	var king_attack_targets: Array = []
+	if piece.has_method("get_king_attack_attempt_targets"):
+		king_attack_targets = piece.get_king_attack_attempt_targets(board)
 	highlighted_cells = moves
-	highlighted_attacks = captures
+	highlighted_attacks = captures + king_attack_targets
 	
 	for cell in moves:
 		highlight_nodes.append(_draw_highlight(cell))
 	
-	for cell in captures:
+	for cell in highlighted_attacks:
 		highlight_nodes.append(_draw_attack_overlay(piece, cell))
 		_dim_target_piece(cell, piece.piece_color)
 	
@@ -944,16 +1021,9 @@ func _draw_attack_overlay(attacker: Piece, target_cell: Vector2i) -> Node:
 	overlay_container.name = "AttackOverlay"
 	overlay_container.position = Vector2(target_cell.x * cell_size, target_cell.y * cell_size)
 	
-	var overlay_sprite = Sprite2D.new()
-	overlay_sprite.texture = theme.get_piece_texture(int(attacker.piece_type))
-	var overlay_scale = cell_size / 4.0 / 512.0
-	overlay_sprite.scale = Vector2(overlay_scale, overlay_scale)
-	overlay_sprite.modulate = attacker.sprite.modulate
-	
 	var overlay_size = cell_size * 0.25
 	var offset_x = cell_size * 0.75
 	var offset_y = cell_size * 0.25
-	overlay_sprite.position = Vector2(offset_x, offset_y)
 	
 	var bg_rect = ColorRect.new()
 	bg_rect.size = Vector2(overlay_size, overlay_size)
@@ -962,9 +1032,35 @@ func _draw_attack_overlay(attacker: Piece, target_cell: Vector2i) -> Node:
 	bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	
 	overlay_container.add_child(bg_rect)
-	overlay_container.add_child(overlay_sprite)
+	if _is_king_defense_target(attacker, target_cell):
+		_add_king_defense_cross_overlay(overlay_container, bg_rect.position, overlay_size, theme.get_border_color(int(attacker.piece_color)))
+	else:
+		var overlay_sprite = Sprite2D.new()
+		overlay_sprite.texture = theme.get_piece_texture(int(attacker.piece_type))
+		var overlay_scale = cell_size / 4.0 / 512.0
+		overlay_sprite.scale = Vector2(overlay_scale, overlay_scale)
+		overlay_sprite.modulate = attacker.sprite.modulate
+		overlay_sprite.position = Vector2(offset_x, offset_y)
+		overlay_container.add_child(overlay_sprite)
 	highlights_container.add_child(overlay_container)
 	return overlay_container
+
+func _is_king_defense_target(attacker: Piece, target_cell: Vector2i) -> bool:
+	return attacker != null and attacker.has_method("can_attempt_king_attack") and attacker.can_attempt_king_attack(target_cell, board)
+
+func _add_king_defense_cross_overlay(container: Node2D, origin: Vector2, overlay_size: float, cross_color: Color):
+	var bar_length := overlay_size * 0.78
+	var bar_thickness := maxf(3.0, overlay_size * 0.16)
+	for angle in [PI * 0.25, -PI * 0.25]:
+		var bar := ColorRect.new()
+		bar.name = "KingDefenseCross"
+		bar.size = Vector2(bar_length, bar_thickness)
+		bar.position = origin + Vector2(overlay_size, overlay_size) * 0.5
+		bar.pivot_offset = bar.size * 0.5
+		bar.rotation = angle
+		bar.color = cross_color
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		container.add_child(bar)
 
 func _dim_target_piece(target_cell: Vector2i, attacker_color: GameManager.PieceColor):
 	var theme = _get_theme()

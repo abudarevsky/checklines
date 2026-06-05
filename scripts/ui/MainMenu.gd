@@ -696,6 +696,7 @@ func _update_kingdom_badges():
 		var theme_id := KingdomCatalogScript.get_theme_id(i)
 		badges[0].tier = Settings.get_kingdom_progress_badge_tier(theme_id)
 		badges[0].progress_level = Settings.get_kingdom_max_completed_level(theme_id)
+		badges[0].survival_stars = Settings.get_kingdom_survival_rounds(theme_id)
 		badges[1].tier = Settings.get_kingdom_tactical_badge_tier(theme_id)
 		badges[2].tier = MenuBadgeShieldScript.Tier.EMPTY
 
