@@ -43,6 +43,7 @@ const KING_ATTACK_ATTEMPT_PENALTY: int = 2
 const GAME_RESULT_LOSS: String = "loss"
 const GAME_RESULT_WIN: String = "win"
 const SESSION_HISTORY_DEPTH: int = 5
+const PROJECT_VERSION: String = "0.9.0"
 
 var board_size: int = BOARD_SIZE
 var cell_size: float = CELL_SIZE

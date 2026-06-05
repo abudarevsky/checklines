@@ -9,6 +9,8 @@ const KINGDOM_SCROLL_VIEW_RECT := Rect2(44.0, 250.0, 680.0, 960.0)
 const KINGDOM_SCROLL_CONTENT_SIZE := Vector2(680.0, 1180.0)
 const KINGDOM_SCROLL_TOP_FADE_RECT := Rect2(44.0, 250.0, 680.0, 74.0)
 const KINGDOM_SCROLL_BOTTOM_FADE_RECT := Rect2(44.0, 1060.0, 680.0, 206.0)
+const VERSION_LABEL_SIZE := Vector2(172.0, 32.0)
+const VERSION_LABEL_MARGIN := Vector2(28.0, 18.0)
 const KINGDOM_CARD_RECTS := [
 	Rect2(20.0, 30.0, 640.0, 365.0),
 	Rect2(20.0, 425.0, 640.0, 359.0),
@@ -63,6 +65,7 @@ var kingdom_scroll: ScrollContainer
 var kingdom_scroll_content: Control
 var kingdom_scroll_top_fade: ColorRect
 var kingdom_scroll_bottom_fade: ColorRect
+var version_label: Label
 var kingdom_frame_nodes: Array[TextureRect] = []
 var kingdom_card_nodes: Array[TextureRect] = []
 var kingdom_badge_nodes: Array[Array] = []
@@ -178,6 +181,10 @@ func apply_theme(theme_data):
 		best_score_value_label.add_theme_font_override("font", title_font)
 		best_score_value_label.add_theme_font_size_override("font_size", 42)
 		best_score_value_label.add_theme_color_override("font_color", theme_data.menu_best_score_value_color)
+	if version_label != null:
+		version_label.add_theme_font_override("font", body_font)
+		version_label.add_theme_font_size_override("font_size", 24)
+		version_label.add_theme_color_override("font_color", theme_data.menu_subtitle_color)
 	settings_panel.add_theme_stylebox_override("panel", dialog_panel_style)
 	_apply_dialog_button_style(
 		settings_sound_button,
@@ -354,6 +361,15 @@ func _build_kingdom_screen():
 	kingdom_scroll_bottom_fade.material = _build_scroll_fade_material(false)
 	kingdom_design_root.add_child(kingdom_scroll_bottom_fade)
 
+	version_label = Label.new()
+	version_label.name = "VersionLabel"
+	version_label.text = _get_version_label_text()
+	version_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	version_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	version_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	version_label.z_index = 120
+	kingdom_design_root.add_child(version_label)
+
 	kingdom_frame_material = _build_frame_mask_material()
 	kingdom_frame_nodes.clear()
 	kingdom_card_nodes.clear()
@@ -494,6 +510,10 @@ func _create_texture_rect(node_name: String, texture: Texture2D, rect: Rect2, st
 	texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return texture_rect
 
+func _get_version_label_text() -> String:
+	var version := ProjectSettings.get_setting("application/config/version", "0.9.0") as String
+	return "v%s" % version
+
 func _build_scroll_fade_material(fade_from_top: bool) -> ShaderMaterial:
 	var shader := Shader.new()
 	shader.code = """
@@ -534,6 +554,12 @@ func _update_kingdom_screen_layout():
 	if kingdom_scroll_bottom_fade != null:
 		kingdom_scroll_bottom_fade.position = KINGDOM_SCROLL_BOTTOM_FADE_RECT.position
 		kingdom_scroll_bottom_fade.size = KINGDOM_SCROLL_BOTTOM_FADE_RECT.size
+	if version_label != null:
+		version_label.position = Vector2(
+			KINGDOM_SCROLL_BOTTOM_FADE_RECT.end.x - VERSION_LABEL_SIZE.x - VERSION_LABEL_MARGIN.x,
+			KINGDOM_SCROLL_BOTTOM_FADE_RECT.end.y - VERSION_LABEL_SIZE.y - VERSION_LABEL_MARGIN.y
+		)
+		version_label.size = VERSION_LABEL_SIZE
 	_layout_scroll_button_zone(button_kingdom_1, KINGDOM_CARD_RECTS[0])
 	_layout_scroll_button_zone(button_kingdom_2, KINGDOM_CARD_RECTS[1])
 	_layout_scroll_button_zone(button_kingdom_3, KINGDOM_CARD_RECTS[2])
