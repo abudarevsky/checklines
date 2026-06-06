@@ -32,6 +32,7 @@ Puzzle board rules:
 - the badge should sit centered above the puzzle frame and share its top row with the gear button
 - the gear button should sit centered between the left HUD edge and the centered badge
 - the gear button should use a borderless icon button style
+- the gear button touch target should stay at least 72x72 logical pixels even when the visible icon is smaller
 - render the gear icon using the same gold color as the puzzle and score frame border
 - the badge bottom edge should slightly overlap the puzzle border
 - the puzzle image and score row use separate frames; do not wrap the puzzle and score row in one shared frame

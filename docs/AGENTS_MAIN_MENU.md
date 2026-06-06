@@ -20,7 +20,7 @@ The intended presentation is a theme-driven art menu with a stable layout:
 - full-screen HowToPlay overlay panel
 
 Main screen background images, kingdom card frames, and other menu art may vary by theme.
-The main-screen backdrop should follow the active theme background texture when selection changes, while kingdom-specific art such as the neon frame and card-frame variants may switch with the selected kingdom.
+The main-screen backdrop is the dedicated `768x1664` main-frame artwork with an opaque black backing behind its transparent center so Android portrait screens do not show stretched gameplay backdrops through the frame. The menu design surface should preserve its aspect ratio and use contain-style scaling for non-matching editor/desktop viewports; support other tall Android ratios by extending the source artwork vertically and updating the design constants rather than scaling X/Y independently. Kingdom-specific art such as the neon frame and card-frame variants may switch with the selected kingdom.
 Playable kingdom cards should use that kingdom's recorded best progression to choose the displayed puzzle image.
 The global best-score row should use localized `"Your best"` text plus the numeric value on a transparent background; both label and value colors are theme-driven.
 Kingdom badges should use compact matte-glass overlays arranged horizontally from the former lowest vertical-badge position, keeping that lower badge location as the baseline while all three fit inside the card footprint. Use a waving ribbon for progression, a Maltese-style cross for tactical mastery, and a crown for campaigns.

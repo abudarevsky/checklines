@@ -4,11 +4,11 @@ const MenuBadgeShieldScript = preload("res://scripts/ui/MenuBadgeShield.gd")
 const MenuRoadPlayButtonScript = preload("res://scripts/ui/MenuRoadPlayButton.gd")
 const KingdomCatalogScript = preload("res://scripts/ui/KingdomCatalog.gd")
 
-const DESIGN_SIZE := Vector2(768.0, 1376.0)
-const KINGDOM_SCROLL_VIEW_RECT := Rect2(44.0, 250.0, 680.0, 960.0)
-const KINGDOM_SCROLL_CONTENT_SIZE := Vector2(680.0, 1180.0)
+const DESIGN_SIZE := Vector2(768.0, 1664.0)
+const KINGDOM_SCROLL_VIEW_RECT := Rect2(44.0, 250.0, 680.0, 1248.0)
+const KINGDOM_SCROLL_CONTENT_SIZE := Vector2(680.0, 1468.0)
 const KINGDOM_SCROLL_TOP_FADE_RECT := Rect2(44.0, 250.0, 680.0, 74.0)
-const KINGDOM_SCROLL_BOTTOM_FADE_RECT := Rect2(44.0, 1060.0, 680.0, 206.0)
+const KINGDOM_SCROLL_BOTTOM_FADE_RECT := Rect2(44.0, 1348.0, 680.0, 206.0)
 const VERSION_LABEL_SIZE := Vector2(172.0, 32.0)
 const VERSION_LABEL_MARGIN := Vector2(28.0, 18.0)
 const KINGDOM_CARD_RECTS := [
@@ -25,9 +25,9 @@ const BEST_SCORE_RECT := Rect2(44.0, 202.0, 680.0, 42.0)
 const BADGE_SIZE := Vector2(78.0, 86.0)
 const BADGE_GAP := 8.0
 const PLAY_BUTTON_SIZE := Vector2(188.0, 86.0)
-const HOW_TO_PLAY_ZONE := Rect2(58.0, 1266.0, 230.0, 92.0)
-const SETTINGS_ZONE := Rect2(290.0, 1266.0, 220.0, 92.0)
-const EXIT_ZONE := Rect2(512.0, 1266.0, 214.0, 92.0)
+const HOW_TO_PLAY_ZONE := Rect2(58.0, 1554.0, 230.0, 92.0)
+const SETTINGS_ZONE := Rect2(290.0, 1554.0, 220.0, 92.0)
+const EXIT_ZONE := Rect2(512.0, 1554.0, 214.0, 92.0)
 
 @onready var how_to_play_panel: PanelContainer = $HowToPlayPanel
 @onready var settings_panel: PanelContainer = $SettingsPanel
@@ -59,7 +59,9 @@ const EXIT_ZONE := Rect2(512.0, 1266.0, 214.0, 92.0)
 @onready var settings_close_button: Button = $SettingsPanel/SettingsCenter/SettingsCard/SettingsContent/ButtonRow/ButtonCloseSettings
 
 var kingdom_design_root: Control
+var screen_backing_node: ColorRect
 var main_background_node: TextureRect
+var main_frame_backing_node: ColorRect
 var main_frame_node: TextureRect
 var kingdom_scroll: ScrollContainer
 var kingdom_scroll_content: Control
@@ -143,7 +145,7 @@ func apply_theme(theme_data):
 		background.apply_theme(theme_data)
 	if main_background_node != null:
 		main_background_node.texture = theme_data.gameplay_background_texture
-		main_background_node.visible = theme_data.gameplay_background_texture != null
+		main_background_node.visible = false
 
 	var panel_style := _build_panel_style(theme_data.menu_panel_background_color, theme_data.menu_panel_border_color)
 	menu_panel.add_theme_stylebox_override("panel", panel_style)
@@ -287,12 +289,20 @@ func _build_kingdom_screen():
 	for child in kingdom_screen.get_children():
 		child.queue_free()
 
+	screen_backing_node = ColorRect.new()
+	screen_backing_node.name = "ScreenBacking"
+	screen_backing_node.color = Color.BLACK
+	screen_backing_node.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	screen_backing_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	kingdom_screen.add_child(screen_backing_node)
+
 	main_background_node = TextureRect.new()
 	main_background_node.name = "BackgroundImage"
 	main_background_node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	main_background_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	main_background_node.set_anchors_preset(Control.PRESET_FULL_RECT)
 	main_background_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	main_background_node.visible = false
 	kingdom_screen.add_child(main_background_node)
 
 	kingdom_design_root = Control.new()
@@ -300,6 +310,14 @@ func _build_kingdom_screen():
 	kingdom_design_root.custom_minimum_size = DESIGN_SIZE
 	kingdom_design_root.mouse_filter = Control.MOUSE_FILTER_PASS
 	kingdom_screen.add_child(kingdom_design_root)
+
+	main_frame_backing_node = ColorRect.new()
+	main_frame_backing_node.name = "MainFrameBacking"
+	main_frame_backing_node.color = Color.BLACK
+	main_frame_backing_node.position = Vector2.ZERO
+	main_frame_backing_node.size = DESIGN_SIZE
+	main_frame_backing_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	kingdom_design_root.add_child(main_frame_backing_node)
 
 	main_frame_node = _create_texture_rect("MainFrame", KingdomCatalogScript.get_main_frame_texture(0), Rect2(Vector2.ZERO, DESIGN_SIZE))
 	kingdom_design_root.add_child(main_frame_node)
@@ -536,9 +554,13 @@ void fragment() {
 func _update_kingdom_screen_layout():
 	if kingdom_design_root == null:
 		return
-	var scale_factor := maxf(size.x / DESIGN_SIZE.x, size.y / DESIGN_SIZE.y)
+	var viewport_size := Vector2(maxf(size.x, 1.0), maxf(size.y, 1.0))
+	if screen_backing_node != null:
+		screen_backing_node.position = Vector2.ZERO
+		screen_backing_node.size = viewport_size
+	var scale_factor := minf(viewport_size.x / DESIGN_SIZE.x, viewport_size.y / DESIGN_SIZE.y)
 	var scaled_size := DESIGN_SIZE * scale_factor
-	kingdom_design_root.position = (size - scaled_size) * 0.5
+	kingdom_design_root.position = (viewport_size - scaled_size) * 0.5
 	kingdom_design_root.scale = Vector2(scale_factor, scale_factor)
 	kingdom_design_root.size = DESIGN_SIZE
 	if kingdom_scroll != null:
@@ -599,7 +621,7 @@ func _layout_scroll_button_zone(button: Button, content_rect: Rect2):
 func _layout_button_zone(button: Button, design_rect: Rect2):
 	if button == null or kingdom_design_root == null:
 		return
-	var scale_factor := kingdom_design_root.scale.x
+	var scale_factor := kingdom_design_root.scale
 	button.set_anchors_preset(Control.PRESET_TOP_LEFT, false)
 	button.position = kingdom_design_root.position + design_rect.position * scale_factor
 	button.size = design_rect.size * scale_factor

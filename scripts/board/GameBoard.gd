@@ -104,7 +104,8 @@ var selected_rewind_history_index: int = -1
 const TOP_BAR_SHADOW_HEIGHT: float = 5.0
 const BOARD_TOP_GAP: float = 2.0
 const MOVE_HINT_GAP: float = 8.0
-const MOVE_HINT_HEIGHT: float = 58.0
+const MOVE_HINT_HEIGHT: float = 68.0
+const MOVE_HINT_FONT_SIZE: int = 30
 const SCREEN_CONTENT_MARGIN: float = 6.0
 const HUD_MARGIN_LEFT: float = 3.0
 const HUD_MARGIN_TOP: float = 3.0
@@ -112,6 +113,8 @@ const HUD_MARGIN_GAP: float = 8.0
 const PUZZLE_FRAME_INSET: float = 3.0
 const PUZZLE_BADGE_WIDTH_RATIO: float = 0.66
 const PUZZLE_BADGE_BORDER_OVERLAP: float = 8.0
+const GEAR_TOUCH_TARGET_SIZE: float = 72.0
+const GEAR_ICON_MAX_WIDTH: int = 48
 const HUD_FRAME_HOVER_COLOR: Color = Color(0.96, 0.78, 0.38, 1.0)
 const SCORE_FRAME_INSET_X: float = 5.0
 const SCORE_FRAME_INSET_Y: float = 4.0
@@ -312,6 +315,7 @@ func apply_theme(theme: ThemeData):
 	puzzle_panel.color = Color(0.06, 0.09, 0.13, 1.0)
 	move_hint_panel.add_theme_stylebox_override("panel", _build_move_hint_panel_style(theme))
 	move_hint_label.add_theme_color_override("font_color", theme.move_hint_text_color)
+	move_hint_label.add_theme_font_size_override("font_size", MOVE_HINT_FONT_SIZE)
 	move_hint_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.45))
 	move_hint_label.add_theme_constant_override("outline_size", 2)
 	move_hint_icon.set("icon_color", theme.move_hint_icon_color)
@@ -721,6 +725,7 @@ func _apply_icon_button_style(
 	button.add_theme_color_override("icon_hover_color", hover_color)
 	button.add_theme_color_override("icon_pressed_color", hover_color)
 	button.add_theme_color_override("icon_focus_color", hover_color)
+	button.add_theme_constant_override("icon_max_width", GEAR_ICON_MAX_WIDTH)
 	button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	button.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
 	button.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
@@ -833,6 +838,7 @@ func _get_horizontal_content_margin(viewport_size: Vector2) -> float:
 	return margin
 
 func _update_top_hud_layout(viewport_size: Vector2) -> float:
+	var safe_top_offset := _get_top_safe_area_offset(viewport_size)
 	var panel_margin: float = _get_horizontal_content_margin(viewport_size) + HUD_MARGIN_LEFT
 	var panel_width: float = maxf(viewport_size.x - panel_margin * 2.0, 0.0)
 	var puzzle_texture: Texture2D = _get_puzzle_level_texture(current_puzzle_level)
@@ -844,9 +850,10 @@ func _update_top_hud_layout(viewport_size: Vector2) -> float:
 	var badge_width: float = panel_width * PUZZLE_BADGE_WIDTH_RATIO
 	if puzzle_badge.texture != null and puzzle_badge.texture.get_width() > 0:
 		badge_height = badge_width * float(puzzle_badge.texture.get_height()) / float(puzzle_badge.texture.get_width())
-	var gear_size: float = clampf(badge_height * 0.39, 28.0, 48.0)
-	var header_height: float = maxf(badge_height, gear_size)
-	var panel_top: float = HUD_MARGIN_TOP + maxf(header_height - PUZZLE_BADGE_BORDER_OVERLAP, 0.0)
+	var gear_icon_size: float = clampf(badge_height * 0.39, 28.0, float(GEAR_ICON_MAX_WIDTH))
+	var gear_touch_size: float = maxf(gear_icon_size, GEAR_TOUCH_TARGET_SIZE)
+	var header_height: float = maxf(badge_height, gear_touch_size)
+	var panel_top: float = safe_top_offset + HUD_MARGIN_TOP + maxf(header_height - PUZZLE_BADGE_BORDER_OVERLAP, 0.0)
 
 	puzzle_panel.offset_left = panel_margin
 	puzzle_panel.offset_top = panel_top
@@ -855,17 +862,17 @@ func _update_top_hud_layout(viewport_size: Vector2) -> float:
 
 	var badge_x: float = (viewport_size.x - badge_width) * 0.5
 	puzzle_badge.offset_left = badge_x
-	puzzle_badge.offset_top = HUD_MARGIN_TOP
+	puzzle_badge.offset_top = safe_top_offset + HUD_MARGIN_TOP
 	puzzle_badge.offset_right = badge_x + badge_width
-	puzzle_badge.offset_bottom = HUD_MARGIN_TOP + badge_height
+	puzzle_badge.offset_bottom = safe_top_offset + HUD_MARGIN_TOP + badge_height
 
-	var gear_center_x: float = panel_margin + maxf((badge_x - panel_margin) * 0.5, gear_size * 0.5)
-	var gear_x: float = gear_center_x - gear_size * 0.5
-	var gear_y: float = HUD_MARGIN_TOP + maxf((badge_height - gear_size) * 0.5, 0.0)
+	var gear_center_x: float = panel_margin + maxf((badge_x - panel_margin) * 0.5, gear_touch_size * 0.5)
+	var gear_x: float = gear_center_x - gear_touch_size * 0.5
+	var gear_y: float = safe_top_offset + HUD_MARGIN_TOP + maxf((badge_height - gear_touch_size) * 0.5, 0.0)
 	gear_button.offset_left = gear_x
 	gear_button.offset_top = gear_y
-	gear_button.offset_right = gear_x + gear_size
-	gear_button.offset_bottom = gear_y + gear_size
+	gear_button.offset_right = gear_x + gear_touch_size
+	gear_button.offset_bottom = gear_y + gear_touch_size
 
 	puzzle_frame.offset_left = 0.0
 	puzzle_frame.offset_top = 0.0
@@ -918,6 +925,20 @@ func _update_top_hud_layout(viewport_size: Vector2) -> float:
 	_update_message_layout(score_clip_width)
 	_debug_hud_layout(viewport_size, panel_width, puzzle_height, puzzle_texture)
 	return score_frame.offset_bottom
+
+func _get_top_safe_area_offset(viewport_size: Vector2) -> float:
+	if not OS.has_feature("android") and not OS.has_feature("ios"):
+		return 0.0
+	var safe_area := DisplayServer.get_display_safe_area()
+	if safe_area.position.y <= 0:
+		return 0.0
+	var window := get_window()
+	var window_height := viewport_size.y
+	if window != null and window.size.y > 0:
+		window_height = float(window.size.y)
+	if window_height <= 0.0:
+		return float(safe_area.position.y)
+	return float(safe_area.position.y) * viewport_size.y / window_height
 
 func _update_message_layout(score_clip_width: float):
 	message_panel.offset_left = 0.0
