@@ -529,7 +529,7 @@ func _create_texture_rect(node_name: String, texture: Texture2D, rect: Rect2, st
 	return texture_rect
 
 func _get_version_label_text() -> String:
-	var version := ProjectSettings.get_setting("application/config/version", "0.9.0") as String
+	var version := ProjectSettings.get_setting("application/config/version", "0.9.1") as String
 	return "v%s" % version
 
 func _build_scroll_fade_material(fade_from_top: bool) -> ShaderMaterial:
@@ -711,6 +711,8 @@ func _build_how_to_play_badge_guide(body_font: Font, theme_data: ThemeData):
 			badge.size = Vector2(78, 86)
 			badge.kind = int(spec["kind"])
 			badge.tier = int(tier)
+			if int(spec["kind"]) == MenuBadgeShieldScript.Kind.PROGRESSION:
+				badge.progress_level = int(tier)
 			badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 			badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			state_row.add_child(badge)
@@ -743,7 +745,7 @@ func _update_kingdom_badges():
 			continue
 		var theme_id := KingdomCatalogScript.get_theme_id(i)
 		badges[0].tier = Settings.get_kingdom_progress_badge_tier(theme_id)
-		badges[0].progress_level = Settings.get_kingdom_max_completed_level(theme_id)
+		badges[0].progress_level = Settings.get_kingdom_progress_badge_level(theme_id)
 		badges[0].survival_stars = Settings.get_kingdom_survival_rounds(theme_id)
 		badges[1].tier = Settings.get_kingdom_tactical_badge_tier(theme_id)
 		badges[2].tier = MenuBadgeShieldScript.Tier.EMPTY

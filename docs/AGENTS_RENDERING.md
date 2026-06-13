@@ -43,6 +43,7 @@ Theme scope includes:
 - board cell colors
 - selected trap type id from the common trap library
 - trap cells use the existing wave shader plus visual-only overlays: four theme piece-color corner marks and tiny animated gold sparkles
+- the neon theme selects the Light Trap library entry, which uses rotating laser beams instead of fog for trap pulses and refresh effects
 - side border colors
 - move and attack overlay colors
 - HUD colors

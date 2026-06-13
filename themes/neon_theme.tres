@@ -28,6 +28,7 @@ green_piece_color = Color(0.14901961, 0.8901961, 0.5372549, 1)
 orange_piece_color = Color(0, 1, 1, 1)
 board_cell_light_color = Color(0.14, 0.14, 0.2, 1)
 board_cell_dark_color = Color(0.04, 0.04, 0.06, 1)
+trap_type_id = "light"
 left_border_color = Color(1, 1, 0, 1)
 top_border_color = Color(1, 0, 1, 1)
 right_border_color = Color(0.14901961, 0.8901961, 0.5372549, 1)

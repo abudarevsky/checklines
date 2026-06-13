@@ -11,6 +11,8 @@ func _initialize():
 	_run_test("kingdom start level advances and resets", _test_kingdom_start_level_advances_and_resets, failures)
 	_run_test("completed level stars never decrease", _test_completed_level_stars_never_decrease, failures)
 	_run_test("completed level progress normalizes from saved settings", _test_completed_level_progress_normalizes_from_saved_settings, failures)
+	_run_test("progress badge level starts at one", _test_progress_badge_level_starts_at_one, failures)
+	_run_test("progress badge level keeps completed level four", _test_progress_badge_level_keeps_completed_level_four, failures)
 	_run_test("start level repairs missing completed progress", _test_start_level_repairs_missing_completed_progress, failures)
 	_run_test("survival rounds persist and do not decrease", _test_survival_rounds_persist_and_do_not_decrease, failures)
 	_run_test("reset keeps badge and survival progress", _test_reset_keeps_badge_and_survival_progress, failures)
@@ -152,6 +154,33 @@ func _test_completed_level_progress_normalizes_from_saved_settings() -> String:
 		error_message = "saved Level 4 progress should still render the gold progression badge"
 	elif normalized.has(""):
 		error_message = "empty kingdom id was preserved during normalization"
+
+	settings.free()
+	return error_message
+
+func _test_progress_badge_level_starts_at_one() -> String:
+	var settings = SettingsScript.new()
+
+	var error_message := ""
+	if settings.get_kingdom_max_completed_level("neon") != 0:
+		error_message = "empty kingdom unexpectedly has completed progress"
+	elif settings.get_kingdom_progress_badge_tier("neon") != 0:
+		error_message = "empty kingdom should keep an empty badge tier"
+	elif settings.get_kingdom_progress_badge_level("neon") != 1:
+		error_message = "empty kingdom should display Level 1 on the badge"
+
+	settings.free()
+	return error_message
+
+func _test_progress_badge_level_keeps_completed_level_four() -> String:
+	var settings = SettingsScript.new()
+	settings.kingdom_progress_levels = {"neon": 4}
+
+	var error_message := ""
+	if settings.get_kingdom_progress_badge_tier("neon") != 3:
+		error_message = "completed Level 4 should still use the gold badge tier"
+	elif settings.get_kingdom_progress_badge_level("neon") != 4:
+		error_message = "completed Level 4 was not exposed to the menu badge"
 
 	settings.free()
 	return error_message

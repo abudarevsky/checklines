@@ -6,6 +6,7 @@ const TrapLibraryScript = preload("res://scripts/traps/TrapLibrary.gd")
 const TrapVisualScript = preload("res://scripts/traps/TrapVisual.gd")
 const TrapMessageCloudScript = preload("res://scripts/effects/TrapMessageCloud.gd")
 const BIG_SWAMP_GEYSER_SHADER := preload("res://shaders/big_swamp_tentacle.gdshader")
+const LIGHT_TRAP_LASER_SHADER := preload("res://shaders/light_trap_lasers.gdshader")
 const TRAP_ROTATION_FOG_DURATION := 1.64
 
 signal piece_selected(piece)
@@ -228,6 +229,90 @@ class BigSwampGeyserEffect:
 			shader_material.set_shader_parameter("progress", progress)
 			shader_material.set_shader_parameter("alpha", alpha)
 
+class LightTrapLaserEffect:
+	extends Node2D
+
+	var board_pixel_size: float = GameManager.BOARD_PIXEL_SIZE
+	var cell_size: float = GameManager.CELL_SIZE
+	var trap_center: Vector2 = Vector2.ZERO
+	var target_center: Vector2 = Vector2.ZERO
+	var action_size: float = GameManager.CELL_SIZE * 1.55
+	var beam_color: Color = Color(0.0, 1.0, 1.0, 0.9)
+	var core_color: Color = Color(1.0, 1.0, 0.22, 0.92)
+	var progress: float = 0.0:
+		set(value):
+			progress = clampf(value, 0.0, 1.0)
+			_update_visual()
+			queue_redraw()
+	var alpha: float = 1.0:
+		set(value):
+			alpha = clampf(value, 0.0, 1.0)
+			_update_visual()
+			queue_redraw()
+	var shader_rect: ColorRect
+	var shader_material: ShaderMaterial
+
+	func setup(size: float, trap_point: Vector2, target_point: Vector2, theme: Resource, piece_color: int = -1):
+		board_pixel_size = size
+		cell_size = GameManager.CELL_SIZE
+		action_size = cell_size * 1.55
+		trap_center = trap_point
+		target_center = target_point
+		if theme != null:
+			beam_color = Color(theme.bottom_border_color.r, theme.bottom_border_color.g, theme.bottom_border_color.b, 0.92)
+			if piece_color >= 0:
+				var target_color: Color = theme.get_piece_color(piece_color)
+				core_color = Color(target_color.r, target_color.g, target_color.b, 0.94)
+		z_index = 90
+		shader_rect = ColorRect.new()
+		shader_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shader_rect.color = Color.WHITE
+		shader_material = ShaderMaterial.new()
+		shader_material.shader = LIGHT_TRAP_LASER_SHADER
+		shader_rect.material = shader_material
+		add_child(shader_rect)
+		_layout_shader_rect()
+		_update_visual()
+
+	func _process(_delta: float):
+		_update_visual()
+		queue_redraw()
+
+	func _draw():
+		var readiness := smoothstep(0.0, 0.28, progress)
+		var fade := 1.0 - smoothstep(0.88, 1.0, progress)
+		var pulse_alpha := alpha * readiness * fade
+		if pulse_alpha <= 0.01:
+			return
+		var time := Time.get_ticks_msec() * 0.001
+		var marker_size := cell_size * (0.96 + sin(time * 8.0) * 0.035)
+		var marker_rect := Rect2(target_center - Vector2(marker_size, marker_size) * 0.5, Vector2(marker_size, marker_size))
+		draw_rect(marker_rect, Color(beam_color.r, beam_color.g, beam_color.b, 0.18 * pulse_alpha), false, cell_size * 0.045)
+		for i in range(4):
+			var angle := time * 2.4 + float(i) * TAU * 0.25
+			var edge_point := target_center + Vector2(cos(angle), sin(angle)) * cell_size * 0.52
+			var source := Vector2(
+				lerpf(target_center.x - cell_size * 0.36, target_center.x + cell_size * 0.36, float(i) / 3.0),
+				board_pixel_size + cell_size * 0.18
+			)
+			draw_line(source, edge_point, Color(beam_color.r, beam_color.g, beam_color.b, 0.18 * pulse_alpha), cell_size * 0.07, true)
+			draw_line(source, edge_point, Color(core_color.r, core_color.g, core_color.b, 0.62 * pulse_alpha), cell_size * 0.018, true)
+		draw_arc(target_center, cell_size * 0.58, time * 2.8, time * 2.8 + PI * 1.45, 32, Color(core_color.r, core_color.g, core_color.b, 0.72 * pulse_alpha), cell_size * 0.04, true)
+		draw_circle(trap_center, cell_size * 0.17, Color(beam_color.r, beam_color.g, beam_color.b, 0.34 * pulse_alpha))
+
+	func _layout_shader_rect():
+		if shader_rect == null:
+			return
+		shader_rect.position = target_center - Vector2(action_size, action_size) * 0.5
+		shader_rect.size = Vector2(action_size, action_size)
+
+	func _update_visual():
+		if shader_material != null:
+			shader_material.set_shader_parameter("beam_color", beam_color)
+			shader_material.set_shader_parameter("core_color", core_color)
+			shader_material.set_shader_parameter("progress", progress)
+			shader_material.set_shader_parameter("alpha", alpha)
+
 var board: Dictionary = {}
 var board_size: int = GameManager.BOARD_SIZE
 var cell_size: float = GameManager.CELL_SIZE
@@ -408,7 +493,7 @@ func set_traps_with_rotation(cells: Array, trap_type_id: String = ""):
 	var old_traps := traps.duplicate()
 	var old_trap_type_by_cell := trap_type_by_cell.duplicate()
 	set_traps(cells, trap_type_id)
-	play_board_fog_effect()
+	play_board_trap_rotation_effect(trap_type_id)
 	_play_trap_rotation_reveal_effects()
 	_play_trap_rotation_disappear_effects(old_traps, old_trap_type_by_cell)
 
@@ -483,7 +568,31 @@ func _get_random_fog_wind_direction() -> Vector2:
 	var angle := randf_range(-PI, PI)
 	return Vector2(cos(angle), sin(angle))
 
+func play_board_trap_rotation_effect(trap_type_id: String = ""):
+	if trap_type_id == TrapLibraryScript.LIGHT_TRAP_ID:
+		play_board_light_laser_effect()
+		return
+	play_board_fog_effect()
+
+func play_board_light_laser_effect():
+	if effects_container == null:
+		return
+	var board_size_px := _get_board_pixel_size()
+	var center := Vector2(board_size_px, board_size_px) * 0.5
+	var laser := LightTrapLaserEffect.new()
+	laser.z_index = 80
+	laser.setup(board_size_px, Vector2(board_size_px * 0.5, board_size_px), center, _get_theme())
+	effects_container.add_child(laser)
+	var tween := create_tween()
+	tween.tween_interval(0.04)
+	tween.tween_property(laser, "progress", 1.0, TRAP_ROTATION_FOG_DURATION).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(laser, "alpha", 0.0, TRAP_ROTATION_FOG_DURATION).set_delay(TRAP_ROTATION_FOG_DURATION * 0.45).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tween.tween_callback(laser.queue_free)
+
 func start_big_swamp_pulse_visual(trap_cell: Vector2i, target_cell: Vector2i, piece_color: int = -1, affected_line_cells: Array = []):
+	start_trap_pulse_visual(trap_cell, target_cell, piece_color, affected_line_cells, TrapLibraryScript.SWALLOW_TRAP_ID)
+
+func start_trap_pulse_visual(trap_cell: Vector2i, target_cell: Vector2i, piece_color: int = -1, affected_line_cells: Array = [], trap_type_id: String = ""):
 	if effects_container == null:
 		return
 	_clear_big_swamp_pulse_effect(false)
@@ -493,12 +602,23 @@ func start_big_swamp_pulse_visual(trap_cell: Vector2i, target_cell: Vector2i, pi
 	pulsing_trap_cells[trap_cell] = true
 	_refresh_trap_visuals()
 	var theme: Resource = _get_theme()
-	var effect := BigSwampGeyserEffect.new()
-	effect.setup(cell_size, _get_cell_local_position(trap_cell), _get_cell_local_position(target_cell), theme, piece_color)
+	var resolved_trap_type_id := trap_type_id
+	if resolved_trap_type_id.is_empty():
+		resolved_trap_type_id = get_trap_type_id(trap_cell)
+	var effect: Node2D
+	if resolved_trap_type_id == TrapLibraryScript.LIGHT_TRAP_ID:
+		effect = LightTrapLaserEffect.new()
+		effect.setup(_get_board_pixel_size(), _get_cell_local_position(trap_cell), _get_cell_local_position(target_cell), theme, piece_color)
+	else:
+		effect = BigSwampGeyserEffect.new()
+		effect.setup(cell_size, _get_cell_local_position(trap_cell), _get_cell_local_position(target_cell), theme, piece_color)
 	effects_container.add_child(effect)
 	active_big_swamp_pulse_effect = effect
-	_start_big_swamp_line_fog(affected_line_cells)
-	_start_big_swamp_target_fade(target_cell)
+	if resolved_trap_type_id == TrapLibraryScript.LIGHT_TRAP_ID:
+		_start_big_swamp_target_fade(target_cell, false)
+	else:
+		_start_big_swamp_line_fog(affected_line_cells)
+		_start_big_swamp_target_fade(target_cell)
 
 func update_big_swamp_pulse_visual(progress: float):
 	var clamped_progress := clampf(progress, 0.0, 1.0)
@@ -549,7 +669,7 @@ func _clear_big_swamp_line_fog(animate_out: bool):
 	else:
 		fog.queue_free()
 
-func _start_big_swamp_target_fade(target_cell: Vector2i):
+func _start_big_swamp_target_fade(target_cell: Vector2i, fade_target: bool = true):
 	active_big_swamp_target_sprite = null
 	active_big_swamp_target_alpha = 1.0
 	if not board.has(target_cell):
@@ -563,7 +683,8 @@ func _start_big_swamp_target_fade(target_cell: Vector2i):
 	active_big_swamp_target_sprite = sprite
 	active_big_swamp_target_alpha = sprite.modulate.a
 	active_big_swamp_target_position = sprite.position
-	_update_big_swamp_target_fade(0.0)
+	if fade_target:
+		_update_big_swamp_target_fade(0.0)
 
 func _update_big_swamp_target_fade(progress: float):
 	if not is_instance_valid(active_big_swamp_target_sprite):
@@ -632,6 +753,30 @@ func animate_big_swamp_capture(_trap_cell: Vector2i, target_cell: Vector2i):
 	if is_instance_valid(active_big_swamp_pulse_effect):
 		capture_tween.tween_property(active_big_swamp_pulse_effect, "alpha", 0.0, 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	await capture_tween.finished
+
+func animate_light_trap_recolor(target_cell: Vector2i, new_color: int):
+	if not is_instance_valid(active_big_swamp_target_sprite):
+		return
+	if is_instance_valid(active_big_swamp_pulse_effect):
+		active_big_swamp_pulse_effect.set("progress", 1.0)
+	var theme: Resource = _get_theme()
+	var target_color := Color.WHITE
+	if theme != null:
+		target_color = theme.get_piece_color(new_color)
+	target_color.a = active_big_swamp_target_alpha
+	var original_scale := active_big_swamp_target_sprite.scale
+	var tween := create_tween()
+	tween.set_parallel()
+	tween.tween_property(active_big_swamp_target_sprite, "modulate", target_color.lightened(0.35), 0.16).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(active_big_swamp_target_sprite, "scale", original_scale * 1.18, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if is_instance_valid(active_big_swamp_pulse_effect):
+		tween.tween_property(active_big_swamp_pulse_effect, "alpha", 0.0, 0.18).set_delay(0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await tween.finished
+	if board.has(target_cell):
+		recolor_piece(target_cell, new_color)
+	if is_instance_valid(active_big_swamp_target_sprite):
+		active_big_swamp_target_sprite.scale = original_scale
+		active_big_swamp_target_sprite.position = active_big_swamp_target_position
 
 func play_king_attack_rebuff(attacker_cell: Vector2i, king_cell: Vector2i):
 	if effects_container == null or not board.has(attacker_cell) or not board.has(king_cell):
@@ -716,7 +861,7 @@ func _get_cell_local_position(grid_pos: Vector2i) -> Vector2:
 func get_cell_position(grid_pos: Vector2i) -> Vector2:
 	return _get_cell_local_position(grid_pos)
 
-func show_trap_message_cloud(grid_pos: Vector2i, message: String, theme: Resource, piece_type: int = -1, piece_color: int = -1):
+func show_trap_message_cloud(grid_pos: Vector2i, message: String, theme: Resource, piece_type: int = -1, piece_color: int = -1, trap_type_id: String = ""):
 	if effects_container == null or message.strip_edges().is_empty():
 		return
 	var start := _get_cell_local_position(grid_pos)
@@ -724,7 +869,7 @@ func show_trap_message_cloud(grid_pos: Vector2i, message: String, theme: Resourc
 	var end := Vector2(board_size_px * 0.5, board_size_px * 0.5)
 	var cloud = TrapMessageCloudScript.new()
 	effects_container.add_child(cloud)
-	cloud.setup(message, start, end, theme, piece_type, piece_color)
+	cloud.setup(message, start, end, theme, piece_type, piece_color, trap_type_id)
 
 func get_last_sacrificed_piece_color() -> int:
 	return last_sacrificed_piece_color
@@ -803,6 +948,24 @@ func remove_piece(grid_pos: Vector2i) -> bool:
 	var piece = board[grid_pos]
 	piece.queue_free()
 	board.erase(grid_pos)
+	return true
+
+func recolor_piece(grid_pos: Vector2i, color: int) -> bool:
+	if not board.has(grid_pos):
+		return false
+	var piece = board[grid_pos]
+	if not is_instance_valid(piece) or not (piece is Piece):
+		return false
+	piece.set_piece_color(color)
+	return true
+
+func replace_piece_identity(grid_pos: Vector2i, piece_type: int, color: int) -> bool:
+	if not board.has(grid_pos):
+		return false
+	var piece = board[grid_pos]
+	if not is_instance_valid(piece) or not (piece is Piece):
+		return false
+	piece.set_piece_identity(piece_type, color)
 	return true
 
 func build_board_snapshot() -> Dictionary:

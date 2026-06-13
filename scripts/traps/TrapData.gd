@@ -1,7 +1,7 @@
 extends Resource
 class_name TrapData
 
-enum Behavior { SWALLOW_AND_EMIT }
+enum Behavior { SWALLOW_AND_EMIT, RECOLOR_AND_EMIT }
 
 @export var id: String = ""
 @export var display_name: String = ""

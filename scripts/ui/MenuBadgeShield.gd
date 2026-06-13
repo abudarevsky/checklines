@@ -47,8 +47,49 @@ func _draw_progression_band():
 		Vector2(size.x * 0.10, size.y * 0.76)
 	])
 	_draw_glass_shape(points)
+	if progress_level > 0:
+		_draw_progress_level_mark()
 	if survival_stars > 0:
 		_draw_survival_stars()
+
+func _draw_progress_level_mark():
+	var level := clampi(progress_level, 0, 4)
+	if level <= 0:
+		return
+
+	var stroke := maxf(size.y * 0.048, 4.0)
+	var y_top := size.y * 0.33
+	var y_bottom := size.y * 0.57
+	var height := y_bottom - y_top
+	var mark_color := Color(1.0, 0.96, 0.72, 0.98) if tier != Tier.EMPTY else Color(0.94, 0.97, 1.0, 0.72)
+	var shadow := Color(0.0, 0.0, 0.0, 0.34)
+	match level:
+		1:
+			_draw_roman_one(Vector2(size.x * 0.50, y_top), height, stroke, shadow)
+			_draw_roman_one(Vector2(size.x * 0.50, y_top), height, stroke * 0.64, mark_color)
+		2:
+			for x in [size.x * 0.44, size.x * 0.56]:
+				_draw_roman_one(Vector2(x, y_top), height, stroke, shadow)
+				_draw_roman_one(Vector2(x, y_top), height, stroke * 0.64, mark_color)
+		3:
+			for x in [size.x * 0.40, size.x * 0.50, size.x * 0.60]:
+				_draw_roman_one(Vector2(x, y_top), height, stroke, shadow)
+				_draw_roman_one(Vector2(x, y_top), height, stroke * 0.64, mark_color)
+		4:
+			_draw_roman_one(Vector2(size.x * 0.36, y_top), height, stroke, shadow)
+			_draw_roman_v(Vector2(size.x * 0.56, y_top), height, stroke, shadow)
+			_draw_roman_one(Vector2(size.x * 0.36, y_top), height, stroke * 0.64, mark_color)
+			_draw_roman_v(Vector2(size.x * 0.56, y_top), height, stroke * 0.64, mark_color)
+
+func _draw_roman_one(top: Vector2, height: float, stroke: float, color: Color):
+	draw_line(top, top + Vector2(0.0, height), color, stroke, true)
+
+func _draw_roman_v(top: Vector2, height: float, stroke: float, color: Color):
+	var left := top + Vector2(-size.x * 0.09, 0.0)
+	var bottom := top + Vector2(0.0, height)
+	var right := top + Vector2(size.x * 0.09, 0.0)
+	draw_line(left, bottom, color, stroke, true)
+	draw_line(bottom, right, color, stroke, true)
 
 func _draw_survival_stars():
 	var star_count := maxi(survival_stars, 1)
@@ -59,7 +100,7 @@ func _draw_survival_stars():
 	if star_count > 1:
 		gap = minf(gap, max_row_width / float(star_count - 1))
 	var row_width := gap * float(star_count - 1)
-	var center := Vector2((size.x - row_width) * 0.5, size.y * 0.52)
+	var center := Vector2((size.x - row_width) * 0.5, size.y * 0.66)
 	for i in range(star_count):
 		draw_colored_polygon(_get_star_points(center + Vector2(gap * i, 0.0), radius), Color(0.62, 0.95, 1.0, 0.96))
 

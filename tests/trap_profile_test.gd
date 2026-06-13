@@ -12,6 +12,9 @@ func _initialize():
 		failures.append("expected configured pulse probability")
 	if TrapProfileScript.get_profile("missing") != TrapProfileScript.DEFAULT_PROFILE:
 		failures.append("expected missing kingdom to use default profile")
+	var neon_theme := load("res://themes/neon_theme.tres") as ThemeData
+	if neon_theme == null or neon_theme.trap_type_id != "light":
+		failures.append("expected neon kingdom to use Light Trap")
 
 	if failures.is_empty():
 		print("All trap profile tests passed")

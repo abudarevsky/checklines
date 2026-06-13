@@ -55,8 +55,7 @@ Current main-menu implementation uses the first badge slot for completed progres
 - Bronze: maximum completed level 1
 - Silver: maximum completed level 2
 - Gold: maximum completed level 3
-
-Level 4 prestige is reserved for an additional future overlay.
+- A level mark on the progression badge shows the latest completed level up to Level 4
 
 ### Tactical Mastery Badge
 

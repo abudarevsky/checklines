@@ -148,6 +148,9 @@ func record_kingdom_completed_level(kingdom_id: String, completed_level_number: 
 func get_kingdom_progress_badge_tier(kingdom_id: String) -> int:
 	return clampi(get_kingdom_max_completed_level(kingdom_id), 0, 3)
 
+func get_kingdom_progress_badge_level(kingdom_id: String) -> int:
+	return clampi(maxi(get_kingdom_max_completed_level(kingdom_id), 1), 1, 4)
+
 func get_kingdom_survival_rounds(kingdom_id: String) -> int:
 	return maxi(int(kingdom_survival_rounds.get(kingdom_id, 0)), 0)
 

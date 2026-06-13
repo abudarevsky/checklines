@@ -21,6 +21,7 @@ func _initialize():
 
 	_run_test("rotates every trap to a new empty cell", _test_trap_rotation_selects_new_empty_cells, failures)
 	_run_test("uses common trap library definition", _test_common_trap_library, failures)
+	_run_test("uses light trap library definition", _test_light_trap_library, failures)
 	_run_test("board stores trap type references", _test_board_trap_type_reference, failures)
 	_run_test("board selects trap details", _test_board_selects_trap_details, failures)
 	_run_test("traps are excluded from empty spawn cells", _test_traps_excluded_from_empty_cells, failures)
@@ -57,6 +58,11 @@ func _initialize():
 	_run_test("trap detector ignores queued board pieces", _test_trap_detector_ignores_queued_board_pieces, failures)
 	_run_test("survival traps increase once per refreshed board", _test_survival_traps_increase_per_refresh, failures)
 	_run_test("trap history identifies captured piece and line", _test_trap_history_identifies_piece_and_line, failures)
+	_run_test("Light Trap step uses soul message", _test_light_trap_step_uses_soul_message, failures)
+	_run_test("Light Trap history uses grant message", _test_light_trap_history_uses_grant_message, failures)
+	_run_test("Light Trap cloud uses sprite sentence", _test_light_trap_cloud_uses_sprite_sentence, failures)
+	_run_test("Light Trap replacement breaks candidate line", _test_light_trap_replacement_breaks_candidate_line, failures)
+	_run_test("Light Trap replacement breaks type line", _test_light_trap_replacement_breaks_type_line, failures)
 
 	if failures.is_empty():
 		print("All trap tests passed")
@@ -109,6 +115,26 @@ func _test_common_trap_library() -> String:
 		return "expected level 2 swallow trap to emit 3 pieces"
 	if trap.get_spawn_count(6) != 3:
 		return "expected later swallow traps to keep emitting 3 pieces"
+	return ""
+
+func _test_light_trap_library() -> String:
+	var TrapLibraryScript = load("res://scripts/traps/TrapLibrary.gd")
+	var TrapDataScript = load("res://scripts/traps/TrapData.gd")
+	var trap = TrapLibraryScript.get_trap("light")
+	if trap == null:
+		return "expected light trap definition"
+	if trap.id != "light":
+		return "wrong light trap id"
+	if trap.display_name != "Light Trap":
+		return "wrong light trap display name"
+	if trap.display_name_key != "trap_light_name":
+		return "wrong light trap display name key"
+	if trap.description_key != "trap_light_description":
+		return "wrong light trap description key"
+	if trap.behavior != TrapDataScript.Behavior.RECOLOR_AND_EMIT:
+		return "expected light trap to recolor and emit"
+	if trap.get_spawn_count(0) != 1 or trap.get_spawn_count(6) != 1:
+		return "expected light trap to emit one piece"
 	return ""
 
 func _test_board_trap_type_reference() -> String:
@@ -981,6 +1007,87 @@ func _test_trap_history_identifies_piece_and_line() -> String:
 		return "unexpected trap history text: %s" % str(entry.get("text"))
 	return ""
 
+func _test_light_trap_step_uses_soul_message() -> String:
+	var GameBoardScript = load("res://scripts/board/GameBoard.gd")
+	var TrapLibraryScript = load("res://scripts/traps/TrapLibrary.gd")
+	var game_board = GameBoardScript.new()
+	var trap_data: Resource = TrapLibraryScript.get_trap("light")
+	var message: String = game_board._build_trap_disappearance_message(GameManager.PieceType.PAWN, "Light Trap", trap_data)
+	game_board.free()
+
+	if message != "Another soul joins the Light":
+		return "unexpected Light Trap step message: %s" % message
+	return ""
+
+func _test_light_trap_history_uses_grant_message() -> String:
+	var GameBoardScript = load("res://scripts/board/GameBoard.gd")
+	var game_board = GameBoardScript.new()
+	var snapshot := {"pieces": [{"cell": Vector2i.ZERO}]}
+	game_board._record_light_trap_history(
+		GameManager.PieceType.KNIGHT,
+		GameManager.PieceColor.BLUE,
+		snapshot
+	)
+	var entry: Dictionary = game_board.session_event_history.get_entry(0)
+	game_board.free()
+
+	if entry.get("text") != "The Light grants you a Blue Knight":
+		return "unexpected Light Trap history text: %s" % str(entry.get("text"))
+	return ""
+
+func _test_light_trap_cloud_uses_sprite_sentence() -> String:
+	var GameBoardScript = load("res://scripts/board/GameBoard.gd")
+	var game_board = GameBoardScript.new()
+	var message: String = game_board._build_light_trap_grant_cloud_message()
+	game_board.free()
+
+	if message != "The Light grants you a":
+		return "unexpected Light Trap cloud text: %s" % message
+	return ""
+
+func _test_light_trap_replacement_breaks_candidate_line() -> String:
+	var GameBoardScript = load("res://scripts/board/GameBoard.gd")
+	var board: Dictionary = {}
+	var target_cell := Vector2i.ZERO
+	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, target_cell)
+	_add_test_piece(board, GameManager.PieceType.PAWN, GameManager.PieceColor.BLUE, Vector2i(1, 0))
+	_add_test_piece(board, GameManager.PieceType.KING, GameManager.PieceColor.GREEN, Vector2i(2, 0))
+	var replacement: Dictionary = GameBoardScript._get_light_trap_replacement_piece_data(board, target_cell, {
+		"mode": "color",
+		"matched_value": GameManager.PieceColor.RED
+	})
+	var error_message := ""
+	if replacement.is_empty():
+		error_message = "light trap did not choose a replacement"
+	elif int(replacement["color"]) == GameManager.PieceColor.RED:
+		error_message = "light trap kept the candidate line color"
+	elif int(replacement["piece_type"]) == GameManager.PieceType.KING:
+		error_message = "light trap introduced a second king"
+	elif _board_has_identity(board, target_cell, int(replacement["piece_type"]), int(replacement["color"])):
+		error_message = "light trap chose an identity already on the board"
+	_free_test_board(board)
+	return error_message
+
+func _test_light_trap_replacement_breaks_type_line() -> String:
+	var GameBoardScript = load("res://scripts/board/GameBoard.gd")
+	var board: Dictionary = {}
+	var target_cell := Vector2i.ZERO
+	_add_test_piece(board, GameManager.PieceType.ROOK, GameManager.PieceColor.RED, target_cell)
+	_add_test_piece(board, GameManager.PieceType.PAWN, GameManager.PieceColor.BLUE, Vector2i(1, 0))
+	var replacement: Dictionary = GameBoardScript._get_light_trap_replacement_piece_data(board, target_cell, {
+		"mode": "type",
+		"matched_value": GameManager.PieceType.ROOK
+	})
+	var error_message := ""
+	if replacement.is_empty():
+		error_message = "light trap did not choose a replacement for type line"
+	elif int(replacement["piece_type"]) == GameManager.PieceType.ROOK:
+		error_message = "light trap kept the candidate line type"
+	elif _board_has_identity(board, target_cell, int(replacement["piece_type"]), int(replacement["color"])):
+		error_message = "light trap chose an identity already on the board"
+	_free_test_board(board)
+	return error_message
+
 func _test_big_swamp_pulse_detects_almost_line() -> String:
 	var GameBoardScript = load("res://scripts/board/GameBoard.gd")
 	var board: Dictionary = {}
@@ -1606,6 +1713,15 @@ func _same_cells(a: Array, b: Array) -> bool:
 		if a[i] != b[i]:
 			return false
 	return true
+
+func _board_has_identity(board: Dictionary, ignored_cell: Vector2i, piece_type: int, piece_color: int) -> bool:
+	for cell in board.keys():
+		if cell == ignored_cell:
+			continue
+		var piece = board[cell]
+		if piece != null and int(piece.piece_type) == piece_type and int(piece.piece_color) == piece_color:
+			return true
+	return false
 
 func _free_test_board(board: Dictionary):
 	for piece in board.values():

@@ -57,6 +57,15 @@ func setup(type, color, pos: Vector2i):
 	grid_position = pos
 	apply_theme(_get_theme())
 
+func set_piece_color(color: int):
+	piece_color = color
+	apply_theme(_get_theme())
+
+func set_piece_identity(type: int, color: int):
+	piece_type = type
+	piece_color = color
+	apply_theme(_get_theme())
+
 func play_spawn_notice():
 	if sprite == null:
 		return

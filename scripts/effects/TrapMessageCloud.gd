@@ -3,6 +3,7 @@ class_name TrapMessageCloud
 
 const CLOUD_SHADER := preload("res://shaders/trap_message_cloud.gdshader")
 const BIG_SWAMP_TEXTURE := preload("res://assets/sprites/big_swamp.png")
+const LITE_TRAP_TEXTURE := preload("res://assets/sprites/lite_trap.png")
 const FLIGHT_DURATION: float = 1.55
 const FADE_IN_DURATION: float = 0.18
 const CENTER_HOLD_DURATION: float = 0.3
@@ -22,13 +23,14 @@ var coffin_border: Line2D
 var piece_icon: TextureRect
 var message_label: Label
 var shader_material: ShaderMaterial
+var lite_trap_texture_cache: Texture2D
 
-func setup(message: String, from: Vector2, to: Vector2, theme: Resource, piece_type: int = -1, piece_color: int = -1):
+func setup(message: String, from: Vector2, to: Vector2, theme: Resource, piece_type: int = -1, piece_color: int = -1, trap_type_id: String = ""):
 	position = from
-	_build_cloud(message, theme, piece_type, piece_color)
+	_build_cloud(message, theme, piece_type, piece_color, trap_type_id)
 	_play(to)
 
-func _build_cloud(message: String, theme: Resource, piece_type: int, piece_color: int):
+func _build_cloud(message: String, theme: Resource, piece_type: int, piece_color: int, trap_type_id: String):
 	var cloud_size := _get_cloud_size(message)
 	shadow_rect = _build_cloud_rect(cloud_size, Vector2(10.0, 12.0), _get_shadow_color())
 	add_child(shadow_rect)
@@ -50,7 +52,7 @@ func _build_cloud(message: String, theme: Resource, piece_type: int, piece_color
 
 	swamp_image = TextureRect.new()
 	swamp_image.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	swamp_image.texture = _get_big_swamp_texture()
+	swamp_image.texture = _get_trap_texture(trap_type_id)
 	swamp_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	swamp_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	swamp_image.position = Vector2(-SWAMP_IMAGE_SIZE.x * 0.5, cloud_rect.position.y + 18.0)
@@ -170,8 +172,18 @@ func _load_font_file(font_path: String) -> FontFile:
 		return null
 	return font
 
-func _get_big_swamp_texture() -> Texture2D:
+func _get_trap_texture(trap_type_id: String) -> Texture2D:
+	if trap_type_id == "light":
+		var lite_trap_texture := _get_lite_trap_texture()
+		if lite_trap_texture != null:
+			return lite_trap_texture
 	return BIG_SWAMP_TEXTURE
+
+func _get_lite_trap_texture() -> Texture2D:
+	if lite_trap_texture_cache != null:
+		return lite_trap_texture_cache
+	lite_trap_texture_cache = LITE_TRAP_TEXTURE
+	return lite_trap_texture_cache
 
 func _get_coffin_points(size: Vector2) -> PackedVector2Array:
 	var half_width := size.x * 0.5

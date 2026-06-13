@@ -1,6 +1,8 @@
 extends Node2D
 
 const BoardStateRulesScript = preload("res://scripts/board/BoardStateRules.gd")
+const TrapLibraryScript = preload("res://scripts/traps/TrapLibrary.gd")
+const TrapDataScript = preload("res://scripts/traps/TrapData.gd")
 const TrapLineDetectorScript = preload("res://scripts/traps/TrapLineDetector.gd")
 const TrapProfileScript = preload("res://scripts/traps/TrapProfile.gd")
 const SurvivalBloodOverlayScript = preload("res://scripts/effects/SurvivalBloodOverlay.gd")
@@ -1282,6 +1284,12 @@ func _generate_traps_for_level(level_index: int, trap_count_override: int = -1):
 		trap_type_id = theme.trap_type_id
 	board_manager.set_traps(selected_cells, trap_type_id)
 
+func _get_active_trap_type_id() -> String:
+	var theme := _get_theme()
+	if theme != null and not theme.trap_type_id.is_empty():
+		return theme.trap_type_id
+	return TrapLibraryScript.get_default_trap_id()
+
 func _get_survival_trap_count() -> int:
 	return _get_trap_count_for_level(SURVIVAL_LEVEL_INDEX) + maxi(survival_round_index, 1)
 
@@ -1304,7 +1312,7 @@ func _start_survival_round():
 	board_manager.clear_board()
 	_spawn_initial_pieces()
 	_generate_traps_for_level(current_puzzle_level, _get_survival_trap_count())
-	board_manager.play_board_fog_effect()
+	board_manager.play_board_trap_rotation_effect(_get_active_trap_type_id())
 	if survival_blood_overlay != null and survival_blood_overlay.has_method("start"):
 		survival_blood_overlay.start()
 	puzzle_panel.visible = true
@@ -1347,6 +1355,56 @@ static func _get_big_swamp_pulse_duration_seconds(kingdom_id: String = "") -> fl
 
 static func _get_failed_pulse_spawn_count(kingdom_id: String = "") -> int:
 	return maxi(int(TrapProfileScript.get_value("failed_pulse_spawn_count", _resolve_trap_kingdom_id(kingdom_id), 2)), 0)
+
+static func _get_trap_pulse_spawn_count(trap_data: Resource, level_index: int, kingdom_id: String = "") -> int:
+	if trap_data != null and trap_data.has_method("get_spawn_count"):
+		return maxi(int(trap_data.get_spawn_count(level_index)), 0)
+	return _get_failed_pulse_spawn_count(kingdom_id)
+
+static func _get_light_trap_replacement_piece_data(board: Dictionary, target_cell: Vector2i, candidate: Dictionary) -> Dictionary:
+	var existing_identities: Dictionary = {}
+	var has_king_elsewhere := false
+	for cell in board.keys():
+		if cell == target_cell:
+			continue
+		var piece = board[cell]
+		if piece == null:
+			continue
+		var piece_type := int(piece.piece_type)
+		var piece_color := int(piece.piece_color)
+		existing_identities[_get_piece_identity_key(piece_type, piece_color)] = true
+		if piece_type == GameManager.PieceType.KING:
+			has_king_elsewhere = true
+
+	var mode := str(candidate.get("mode", ""))
+	var matched_value := int(candidate.get("matched_value", -1))
+	var candidates: Array[Dictionary] = []
+	var fallback_candidates: Array[Dictionary] = []
+	for piece_type in GameManager.PieceType.values():
+		if has_king_elsewhere and int(piece_type) == GameManager.PieceType.KING:
+			continue
+		if mode == TrapLineDetectorScript.MODE_TYPE and int(piece_type) == matched_value:
+			continue
+		for piece_color in GameManager.PieceColor.values():
+			if mode == TrapLineDetectorScript.MODE_COLOR and int(piece_color) == matched_value:
+				continue
+			var replacement := {
+				"piece_type": int(piece_type),
+				"color": int(piece_color)
+			}
+			fallback_candidates.append(replacement)
+			if not existing_identities.has(_get_piece_identity_key(int(piece_type), int(piece_color))):
+				candidates.append(replacement)
+
+	if candidates.is_empty():
+		candidates = fallback_candidates
+	if candidates.is_empty():
+		return {}
+	candidates.shuffle()
+	return candidates[0]
+
+static func _get_piece_identity_key(piece_type: int, piece_color: int) -> String:
+	return "%d:%d" % [piece_type, piece_color]
 
 static func _get_allow_king_target(kingdom_id: String = "") -> bool:
 	return bool(TrapProfileScript.get_value("allow_king_target", _resolve_trap_kingdom_id(kingdom_id), false))
@@ -1425,9 +1483,16 @@ func _maybe_start_big_swamp_pulse():
 	_start_big_swamp_pulse(best_candidates[0])
 
 func _get_big_swamp_trap_cells() -> Array[Vector2i]:
+	return _get_pulse_trap_cells()
+
+func _get_pulse_trap_cells() -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	for trap_cell in board_manager.traps:
-		if board_manager.get_trap_type_id(trap_cell) == "swallow":
+		var trap_data: Resource = board_manager.get_trap_data(trap_cell)
+		if trap_data != null and int(trap_data.get("behavior")) in [
+			TrapDataScript.Behavior.SWALLOW_AND_EMIT,
+			TrapDataScript.Behavior.RECOLOR_AND_EMIT
+		]:
 			cells.append(trap_cell)
 	return cells
 
@@ -1436,11 +1501,12 @@ func _start_big_swamp_pulse(candidate: Dictionary):
 	var target_piece_color: int = -1
 	if board_manager.board.has(big_swamp_pulse_state.target_piece_cell):
 		target_piece_color = int(board_manager.board[big_swamp_pulse_state.target_piece_cell].piece_color)
-	board_manager.start_big_swamp_pulse_visual(
+	board_manager.start_trap_pulse_visual(
 		big_swamp_pulse_state.trap_cell,
 		big_swamp_pulse_state.target_piece_cell,
 		target_piece_color,
-		big_swamp_pulse_state.candidate_line_cells
+		big_swamp_pulse_state.candidate_line_cells,
+		board_manager.get_trap_type_id(big_swamp_pulse_state.trap_cell)
 	)
 
 func _update_big_swamp_pulse(delta: float):
@@ -1488,23 +1554,46 @@ func _expire_big_swamp_pulse():
 		if not game_over_overlay.visible and not pause_overlay.visible:
 			board_manager.set_input_enabled(true)
 		return
-	var captured_piece_type: int = int(target_piece.piece_type)
-	var captured_piece_color: int = int(target_piece.piece_color)
-	var trap_history_snapshot: Dictionary = board_manager.build_board_snapshot()
-	board_manager.board.erase(target_cell)
-	await board_manager.animate_big_swamp_capture(trap_cell, target_cell)
-	if is_instance_valid(target_piece):
-		target_piece.queue_free()
-		board_manager.finish_big_swamp_pulse_visual()
-		var trap_data: Resource = board_manager.get_trap_data(trap_cell)
-		var trap_name := _get_trap_display_name(trap_data)
-		var trap_message := _build_trap_disappearance_message(captured_piece_type, trap_name)
-		_record_trap_capture_history(captured_piece_type, big_swamp_pulse_state.candidate, trap_history_snapshot)
-		board_manager.show_trap_message_cloud(trap_cell, trap_message, _get_theme(), captured_piece_type, captured_piece_color)
-		_exclude_spawn_cell_for_turn(target_cell)
-		_spawn_new_pieces(_get_failed_pulse_spawn_count(Settings.theme_id))
-		await get_tree().create_timer(0.2).timeout
-		await _resolve_chain_waves()
+	var trap_data: Resource = board_manager.get_trap_data(trap_cell)
+	if trap_data != null and int(trap_data.get("behavior")) == TrapDataScript.Behavior.RECOLOR_AND_EMIT:
+		var replacement := _get_light_trap_replacement_piece_data(board_manager.board, target_cell, big_swamp_pulse_state.candidate)
+		if replacement.is_empty():
+			board_manager.cancel_big_swamp_pulse_visual()
+		else:
+			var trap_history_snapshot: Dictionary = board_manager.build_board_snapshot()
+			var replacement_type := int(replacement["piece_type"])
+			var replacement_color := int(replacement["color"])
+			await board_manager.animate_light_trap_recolor(target_cell, replacement_color)
+			if is_instance_valid(target_piece):
+				board_manager.replace_piece_identity(target_cell, replacement_type, replacement_color)
+				board_manager.finish_big_swamp_pulse_visual()
+				var trap_message := _build_light_trap_grant_cloud_message()
+				_record_light_trap_history(replacement_type, replacement_color, trap_history_snapshot)
+				board_manager.show_trap_message_cloud(trap_cell, trap_message, _get_theme(), replacement_type, replacement_color, board_manager.get_trap_type_id(trap_cell))
+				_spawn_random_pieces_at_random_cells(_get_trap_pulse_spawn_count(trap_data, current_puzzle_level, Settings.theme_id))
+				await get_tree().create_timer(0.2).timeout
+				await _resolve_chain_waves()
+			else:
+				board_manager.cancel_big_swamp_pulse_visual()
+	elif trap_data != null and int(trap_data.get("behavior")) == TrapDataScript.Behavior.SWALLOW_AND_EMIT:
+		var captured_piece_type: int = int(target_piece.piece_type)
+		var captured_piece_color: int = int(target_piece.piece_color)
+		var trap_history_snapshot: Dictionary = board_manager.build_board_snapshot()
+		board_manager.board.erase(target_cell)
+		await board_manager.animate_big_swamp_capture(trap_cell, target_cell)
+		if is_instance_valid(target_piece):
+			target_piece.queue_free()
+			board_manager.finish_big_swamp_pulse_visual()
+			var trap_name := _get_trap_display_name(trap_data)
+			var trap_message := _build_trap_disappearance_message(captured_piece_type, trap_name, trap_data)
+			_record_trap_capture_history(captured_piece_type, big_swamp_pulse_state.candidate, trap_history_snapshot)
+			board_manager.show_trap_message_cloud(trap_cell, trap_message, _get_theme(), captured_piece_type, captured_piece_color, board_manager.get_trap_type_id(trap_cell))
+			_exclude_spawn_cell_for_turn(target_cell)
+			_spawn_new_pieces(_get_trap_pulse_spawn_count(trap_data, current_puzzle_level, Settings.theme_id))
+			await get_tree().create_timer(0.2).timeout
+			await _resolve_chain_waves()
+		else:
+			board_manager.cancel_big_swamp_pulse_visual()
 	else:
 		board_manager.cancel_big_swamp_pulse_visual()
 	big_swamp_pulse_state.clear()
@@ -1537,13 +1626,17 @@ func _is_big_swamp_pulse_state_valid() -> bool:
 		return false
 	if not (big_swamp_pulse_state.trap_cell in board_manager.traps):
 		return false
-	if board_manager.get_trap_type_id(big_swamp_pulse_state.trap_cell) != "swallow":
+	var trap_data: Resource = board_manager.get_trap_data(big_swamp_pulse_state.trap_cell)
+	if trap_data == null or not (int(trap_data.get("behavior")) in [
+		TrapDataScript.Behavior.SWALLOW_AND_EMIT,
+		TrapDataScript.Behavior.RECOLOR_AND_EMIT
+	]):
 		return false
 	if _get_valid_big_swamp_target_piece() == null:
 		return false
 	if not TrapLineDetectorScript.is_candidate_still_present(
 		board_manager.board,
-		_get_big_swamp_trap_cells(),
+		_get_pulse_trap_cells(),
 		big_swamp_pulse_state.candidate
 	):
 		return false
@@ -1560,7 +1653,7 @@ func _is_big_swamp_pulse_line_completed() -> bool:
 		big_swamp_pulse_state.candidate_line_cells
 	)
 
-static func _find_big_swamp_pulse_candidates(board: Dictionary, trap_cells: Array, allow_king_capture: bool, blocked_trap_cells: Array = [], max_target_distance_cells: int = 1) -> Array:
+static func _find_big_swamp_pulse_candidates(board: Dictionary, trap_cells: Array, _allow_king_capture: bool, blocked_trap_cells: Array = [], max_target_distance_cells: int = 1) -> Array:
 	return TrapLineDetectorScript.detect_trap_lines(board, trap_cells, max_target_distance_cells, blocked_trap_cells)
 
 
@@ -1717,6 +1810,32 @@ func _record_trap_capture_history(piece_type: int, candidate: Dictionary, snapsh
 		"line": line_name
 	})
 	_record_session_event_history(text, snapshot)
+
+func _record_light_trap_history(piece_type: int, piece_color: int, snapshot: Dictionary):
+	_record_session_event_history(_build_light_trap_grant_message(piece_type, piece_color), snapshot)
+
+func _build_light_trap_grant_cloud_message() -> String:
+	return _t("trap_light_grants_cloud")
+
+func _build_light_trap_grant_message(piece_type: int, piece_color: int) -> String:
+	return _tf("trap_light_grants", {
+		"piece": _get_colored_piece_name(piece_type, piece_color)
+	})
+
+func _get_colored_piece_name(piece_type: int, piece_color: int) -> String:
+	return "%s %s" % [_get_piece_color_name(piece_color), GameManager.get_piece_type_name(piece_type)]
+
+func _get_piece_color_name(piece_color: int) -> String:
+	match piece_color:
+		GameManager.PieceColor.RED:
+			return _t("piece_color_red")
+		GameManager.PieceColor.BLUE:
+			return _t("piece_color_blue")
+		GameManager.PieceColor.GREEN:
+			return _t("piece_color_green")
+		GameManager.PieceColor.ORANGE:
+			return _t("piece_color_orange")
+	return _t("piece_generic")
 
 func _get_piece_history_icon(piece_type: int) -> String:
 	match piece_type:
@@ -2092,9 +2211,9 @@ func _on_piece_sacrificed(_from: Vector2i, _to: Vector2i, piece_type: int):
 	var trap_data: Resource = board_manager.get_trap_data(_to)
 	var theme := _get_theme()
 	var trap_name := _get_trap_display_name(trap_data)
-	var trap_message := _build_trap_disappearance_message(piece_type, trap_name)
-	var trap_event := GameManager.build_trap_disappearance_event(piece_type, trap_name)
-	board_manager.show_trap_message_cloud(_to, trap_message, theme, piece_type, board_manager.get_last_sacrificed_piece_color())
+	var trap_message := _build_trap_disappearance_message(piece_type, trap_name, trap_data)
+	var trap_event := _build_trap_disappearance_event(piece_type, trap_name, trap_data)
+	board_manager.show_trap_message_cloud(_to, trap_message, theme, piece_type, board_manager.get_last_sacrificed_piece_color(), board_manager.get_trap_type_id(_to))
 	_begin_score_message_batch()
 	pending_event_snapshot = board_manager.get_last_sacrifice_snapshot()
 	_queue_scoring_event(trap_event)
@@ -2108,7 +2227,21 @@ func _on_king_attack_attempted(attacker, _king, king_cell: Vector2i):
 	pending_event_snapshot = board_manager.build_board_snapshot()
 	_queue_scoring_event(GameManager.build_king_attack_attempt_event())
 
-func _build_trap_disappearance_message(piece_type: int, trap_name: String) -> String:
+func _build_trap_disappearance_event(piece_type: int, trap_name: String, trap_data: Resource = null) -> Dictionary:
+	var sacrifice_cost := mini(GameManager.get_piece_value(piece_type), GameManager.current_score)
+	if trap_data != null and int(trap_data.get("behavior")) == TrapDataScript.Behavior.RECOLOR_AND_EMIT:
+		if sacrifice_cost <= 0:
+			return {}
+		return {
+			"message": _t("trap_light_soul_joined"),
+			"value": -sacrifice_cost,
+			"show_value": false
+		}
+	return GameManager.build_trap_disappearance_event(piece_type, trap_name)
+
+func _build_trap_disappearance_message(piece_type: int, trap_name: String, trap_data: Resource = null) -> String:
+	if trap_data != null and int(trap_data.get("behavior")) == TrapDataScript.Behavior.RECOLOR_AND_EMIT:
+		return _t("trap_light_soul_joined")
 	var sacrifice_cost := mini(GameManager.get_piece_value(piece_type), GameManager.current_score)
 	return _tf("trap_cloud_disappeared", {
 		"trap": trap_name,
@@ -2514,6 +2647,24 @@ func _get_trap_spawn_count(trap_data: Resource) -> int:
 
 func _spawn_new_pieces(count: int = 3) -> int:
 	return board_manager.spawn_random_pieces(count, turn_state.spawn_excluded_cells)
+
+func _spawn_random_pieces_at_random_cells(count: int = 1) -> int:
+	if count <= 0:
+		return 0
+	var spawned_count := 0
+	for _i in range(count):
+		var spawn_data: Dictionary = board_manager.get_random_spawn_piece_data(turn_state.spawn_excluded_cells)
+		if spawn_data.is_empty():
+			return spawned_count
+		var empty_cells: Array = board_manager.get_empty_cells(turn_state.spawn_excluded_cells)
+		if empty_cells.is_empty():
+			return spawned_count
+		empty_cells.shuffle()
+		var grid_pos: Vector2i = empty_cells[0]
+		if board_manager.add_piece(spawn_data["piece_type"], spawn_data["color"], grid_pos) == null:
+			return spawned_count
+		spawned_count += 1
+	return spawned_count
 
 func _apply_localized_text():
 	pause_title_label.text = _t("game_paused")
