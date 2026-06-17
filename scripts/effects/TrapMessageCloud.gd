@@ -8,11 +8,13 @@ const FLIGHT_DURATION: float = 1.55
 const FADE_IN_DURATION: float = 0.18
 const CENTER_HOLD_DURATION: float = 0.3
 const FADE_OUT_DURATION: float = 0.52
+const CLOUD_SIZE: Vector2 = Vector2(500.0, 500.0)
 const SWAMP_IMAGE_SIZE: Vector2 = Vector2(350.0, 350.0)
 const ICON_SIZE: float = 86.0
 const COFFIN_SIZE: Vector2 = Vector2(116.0, 104.0)
 const TEXT_HEIGHT: float = 108.0
-const TEXT_BOTTOM_MARGIN: float = 48.0
+const TEXT_SIDE_PADDING: float = 24.0
+const MESSAGE_COFFIN_GAP: float = 12.0
 
 var cloud_rect: ColorRect
 var shadow_rect: ColorRect
@@ -59,7 +61,10 @@ func _build_cloud(message: String, theme: Resource, piece_type: int, piece_color
 	swamp_image.size = SWAMP_IMAGE_SIZE
 	add_child(swamp_image)
 
-	var coffin_center := Vector2(78.0, cloud_rect.position.y + 322.0)
+	var coffin_center := Vector2(
+		cloud_rect.position.x + cloud_size.x - TEXT_SIDE_PADDING - COFFIN_SIZE.x * 0.5,
+		cloud_rect.position.y + 322.0
+	)
 	coffin_overlay = Polygon2D.new()
 	coffin_overlay.polygon = _get_coffin_points(COFFIN_SIZE)
 	coffin_overlay.position = coffin_center
@@ -88,16 +93,21 @@ func _build_cloud(message: String, theme: Resource, piece_type: int, piece_color
 	message_label = Label.new()
 	message_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	message_label.text = message
-	message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	message_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	message_label.position = Vector2(cloud_rect.position.x + 24.0, cloud_rect.position.y + cloud_size.y - TEXT_HEIGHT - TEXT_BOTTOM_MARGIN)
-	message_label.size = Vector2(cloud_size.x - 48.0, TEXT_HEIGHT)
-	message_label.add_theme_font_override("font", _get_message_font(theme))
+	message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	message_label.clip_text = true
+	var message_right := coffin_center.x - COFFIN_SIZE.x * 0.5 - MESSAGE_COFFIN_GAP
+	var message_left := cloud_rect.position.x + TEXT_SIDE_PADDING
+	message_label.position = Vector2(message_left, coffin_center.y - TEXT_HEIGHT * 0.5)
+	message_label.size = Vector2(message_right - message_left, TEXT_HEIGHT)
+	var message_font := _get_message_font(theme)
+	var font_size := _get_fitting_font_size(message, message_font, int(message_label.size.x), _get_font_size(theme))
+	message_label.add_theme_font_override("font", message_font)
 	message_label.add_theme_color_override("font_color", _get_text_color(theme))
 	message_label.add_theme_color_override("font_outline_color", _get_text_outline_color(theme))
 	message_label.add_theme_constant_override("outline_size", 9)
-	message_label.add_theme_font_size_override("font_size", _get_font_size(theme))
+	message_label.add_theme_font_size_override("font_size", font_size)
 	add_child(message_label)
 
 func _build_cloud_rect(size: Vector2, offset: Vector2, color: Color) -> ColorRect:
@@ -113,7 +123,7 @@ func _build_cloud_rect(size: Vector2, offset: Vector2, color: Color) -> ColorRec
 	return rect
 
 func _get_cloud_size(message: String) -> Vector2:
-	return Vector2(430.0, 500.0)
+	return CLOUD_SIZE
 
 func _get_cloud_color(theme: Resource) -> Color:
 	if theme != null:
@@ -152,6 +162,22 @@ func _get_font_size(theme: Resource) -> int:
 	if theme != null:
 		return int(round(float(clampi(theme.puzzle_message_font_size + 8, 36, 44)) * 1.2))
 	return 46
+
+func _get_fitting_font_size(message: String, font: Font, label_width: int, preferred_size: int) -> int:
+	var font_size := preferred_size
+	while font_size > 40:
+		var text_size := font.get_multiline_string_size(
+			message,
+			HORIZONTAL_ALIGNMENT_CENTER,
+			float(label_width),
+			font_size,
+			-1,
+			TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND
+		)
+		if text_size.y <= TEXT_HEIGHT:
+			return font_size
+		font_size -= 2
+	return 40
 
 func _get_message_font(theme: Resource) -> Font:
 	if theme != null:

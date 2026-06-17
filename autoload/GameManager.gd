@@ -103,29 +103,19 @@ func build_line_scoring_event(chain: Dictionary) -> Dictionary:
 	}
 
 func _get_sacrifice_cost(piece_type: int) -> int:
-	if current_score <= 0:
-		return 0
-
-	var sacrifice_cost: int = mini(get_piece_value(piece_type), current_score)
-	if sacrifice_cost <= 0:
-		return 0
-
-	return sacrifice_cost
+	return maxi(get_piece_value(piece_type), 0)
 
 func build_sacrifice_event(piece_type: int) -> Dictionary:
 	var message := _tf("sacrifice", {"piece": get_piece_type_name(piece_type)})
 	var sacrifice_cost := _get_sacrifice_cost(piece_type)
 	if sacrifice_cost <= 0:
-		return {
-			"message": message,
-			"value": 0,
-			"show_value": false,
-			"display_only": true
-		}
+		return {}
 
+	message = "%s -%d" % [message, sacrifice_cost]
 	return {
 		"message": message,
-		"value": -sacrifice_cost
+		"value": -sacrifice_cost,
+		"show_value": false
 	}
 
 func build_trap_disappearance_event(piece_type: int, trap_name: String) -> Dictionary:
@@ -279,6 +269,8 @@ func _english_text(key: String) -> String:
 			return "Trapped by {trap} -{cost} :("
 		"king_untouchable":
 			return "The king is untouchable!"
+		"trap_light_soul_joined":
+			return "Another soul joins the Light -{cost}"
 		"sacrifice":
 			return "{piece} Sacrifice"
 		"piece_pawn":

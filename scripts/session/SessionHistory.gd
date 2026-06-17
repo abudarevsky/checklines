@@ -7,10 +7,14 @@ var depth: int
 func _init(history_depth: int):
 	depth = maxi(history_depth, 0)
 
-func add(text: String, snapshot: Dictionary):
+func add(text: String, snapshot: Dictionary, metadata: Dictionary = {}):
 	if text.strip_edges().is_empty() or snapshot.is_empty():
 		return
-	entries.push_front({"text": text, "snapshot": snapshot.duplicate(true)})
+	entries.push_front({
+		"text": text,
+		"snapshot": snapshot.duplicate(true),
+		"metadata": metadata.duplicate(true)
+	})
 	while entries.size() > depth:
 		entries.pop_back()
 

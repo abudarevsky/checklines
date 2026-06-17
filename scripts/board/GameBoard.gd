@@ -142,6 +142,8 @@ const REWIND_HUD_SLIDE_IN_DURATION: float = 0.28
 const REWIND_HUD_SLIDE_OUT_DURATION: float = 0.22
 const REWIND_HUD_FONT_SIZE: int = 22
 const REWIND_HISTORY_FONT_SIZE: int = 28
+const REWIND_HISTORY_PIECE_ICON_SIZE: float = 64.0
+const REWIND_LIGHT_GRANT_TEXT_WIDTH: float = 300.0
 const PUZZLE_IMAGE_PREVIEW_DURATION: float = 2.0
 const PUZZLE_LEVEL_COMPLETE_HOLD: float = 3.0
 const PUZZLE_IMAGE_FADE_DURATION: float = 0.5
@@ -532,6 +534,17 @@ func _apply_history_button_theme(button: Button, theme: ThemeData, is_selected: 
 	button.add_theme_color_override("font_color", theme.hud_primary_text_color)
 	button.add_theme_color_override("font_hover_color", theme.hud_primary_text_color)
 	button.add_theme_color_override("font_pressed_color", theme.hud_primary_text_color)
+	var history_label := button.get_node_or_null("HistoryContent/HistoryLabel")
+	if history_label is Label:
+		history_label.add_theme_font_size_override("font_size", REWIND_HISTORY_FONT_SIZE)
+		history_label.add_theme_color_override("font_color", theme.hud_primary_text_color)
+	var history_icon := button.get_node_or_null("HistoryContent/HistoryPieceIcon")
+	if history_icon is TextureRect:
+		var history_index := int(button.get_meta("history_index", -1))
+		var metadata: Dictionary = {}
+		if history_index >= 0 and history_index < session_event_history.size():
+			metadata = session_event_history.get_entry(history_index).get("metadata", {})
+		_apply_history_piece_icon(history_icon, metadata)
 	if is_selected:
 		button.add_theme_stylebox_override("normal", _build_history_row_style(Color(theme.dialog_button_primary_hover_color.r, theme.dialog_button_primary_hover_color.g, theme.dialog_button_primary_hover_color.b, 0.34)))
 		button.add_theme_stylebox_override("hover", _build_history_row_style(Color(theme.dialog_button_primary_hover_color.r, theme.dialog_button_primary_hover_color.g, theme.dialog_button_primary_hover_color.b, 0.46)))
@@ -1567,10 +1580,14 @@ func _expire_big_swamp_pulse():
 			if is_instance_valid(target_piece):
 				board_manager.replace_piece_identity(target_cell, replacement_type, replacement_color)
 				board_manager.finish_big_swamp_pulse_visual()
-				var trap_message := _build_light_trap_grant_cloud_message()
-				_record_light_trap_history(replacement_type, replacement_color, trap_history_snapshot)
-				board_manager.show_trap_message_cloud(trap_cell, trap_message, _get_theme(), replacement_type, replacement_color, board_manager.get_trap_type_id(trap_cell))
-				_spawn_random_pieces_at_random_cells(_get_trap_pulse_spawn_count(trap_data, current_puzzle_level, Settings.theme_id))
+				var granted_piece := _spawn_random_piece_at_random_cell()
+				if not granted_piece.is_empty():
+					var granted_type := int(granted_piece["piece_type"])
+					var granted_color := int(granted_piece["color"])
+					var trap_message := _build_light_trap_grant_cloud_message()
+					_record_light_trap_history(granted_type, granted_color, trap_history_snapshot)
+					board_manager.show_trap_message_cloud(trap_cell, trap_message, _get_theme(), granted_type, granted_color, board_manager.get_trap_type_id(trap_cell))
+				_spawn_random_pieces_at_random_cells(_get_trap_pulse_spawn_count(trap_data, current_puzzle_level, Settings.theme_id) - 1)
 				await get_tree().create_timer(0.2).timeout
 				await _resolve_chain_waves()
 			else:
@@ -1799,8 +1816,8 @@ func _queue_message(text: String):
 	_append_hud_message(text)
 	_show_hud_message_log()
 
-func _record_session_event_history(text: String, snapshot: Dictionary):
-	session_event_history.add(text, snapshot)
+func _record_session_event_history(text: String, snapshot: Dictionary, metadata: Dictionary = {}):
+	session_event_history.add(text, snapshot, metadata)
 	_refresh_rewind_history_list()
 
 func _record_trap_capture_history(piece_type: int, candidate: Dictionary, snapshot: Dictionary):
@@ -1812,7 +1829,11 @@ func _record_trap_capture_history(piece_type: int, candidate: Dictionary, snapsh
 	_record_session_event_history(text, snapshot)
 
 func _record_light_trap_history(piece_type: int, piece_color: int, snapshot: Dictionary):
-	_record_session_event_history(_build_light_trap_grant_message(piece_type, piece_color), snapshot)
+	_record_session_event_history(_build_light_trap_grant_cloud_message(), snapshot, {
+		"kind": "light_trap_grant",
+		"piece_type": piece_type,
+		"piece_color": piece_color
+	})
 
 func _build_light_trap_grant_cloud_message() -> String:
 	return _t("trap_light_grants_cloud")
@@ -1974,17 +1995,73 @@ func _refresh_rewind_history_list():
 		return
 	for i in range(session_event_history.size()):
 		var entry: Dictionary = session_event_history.get_entry(i)
-		var button := Button.new()
-		button.text = str(entry.get("text", ""))
-		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		button.custom_minimum_size = Vector2(0.0, 58.0)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.set_meta("history_index", i)
-		button.pressed.connect(_show_history_entry.bind(i))
+		var button := _build_rewind_history_button(entry, i)
 		if theme != null:
 			_apply_history_button_theme(button, theme, i == selected_rewind_history_index)
 		rewind_list.add_child(button)
+
+func _build_rewind_history_button(entry: Dictionary, history_index: int) -> Button:
+	var metadata: Dictionary = entry.get("metadata", {})
+	var button := Button.new()
+	button.autowrap_mode = TextServer.AUTOWRAP_OFF
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.custom_minimum_size = Vector2(0.0, 58.0)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.set_meta("history_index", history_index)
+	button.pressed.connect(_show_history_entry.bind(history_index))
+	if str(metadata.get("kind", "")) == "light_trap_grant":
+		_configure_light_trap_history_button(button, str(entry.get("text", "")), metadata)
+	else:
+		button.text = str(entry.get("text", ""))
+	return button
+
+func _configure_light_trap_history_button(button: Button, text: String, metadata: Dictionary):
+	button.text = ""
+	button.custom_minimum_size = Vector2(0.0, 76.0)
+
+	var row := HBoxContainer.new()
+	row.name = "HistoryContent"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.anchor_right = 1.0
+	row.anchor_bottom = 1.0
+	row.offset_left = 12.0
+	row.offset_top = 6.0
+	row.offset_right = -12.0
+	row.offset_bottom = -6.0
+	row.alignment = BoxContainer.ALIGNMENT_BEGIN
+	row.add_theme_constant_override("separation", 4)
+	button.add_child(row)
+
+	var label := Label.new()
+	label.name = "HistoryLabel"
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.clip_text = true
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	label.custom_minimum_size = Vector2(REWIND_LIGHT_GRANT_TEXT_WIDTH, REWIND_HISTORY_PIECE_ICON_SIZE)
+	row.add_child(label)
+
+	var icon := TextureRect.new()
+	icon.name = "HistoryPieceIcon"
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.custom_minimum_size = Vector2(REWIND_HISTORY_PIECE_ICON_SIZE, REWIND_HISTORY_PIECE_ICON_SIZE)
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	row.add_child(icon)
+	_apply_history_piece_icon(icon, metadata)
+
+func _apply_history_piece_icon(icon: TextureRect, metadata: Dictionary):
+	var theme := _get_theme()
+	if theme == null:
+		return
+	icon.texture = theme.get_piece_texture(int(metadata.get("piece_type", GameManager.PieceType.PAWN)))
+	icon.modulate = theme.get_piece_color(int(metadata.get("piece_color", GameManager.PieceColor.RED)))
 
 func _enter_rewind_mode():
 	if is_rewind_mode:
@@ -2228,12 +2305,13 @@ func _on_king_attack_attempted(attacker, _king, king_cell: Vector2i):
 	_queue_scoring_event(GameManager.build_king_attack_attempt_event())
 
 func _build_trap_disappearance_event(piece_type: int, trap_name: String, trap_data: Resource = null) -> Dictionary:
-	var sacrifice_cost := mini(GameManager.get_piece_value(piece_type), GameManager.current_score)
+	var sacrifice_cost := maxi(GameManager.get_piece_value(piece_type), 0)
 	if trap_data != null and int(trap_data.get("behavior")) == TrapDataScript.Behavior.RECOLOR_AND_EMIT:
 		if sacrifice_cost <= 0:
 			return {}
+		var light_event_message := _t("trap_light_soul_joined").replace(" -{cost}", "")
 		return {
-			"message": _t("trap_light_soul_joined"),
+			"message": "-%d %s" % [sacrifice_cost, light_event_message],
 			"value": -sacrifice_cost,
 			"show_value": false
 		}
@@ -2241,8 +2319,9 @@ func _build_trap_disappearance_event(piece_type: int, trap_name: String, trap_da
 
 func _build_trap_disappearance_message(piece_type: int, trap_name: String, trap_data: Resource = null) -> String:
 	if trap_data != null and int(trap_data.get("behavior")) == TrapDataScript.Behavior.RECOLOR_AND_EMIT:
-		return _t("trap_light_soul_joined")
-	var sacrifice_cost := mini(GameManager.get_piece_value(piece_type), GameManager.current_score)
+		var light_sacrifice_cost := maxi(GameManager.get_piece_value(piece_type), 0)
+		return _tf("trap_light_soul_joined", {"cost": maxi(light_sacrifice_cost, 0)})
+	var sacrifice_cost := maxi(GameManager.get_piece_value(piece_type), 0)
 	return _tf("trap_cloud_disappeared", {
 		"trap": trap_name,
 		"cost": maxi(sacrifice_cost, 0)
@@ -2648,20 +2727,29 @@ func _get_trap_spawn_count(trap_data: Resource) -> int:
 func _spawn_new_pieces(count: int = 3) -> int:
 	return board_manager.spawn_random_pieces(count, turn_state.spawn_excluded_cells)
 
+func _spawn_random_piece_at_random_cell() -> Dictionary:
+	var spawn_data: Dictionary = board_manager.get_random_spawn_piece_data(turn_state.spawn_excluded_cells)
+	if spawn_data.is_empty():
+		return {}
+	var empty_cells: Array = board_manager.get_empty_cells(turn_state.spawn_excluded_cells)
+	if empty_cells.is_empty():
+		return {}
+	empty_cells.shuffle()
+	var grid_pos: Vector2i = empty_cells[0]
+	if board_manager.add_piece(spawn_data["piece_type"], spawn_data["color"], grid_pos) == null:
+		return {}
+	return {
+		"piece_type": int(spawn_data["piece_type"]),
+		"color": int(spawn_data["color"]),
+		"cell": grid_pos
+	}
+
 func _spawn_random_pieces_at_random_cells(count: int = 1) -> int:
 	if count <= 0:
 		return 0
 	var spawned_count := 0
 	for _i in range(count):
-		var spawn_data: Dictionary = board_manager.get_random_spawn_piece_data(turn_state.spawn_excluded_cells)
-		if spawn_data.is_empty():
-			return spawned_count
-		var empty_cells: Array = board_manager.get_empty_cells(turn_state.spawn_excluded_cells)
-		if empty_cells.is_empty():
-			return spawned_count
-		empty_cells.shuffle()
-		var grid_pos: Vector2i = empty_cells[0]
-		if board_manager.add_piece(spawn_data["piece_type"], spawn_data["color"], grid_pos) == null:
+		if _spawn_random_piece_at_random_cell().is_empty():
 			return spawned_count
 		spawned_count += 1
 	return spawned_count
@@ -2688,12 +2776,16 @@ func _t(key: String) -> String:
 	var localization := _get_localization()
 	if localization != null and localization.has_method("t"):
 		return localization.t(key)
+	if GameManager.has_method("_t"):
+		return GameManager._t(key)
 	return key
 
 func _tf(key: String, values: Dictionary) -> String:
 	var localization := _get_localization()
 	if localization != null and localization.has_method("tf"):
 		return localization.tf(key, values)
+	if GameManager.has_method("_tf"):
+		return GameManager._tf(key, values)
 
 	var text := _t(key)
 	for value_key in values.keys():

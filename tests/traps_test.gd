@@ -1009,13 +1009,16 @@ func _test_trap_history_identifies_piece_and_line() -> String:
 
 func _test_light_trap_step_uses_soul_message() -> String:
 	var GameBoardScript = load("res://scripts/board/GameBoard.gd")
+	var GameManagerScript = load("res://autoload/GameManager.gd")
 	var TrapLibraryScript = load("res://scripts/traps/TrapLibrary.gd")
 	var game_board = GameBoardScript.new()
+	var game_manager = root.get_node("GameManager")
+	game_manager.current_score = 12
 	var trap_data: Resource = TrapLibraryScript.get_trap("light")
-	var message: String = game_board._build_trap_disappearance_message(GameManager.PieceType.PAWN, "Light Trap", trap_data)
+	var message: String = game_board._build_trap_disappearance_message(GameManagerScript.PieceType.PAWN, "Light Trap", trap_data)
 	game_board.free()
 
-	if message != "Another soul joins the Light":
+	if message != "Another soul joins the Light -2":
 		return "unexpected Light Trap step message: %s" % message
 	return ""
 
@@ -1031,8 +1034,15 @@ func _test_light_trap_history_uses_grant_message() -> String:
 	var entry: Dictionary = game_board.session_event_history.get_entry(0)
 	game_board.free()
 
-	if entry.get("text") != "The Light grants you a Blue Knight":
+	if entry.get("text") != "The Light grants you a":
 		return "unexpected Light Trap history text: %s" % str(entry.get("text"))
+	var metadata: Dictionary = entry.get("metadata", {})
+	if metadata.get("kind") != "light_trap_grant":
+		return "expected Light Trap history metadata"
+	if int(metadata.get("piece_type", -1)) != GameManager.PieceType.KNIGHT:
+		return "unexpected Light Trap history piece type: %s" % str(metadata.get("piece_type"))
+	if int(metadata.get("piece_color", -1)) != GameManager.PieceColor.BLUE:
+		return "unexpected Light Trap history piece color: %s" % str(metadata.get("piece_color"))
 	return ""
 
 func _test_light_trap_cloud_uses_sprite_sentence() -> String:
