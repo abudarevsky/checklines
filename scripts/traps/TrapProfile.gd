@@ -2,11 +2,11 @@ extends RefCounted
 class_name TrapProfile
 
 const DEFAULT_PROFILE: Dictionary = {
-	"trap_counts_by_level": [10, 1, 2, 3],
+	"trap_counts_by_level": [0, 1, 2, 3],
 	"trap_rotation_enabled": false,
 	"trap_rotation_limits_by_level": [0, 1, 2, -1],
 	"trap_rotation_chances_by_level": [0, 0.18, 0.18, 0.3],
-	"big_swamp_pulse_probabilities_by_level": [1, 0.20, 0.40, 1],
+	"big_swamp_pulse_probabilities_by_level": [0, 0.20, 0.40, 1],
 	"pulse_duration_seconds": 5.0,
 	"failed_pulse_spawn_count": 2,
 	"allow_king_target": false,
